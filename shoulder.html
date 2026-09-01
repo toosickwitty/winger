@@ -1,0 +1,985 @@
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Shoulder — winger scanning trainer</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  color-scheme: dark;
+  --turf:#0d1b12; --turf-2:#183020; --line:#33553d;
+  --flood:#f5f8f3; --dim:#b6c9bb;
+  --kit:#5b9dff; --opp:#ff5c44; --go:#c6ef2f; --warn:#f5bb44;
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html{background:#0d1b12}
+#bg{position:fixed;inset:0;background:#0d1b12;z-index:-1}
+html,body{margin:0;height:100%;background:var(--turf);color:var(--flood);
+  font-family:Inter,system-ui,-apple-system,sans-serif;overscroll-behavior:none}
+body{display:flex;flex-direction:column;user-select:none}
+
+header{display:flex;align-items:center;gap:14px;padding:9px 14px;border-bottom:1px solid var(--line);
+  flex:0 0 auto;background:var(--turf);color:var(--flood)}
+.mark{font-family:'Barlow Condensed',sans-serif;font-weight:600;font-size:20px;letter-spacing:.14em;text-transform:uppercase}
+.mark span{color:var(--go)}
+.hgap{flex:1}
+.meta{font-family:'Barlow Condensed',sans-serif;font-size:15px;letter-spacing:.1em;text-transform:uppercase;color:var(--dim)}
+.iconbtn{background:none;border:1px solid var(--line);color:var(--dim);border-radius:6px;
+  font-family:'Barlow Condensed',sans-serif;font-size:14px;letter-spacing:.08em;text-transform:uppercase;
+  padding:5px 10px;cursor:pointer}
+
+.sides{display:flex;flex:0 0 auto;padding:0 14px 9px;background:var(--turf)}
+.side{flex:1}
+.side:first-child{margin-right:8px}
+.side .lab{display:flex;justify-content:space-between;font-family:'Barlow Condensed',sans-serif;
+  font-size:13px;letter-spacing:.12em;text-transform:uppercase;color:var(--dim);margin-bottom:4px}
+.side .lab b{color:var(--flood);font-weight:600}
+.track{height:5px;background:var(--turf-2);border-radius:3px;overflow:hidden}
+.fill{height:100%;width:0%;background:var(--kit);transition:width .5s ease}
+.side.weak .fill{background:var(--warn)}
+
+#stage{position:relative;flex:1 1 auto;min-height:0;background:#0a1410;overflow:hidden}
+#stage canvas{display:block;width:100%;height:100%}
+#mask{position:absolute;inset:0;display:none;image-rendering:pixelated}
+#labels{position:absolute;inset:0;pointer-events:none;display:none}
+.tag{position:absolute;transform:translate(-50%,-50%);white-space:nowrap;
+  font-family:'Barlow Condensed',sans-serif;font-size:15px;letter-spacing:.06em;text-transform:uppercase;
+  background:rgba(10,20,14,.88);border:1px solid var(--line);border-left:3px solid var(--go);
+  padding:3px 9px;color:var(--flood)}
+.tag.opp{border-left-color:var(--opp)}
+.tag.kit{border-left-color:var(--kit)}
+.veil{position:absolute;inset:0;display:none;align-items:center;justify-content:center;
+  flex-direction:column;gap:10px;background:rgba(8,16,11,.95);text-align:center;padding:24px}
+.veil.on{display:flex}
+.big{font-family:'Barlow Condensed',sans-serif;font-size:46px;line-height:1;letter-spacing:.04em;text-transform:uppercase}
+.sub{color:var(--dim);font-size:15px;max-width:32ch;line-height:1.5}
+#timer{position:absolute;left:0;top:0;height:3px;width:100%;background:var(--go);display:none}
+
+footer{flex:0 0 auto;border-top:1px solid var(--line);background:var(--turf);color:var(--flood);
+  padding:12px 14px calc(12px + env(safe-area-inset-bottom))}
+.ask{font-family:'Barlow Condensed',sans-serif;font-size:30px;line-height:1;letter-spacing:.06em;
+  text-transform:uppercase;margin:0 0 11px;text-align:center}
+.ask small{display:block;font-family:Inter,sans-serif;font-size:13px;letter-spacing:0;text-transform:none;
+  color:var(--dim);margin-top:5px;font-weight:400}
+.answers{display:flex;gap:7px}
+.ans .arw{display:block;font-size:34px;line-height:1;margin-bottom:2px}
+.ans .cap{display:block;font-size:14px;letter-spacing:.04em;opacity:.85}
+.rank{display:flex;flex-direction:column;gap:5px;margin-bottom:10px}
+.row{display:flex;align-items:center;gap:9px;padding:8px 10px;border:1px solid var(--line);
+  border-radius:8px;background:var(--turf-2)}
+.row.picked{border-color:var(--flood)}
+.chip{font-family:'Barlow Condensed',sans-serif;font-size:12px;letter-spacing:.1em;text-transform:uppercase;
+  padding:2px 8px;border-radius:4px;flex:0 0 auto;font-weight:600;color:#0d1b12}
+.t3{background:var(--go)} .t2{background:#7cc74e} .t1{background:var(--warn)} .t0{background:var(--opp);color:#fff}
+.row .arw{font-size:21px;flex:0 0 auto;width:22px;text-align:center}
+.row .wy{font-size:13px;color:var(--dim);line-height:1.4}
+.row .wy b{color:var(--flood);font-weight:600}
+.row .you{margin-left:auto;font-family:'Barlow Condensed',sans-serif;font-size:12px;
+  letter-spacing:.1em;color:var(--dim);flex:0 0 auto}
+.ans{flex:1;background:var(--turf-2);border:1px solid var(--line);color:var(--flood);border-radius:9px;
+  padding:17px 6px;font-family:'Barlow Condensed',sans-serif;font-size:23px;letter-spacing:.05em;
+  text-transform:uppercase;cursor:pointer;min-height:62px}
+.ans:disabled{opacity:.4;cursor:default}
+.ans.right{background:var(--go);color:#0d1b12;border-color:var(--go)}
+.ans.wrong{background:var(--opp);color:#fff;border-color:var(--opp)}
+.cta{width:100%;background:var(--go);color:#0d1b12;border:0;border-radius:9px;padding:15px;
+  font-family:'Barlow Condensed',sans-serif;font-size:20px;letter-spacing:.1em;text-transform:uppercase;font-weight:600;cursor:pointer}
+.cta.ghost{background:none;color:var(--dim);border:1px solid var(--line);margin-top:6px}
+.hide{display:none!important}
+.note{font-size:13.5px;color:var(--dim);line-height:1.55;margin:10px 0 0}
+.seglab{font-family:'Barlow Condensed',sans-serif;font-size:14px;letter-spacing:.12em;
+  text-transform:uppercase;color:var(--dim);margin:0 0 7px}
+.seg{display:flex;gap:6px;margin-bottom:11px}
+.seg button{flex:1;background:var(--turf-2);border:1px solid var(--line);color:var(--dim);border-radius:9px;
+  padding:13px 6px;font-family:'Barlow Condensed',sans-serif;font-size:19px;letter-spacing:.05em;
+  text-transform:uppercase;cursor:pointer}
+.seg button[aria-pressed="true"]{background:var(--kit);border-color:var(--kit);color:#0a1410;font-weight:600}
+.summary{display:flex;gap:9px;margin:0 0 4px}
+.stat{flex:1;border:1px solid var(--line);border-radius:9px;padding:10px}
+.stat .n{font-family:'Barlow Condensed',sans-serif;font-size:34px;line-height:1}
+.stat .k{font-family:'Barlow Condensed',sans-serif;font-size:13px;letter-spacing:.1em;text-transform:uppercase;color:var(--dim)}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+
+<div id="bg"></div>
+<header>
+  <div class="mark">Shoulder<span>.</span></div>
+  <div class="hgap"></div>
+  <div class="meta" id="hmeta">Rep 0 / 16</div>
+  <button class="iconbtn" id="reset">Reset</button>
+</header>
+
+<div class="sides">
+  <div class="side" id="sideL">
+    <div class="lab"><span>Left wing</span><b id="pctL">—</b></div>
+    <div class="track"><div class="fill" id="fillL"></div></div>
+  </div>
+  <div class="side" id="sideR">
+    <div class="lab"><span>Right wing</span><b id="pctR">—</b></div>
+    <div class="track"><div class="fill" id="fillR"></div></div>
+  </div>
+</div>
+
+<div id="stage">
+  <div id="timer"></div>
+  <canvas id="mask"></canvas>
+  <div id="labels"></div>
+  <div class="veil on" id="veil">
+    <div class="big" id="veilBig">Ready</div>
+    <div class="sub" id="veilSub">One look over your shoulder, up the pitch. Then tell me what was there.</div>
+  </div>
+</div>
+
+<footer>
+  <div id="panelIdle">
+    <p class="seglab">Which wing today</p>
+    <div class="seg" id="seg">
+      <button data-side="L" aria-pressed="false">Left</button>
+      <button data-side="R" aria-pressed="true">Right</button>
+      <button data-side="alt" aria-pressed="false">Both</button>
+    </div>
+    <button class="cta" id="start">Start session</button>
+    <p class="note">16 reps, about six minutes. Half a second of live play, then pick where the first touch goes. Read his distance, which way he is moving, and where the grass is.</p>
+  </div>
+
+  <div id="panelAsk" class="hide">
+    <p class="ask" id="askWord">—<small id="askHint"></small></p>
+    <div class="answers" id="answers"></div>
+  </div>
+
+  <div id="panelFeedback" class="hide">
+    <div class="rank" id="rank"></div>
+    <button class="cta" id="next">Next rep</button>
+  </div>
+
+  <div id="panelSummary" class="hide">
+    <div class="summary">
+      <div class="stat"><div class="n" id="sumScore">0%</div><div class="k">Session</div></div>
+      <div class="stat"><div class="n" id="sumFlash">—</div><div class="k">Best picks</div></div>
+      <div class="stat"><div class="n" id="sumGap">—</div><div class="k">Side gap</div></div>
+    </div>
+    <p class="note" id="sumNote"></p>
+    <button class="cta" id="again" style="margin-top:11px">Another session</button>
+    <button class="cta ghost" id="done">Finish</button>
+  </div>
+</footer>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+/* ---------------- tunables — everything worth changing is here ---------------- */
+const CFG = {
+  cueMs: 800,
+  flashMs: 500,        // a real scan: roughly half a second, and everyone is moving
+  maskMs: 200,
+  /* metres per second. A quick 12-year-old tops out near 6; jockeying
+     and shuffling are far slower, and that difference is the read. */
+  mps: { sprint:5.5, press:4.0, recover:5.0, jockey:2.0, shuffle:1.6 },
+  answerMs: 5000,
+  repsPerSession: 16,
+  eyeHeight: 1.55,
+  wingX: 28,                        // where he is standing, off the touchline
+  hFov: 62,                         // HORIZONTAL degrees; vertical is derived from aspect
+  vFovMax: 76,
+  look: { ox: -7.42, oz: -11.87 },  // up the pitch and infield, over his shoulder toward goal
+  colors: { own: 0x5b9dff, opp: 0xff5c44, skin: 0xe8c9a0 }
+};
+
+/* ---------------- storage ---------------- */
+const KEY = 'shoulder:scan:v2';
+let stats = { L:{pts:0,max:0}, R:{pts:0,max:0}, side:'R' };
+async function loadStats(){
+  try{
+    if (window.storage){ const r = await window.storage.get(KEY); if (r && r.value) stats = JSON.parse(r.value); }
+    else if (window.localStorage){ const raw = localStorage.getItem(KEY); if (raw) stats = JSON.parse(raw); }
+  }catch(e){}
+  if (!stats.side) stats.side = 'R';
+  paintSides(); paintSeg();
+}
+async function saveStats(){
+  try{ const s = JSON.stringify(stats);
+    if (window.storage) await window.storage.set(KEY, s);
+    else if (window.localStorage) localStorage.setItem(KEY, s);
+  }catch(e){}
+}
+
+/* ---------------- scene ---------------- */
+const pick = a => a[Math.floor(Math.random()*a.length)];
+
+/* Each rep is built backwards from an intended answer, so the picture is
+   unambiguous. A session deals three of each, shuffled — he cannot lean on
+   one option being rare. */
+const TEMPLATES = {
+  line: [ { run:'shadeIn',  d:[3.2,5.0], high:true,  cover:false },
+          { run:'shadeIn',  d:[1.8,2.5], high:true,  cover:false } ],
+  in45: [ { run:'shadeOut', d:[4.3,6.0], high:false, cover:false },
+          { run:'shadeOut', d:[4.3,6.0], high:true,  cover:false },
+          { run:'set',      d:[4.5,6.0], high:false, cover:false } ],
+  cut90:[ { run:'shadeOut', d:[1.5,2.4], high:true,  cover:false },
+          { run:'shadeOut', d:[1.5,2.4], high:false, cover:false } ],
+  back: [ { run:'pressing', d:[1.4,2.2], high:false, cover:true  },
+          { run:'pressing', d:[1.4,2.2], high:true,  cover:true  },
+          { run:'pressing', d:[1.4,1.9], high:false, cover:false } ]
+};
+
+/* The decisive cue is fixed by the template. Everything else in the
+   picture — how many other shirts, where they are, what they look like,
+   where he is standing — is resampled every rep, so he cannot recognise
+   a scene by its shape. */
+const LOOK_DEG = 238, ARC_SAFE = 26;
+function polar(offDeg, dist){
+  const b = (LOOK_DEG + offDeg) * Math.PI/180;
+  return [dist*Math.cos(b), dist*Math.sin(b)];
+}
+const rand = (a,b) => a + Math.random()*(b-a);
+
+/* Nothing gets placed on top of anything else: each body is resampled
+   until it clears everyone already down. */
+function clears(taken, pt, min){
+  return taken.every(t => Math.hypot(t[0]-pt[0], t[1]-pt[1]) >= min);
+}
+function drop(taken, gen, min){
+  let best = null, bestD = -1;
+  for (let i = 0; i < 60; i++){
+    const p = gen();
+    if (clears(taken, p, min)){ taken.push(p); return p; }
+    let d = Infinity;
+    taken.forEach(t => d = Math.min(d, Math.hypot(t[0]-p[0], t[1]-p[1])));
+    if (d > bestD){ bestD = d; best = p; }
+  }
+  /* Nothing random cleared, so take the roomiest candidate and shove it off
+     whatever is crowding it. Giving up and placing anyway put players on top
+     of each other. */
+  let p = best.slice();
+  for (let k = 0; k < 20 && !clears(taken, p, min); k++){
+    let near = taken[0], nd = Infinity;
+    taken.forEach(t => { const d = Math.hypot(t[0]-p[0], t[1]-p[1]); if (d < nd){ nd = d; near = t; } });
+    const a = (p[0] === near[0] && p[1] === near[1]) ? 0 : Math.atan2(p[1]-near[1], p[0]-near[0]);
+    p = [near[0] + Math.cos(a)*(min + 0.15), near[1] + Math.sin(a)*(min + 0.15)];
+  }
+  taken.push(p); return p;
+}
+
+function makeScene(side, answer){
+  const t = nextVariant(answer);
+  const d = rand(t.d[0], t.d[1]);
+  const lineZ = t.high ? d + rand(3,6) : d + rand(12,17);
+  const spread = Math.min(1.55*lineZ, 26);   // how wide their line can sit and still be seen
+
+  /* fbDist is the straight-line distance at the END of the look. How far
+     across he sits depends on what he is doing. */
+  const LAT = { pressing:[0.12,0.28], set:[0.12,0.28],
+                shadeIn:[0.45,0.72], shadeOut:[0.15,0.32] }[t.run];
+  const mox = -rand(LAT[0], LAT[1]) * d;
+  const markerAt = [mox, -Math.sqrt(Math.max(0.4, d*d - mox*mox))];
+
+  const taken = [markerAt];
+  const coverAt = t.cover
+    ? drop(taken, () => polar(rand(-22,-7), d + rand(4,8)), 2.0) : null;
+
+  /* If his marker is loose, jockeying away or turned and running, somebody
+     else steps in. There is no moment on a pitch with nobody closing you.
+     He comes from the side that reinforces the read: infield when the line
+     is the answer, off the touchline when coming inside is. */
+  /* He can also be dropping off while he shades — backpedalling, chest
+     still on the ball. Only far enough out that half a second of it does
+     not put him on top of the winger. */
+  const markerDrop = d > 3.2 && Math.random() < 0.35;
+
+  /* A supporting man, always BEHIND the marker. The nearest defender is
+     the one engaging — nobody hands a winger off to a man further away. */
+  const presserAt = d > 3.0
+    ? drop(taken, () => polar(answer === 'line' ? rand(-24,-8) : rand(8,26),
+                              d + rand(2.0, 4.5)), 2.2)
+    : null;
+
+  const lineN = Math.random() < 0.55 ? 2 : 1;
+  const lineAt = [];
+  for (let i = 0; i < lineN; i++)
+    lineAt.push(drop(taken,
+      () => [-rand(0.15, 0.92) * spread, -lineZ + rand(-1.2, 1.2)], 2.6));
+
+  const extras = [];
+  const nExtra = Math.floor(Math.random()*3);
+  for (let i = 0; i < nExtra; i++)
+    extras.push([drop(taken, () => polar(rand(-23, 19), rand(13,26)), 2.4),
+                 rand(0.3, 0.85)]);
+
+  const strikerAt = drop(taken, () => polar(rand(-20, -3), rand(12,20)), 2.4);
+  const mate = Math.random() < 0.55
+    ? drop(taken, () => polar(rand(-ARC_SAFE, 8), rand(10,22)), 2.4) : null;
+
+  return {
+    side,
+    wingX: rand(25.5, 30.5),            // how tightly he is hugging the touchline
+    zBase: rand(-17, -9),               // just past halfway, coming into the attacking third
+    fbDist: d,
+    markerRun: t.run,
+    cover: t.cover,
+    lineHigh: t.high,
+    lineZ, lineN, lineAt, coverAt, extras, strikerAt, mate, markerAt, presserAt, markerDrop,
+    intended: answer
+  };
+}
+
+function shuffle(a){
+  for (let i = a.length-1; i > 0; i--){
+    const j = Math.floor(Math.random()*(i+1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+
+/* As even as the session length allows — 16 reps deals 4 of each — and
+   built so no two identical answers ever sit next to each other. Shuffling
+   until that happens by luck does not scale: with 8 of each, almost every
+   shuffle has a collision. So it is built one slot at a time, never
+   repeating the last answer, and never painting itself into a corner. */
+function newBag(){
+  const n = CFG.repsPerSession, ids = ['line','in45','cut90','back'];
+  const left = {}, base = Math.floor(n/4);
+  ids.forEach(k => left[k] = base);
+  shuffle(ids.slice()).slice(0, n % 4).forEach(k => left[k]++);
+
+  const out = [];
+  let prev = null;
+  for (let slots = n; slots > 0; slots--){
+    const elig = ids.filter(k => left[k] > 0 && k !== prev);
+    /* after this pick, nothing may be left so often that it has to double up */
+    const cap = Math.ceil((slots - 1) / 2);
+    const safe = elig.filter(k => {
+      const after = Object.assign({}, left); after[k]--;
+      return Math.max.apply(null, ids.map(z => after[z])) <= cap;
+    });
+    const from = safe.length ? safe : elig;
+
+    let r = Math.random() * from.reduce((a,k) => a + left[k], 0), choice = from[0];
+    for (const k of from){ r -= left[k]; if (r <= 0){ choice = k; break; } }
+    out.push(choice); left[choice]--; prev = choice;
+  }
+  return out;
+}
+
+/* Within an answer, cycle its scenarios rather than picking at random, so
+   every variant shows up instead of one dominating by luck. */
+const varBag = {};
+function nextVariant(answer){
+  if (!varBag[answer] || !varBag[answer].length)
+    varBag[answer] = shuffle(TEMPLATES[answer].map((_, i) => i));
+  return TEMPLATES[answer][varBag[answer].pop()];
+}
+
+/* The four first-touch directions. Arrows mirror with the wing so they
+   always match his own body, not a diagram. */
+const OPTIONS = [
+  { id:'line',  label:'Down the line', arrow: sd => '\u2191' },
+  { id:'in45',  label:'45\u00b0 in',  arrow: sd => sd === 1 ? '\u2196' : '\u2197' },
+  { id:'cut90', label:'Cut in 90\u00b0', arrow: sd => sd === 1 ? '\u2190' : '\u2192' },
+  { id:'back',  label:'Pass back',    arrow: sd => '\u2193' }
+];
+const TIER_NAME = ['Turnover','Workable','Good','Best'];
+
+/* Interaction-based, not a pile of independent bonuses. What makes a
+   direction right is a combination — tight AND committed outside, loose
+   AND a deep block — not any single fact about the picture. */
+function scoreScene(s){
+  const o = {}; OPTIONS.forEach(x => o[x.id] = { id:x.id, label:x.label, v:1, why:[] });
+  const add = (k,d,why) => { if (!d) return; o[k].v += d; if (why && Math.abs(d) >= 1) o[k].why.push(why); };
+  const tight = s.fbDist < 2.6, loose = s.fbDist > 4.2, R = s.markerRun;
+
+  /* down the line */
+  add('line', R === 'shadeIn'  ?  2.4 : 0, 'he has shaded infield and left you the whole line');
+  add('line', R === 'shadeOut' ? -2.0 : 0, 'he is already sitting on the line');
+  add('line', s.lineHigh ? 1.2 : -1.0, s.lineHigh ? '' : 'they are dropped deep, so there is nothing to run onto');
+  add('line', tight ? -1.0 : 0, 'he is too close to knock it past and win the race');
+  add('line', loose ?  0.6 : 0, '');
+  add('line', s.cover ? -0.8 : 0, '');
+
+  /* 45 degrees infield */
+  add('in45', (R === 'shadeOut' && !tight) ? 2.2 : 0, 'he has committed to the touchline, so the diagonal inside is open');
+  add('in45', loose ? 1.4 : 0, 'he has given you four metres — carry it in at an angle');
+  add('in45', s.lineHigh ? 0 : 0.8, '');
+  add('in45', tight ? -1.4 : 0, 'no room to take a diagonal touch with him that close');
+  add('in45', s.cover ? -1.2 : 0, 'the second defender is sitting in that half-space');
+  add('in45', R === 'shadeIn' ? -0.8 : 0, '');
+
+  /* square cut inside */
+  add('cut90', (tight && R === 'shadeOut') ? 2.6 : 0, 'he is tight and committed to the touchline — cut square across his face');
+  add('cut90', (tight && s.lineHigh) ? 0.8 : 0, '');
+  add('cut90', R === 'shadeIn'    ? -2.0 : 0, 'you would be running into the side he has just closed');
+  add('cut90', R === 'pressing'   ? -1.4 : 0, 'he is arriving on exactly that line');
+
+  add('cut90', s.cover ? -1.6 : 0, 'the cover is sitting where you would cut into');
+  add('cut90', loose  ? -0.8 : 0, '');
+
+  /* set it back */
+  add('back', (tight && R === 'pressing') ? 2.6 : 0, 'he is on your hip and coming — the first-time ball back is the only clean one');
+  add('back', s.cover ? 1.0 : 0, 'a second man inside means there is no way through');
+  add('back', s.lineHigh ? 0 : 0.6, '');
+  add('back', loose ? -2.0 : 0, 'passing back throws away the space he gave you');
+  add('back', R === 'shadeIn' ? -1.0 : 0, 'the line is open and you went backwards');
+
+  const list = Object.values(o).sort((a,b) => b.v - a.v);
+  const max = list[0].v;
+  list.forEach(x => {
+    x.tier = x.v >= max - 0.4 ? 3 : x.v >= max - 1.6 ? 2 : x.v >= max - 3.4 ? 1 : 0;
+  });
+  return list;
+}
+
+/* ---------------- 3D ---------------- */
+const stage = document.getElementById('stage');
+const renderer = new THREE.WebGLRenderer({ antialias:true });
+renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+stage.insertBefore(renderer.domElement, stage.firstChild);
+
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x0a1410);
+scene.fog = new THREE.Fog(0x0a1410, 60, 130);
+scene.add(new THREE.HemisphereLight(0xd6e8ff, 0x24422d, 0.95));
+const sun = new THREE.DirectionalLight(0xffffff, 0.85);
+sun.position.set(-25, 40, 25); scene.add(sun);
+
+const camera = new THREE.PerspectiveCamera(50, 1, 0.1, 300);
+
+function setFov(){
+  const half = (CFG.hFov * Math.PI / 180) / 2;
+  const v = 2 * Math.atan(Math.tan(half) / Math.max(camera.aspect, 0.2));
+  camera.fov = Math.min(v * 180 / Math.PI, CFG.vFovMax);
+  camera.updateProjectionMatrix();
+}
+
+function turfTexture(){
+  const c = document.createElement('canvas'); c.width = c.height = 256;
+  const g = c.getContext('2d');
+  for (let i = 0; i < 8; i++){ g.fillStyle = i % 2 ? '#31803f' : '#256030'; g.fillRect(0, i*32, 256, 32); }
+  const t = new THREE.CanvasTexture(c);
+  t.wrapS = t.wrapT = THREE.RepeatWrapping;
+  t.repeat.set(1, 4);   // 160 m over 32 bands = one mowing stripe every 5 m
+  return t;
+}
+const ground = new THREE.Mesh(new THREE.PlaneGeometry(150,160),
+  new THREE.MeshLambertMaterial({ map: turfTexture() }));
+ground.rotation.x = -Math.PI/2; scene.add(ground);
+
+const lineMat = new THREE.MeshBasicMaterial({ color: 0xdfe8e0 });
+function stripe(x,z,w,d){ const m = new THREE.Mesh(new THREE.BoxGeometry(w,0.02,d), lineMat);
+  m.position.set(x,0.02,z); scene.add(m); }
+stripe(-34,0,0.2,160); stripe(34,0,0.2,160);   // touchlines
+stripe(0,0,68,0.2);                            // halfway
+stripe(0,-52.5,68,0.2);                        // byline
+stripe(0,-36,40.3,0.2);                                          // 18-yard front
+stripe(-20.15,-44.25,0.2,16.5); stripe(20.15,-44.25,0.2,16.5);   // 18-yard sides
+stripe(0,-47,18.32,0.2);                                         // 6-yard front
+stripe(-9.16,-49.75,0.2,5.5); stripe(9.16,-49.75,0.2,5.5);       // 6-yard sides
+stripe(0,-41.5,0.35,0.35);                                       // penalty spot
+
+/* The goal itself — the single best reference he has for judging
+   how far up the pitch everything is. */
+function netTexture(rx, ry){
+  const c = document.createElement('canvas'); c.width = c.height = 64;
+  const g = c.getContext('2d');
+  g.strokeStyle = 'rgba(255,255,255,0.8)'; g.lineWidth = 1.4;
+  for (let i = 0; i <= 64; i += 8){
+    g.beginPath(); g.moveTo(i,0); g.lineTo(i,64); g.stroke();
+    g.beginPath(); g.moveTo(0,i); g.lineTo(64,i); g.stroke();
+  }
+  const t = new THREE.CanvasTexture(c);
+  t.wrapS = t.wrapT = THREE.RepeatWrapping; t.repeat.set(rx, ry);
+  return t;
+}
+function netPanel(w, h, rx, ry){
+  return new THREE.Mesh(new THREE.PlaneGeometry(w,h), new THREE.MeshBasicMaterial({
+    map: netTexture(rx,ry), transparent:true, opacity:0.5,
+    side: THREE.DoubleSide, depthWrite:false }));
+}
+const GOAL_Z = -52.5, GOAL_D = 2.1, POST = 3.66, BAR = 2.44;
+const frameMat = new THREE.MeshLambertMaterial({ color: 0xf5f8f3 });
+[-POST, POST].forEach(px => {
+  const post = new THREE.Mesh(new THREE.CylinderGeometry(0.11,0.11,BAR,10), frameMat);
+  post.position.set(px, BAR/2, GOAL_Z); scene.add(post);
+});
+const crossbar = new THREE.Mesh(new THREE.CylinderGeometry(0.11,0.11,POST*2+0.22,10), frameMat);
+crossbar.rotation.z = Math.PI/2; crossbar.position.set(0, BAR, GOAL_Z); scene.add(crossbar);
+
+const netBack = netPanel(POST*2, BAR, 8, 3);
+netBack.position.set(0, BAR/2, GOAL_Z - GOAL_D); scene.add(netBack);
+const netTop = netPanel(POST*2, GOAL_D, 8, 2);
+netTop.rotation.x = -Math.PI/2; netTop.position.set(0, BAR, GOAL_Z - GOAL_D/2); scene.add(netTop);
+[-POST, POST].forEach(px => {
+  const side = netPanel(GOAL_D, BAR, 2, 3);
+  side.rotation.y = Math.PI/2; side.position.set(px, BAR/2, GOAL_Z - GOAL_D/2); scene.add(side);
+});
+
+const actors = new THREE.Group(); scene.add(actors);
+
+/* A jointed figure. Body direction comes from the stride and shoulders,
+   head direction from the face — and the two can disagree, which is
+   exactly the cue a winger has to pick up. */
+const SKINS = [0xf2d8b8, 0xe8c9a0, 0xc9985f, 0x9a6238, 0x6b4126];
+const HAIRS = [0x2a1d16, 0x14100c, 0x5a3a20, 0x8f7040, 0x1c1c1c];
+const BOOTS = [0xf2f5ef, 0xf5d33a, 0xff4f9d, 0x2ee6a8, 0x1a1a1a, 0xff8a2b];
+
+function makePlayer(color, speed, look){
+  const run = speed > 0.05;
+  look = look || {};
+  const HIP = 0.86;
+  const g = new THREE.Group();
+  const kit   = new THREE.MeshLambertMaterial({ color });
+  const skin  = new THREE.MeshLambertMaterial({ color: look.skin || CFG.colors.skin });
+  const hairM = new THREE.MeshLambertMaterial({ color: look.hair || 0x2a1d16 });
+  const shortM= new THREE.MeshLambertMaterial({ color: 0x16221a });
+  const bootM = new THREE.MeshLambertMaterial({ color: look.boot || 0xf2f5ef });
+
+  const amp  = run ? 0.45 + 0.55*speed : 0.12;
+  const freq = 1.1 + 1.7*speed;              // strides per second
+  const lean = 0.05 + 0.20*speed;
+  const legs = [], arms = [];
+
+  /* Positive rotation.x swings a limb BACKWARD. Hip flexion is negative,
+     knee flexion positive and never below zero. */
+  const hips = new THREE.Group(); hips.position.y = HIP; g.add(hips);
+  [[-0.115, 1], [0.115, -1]].forEach(([lx, sgn]) => {
+    const leg = new THREE.Group(); leg.position.x = lx;
+    const thigh = new THREE.Mesh(new THREE.CylinderGeometry(0.088,0.075,0.42,8), shortM);
+    thigh.position.y = -0.21; leg.add(thigh);
+    const knee = new THREE.Group(); knee.position.y = -0.42;
+    const shin = new THREE.Mesh(new THREE.CylinderGeometry(0.072,0.055,0.40,8), skin);
+    shin.position.y = -0.20; knee.add(shin);
+    const ankle = new THREE.Group(); ankle.position.y = -0.40;
+    const boot = new THREE.Mesh(new THREE.BoxGeometry(0.115,0.075,0.24), bootM);
+    boot.position.set(0,-0.04,0.06); ankle.add(boot);
+    knee.add(ankle); leg.add(knee); hips.add(leg);
+    legs.push({ leg, knee, ankle, sgn });
+  });
+
+  const upper = new THREE.Group();
+  upper.position.y = HIP; upper.rotation.x = lean; g.add(upper);
+  const torso = new THREE.Mesh(new THREE.BoxGeometry(0.50,0.60,0.27), kit);
+  torso.position.y = 0.30; upper.add(torso);
+  const shoulders = new THREE.Mesh(new THREE.BoxGeometry(0.58,0.15,0.28), kit);
+  shoulders.position.y = 0.55; upper.add(shoulders);
+
+  [[-0.32, -1], [0.32, 1]].forEach(([ax, sgn]) => {
+    const arm = new THREE.Group();
+    arm.position.set(ax, 0.52, 0); arm.rotation.z = sgn * 0.12;
+    const up = new THREE.Mesh(new THREE.CylinderGeometry(0.055,0.05,0.34,7), kit);
+    up.position.y = -0.17; arm.add(up);
+    const elbow = new THREE.Group(); elbow.position.y = -0.34;
+    const fore = new THREE.Mesh(new THREE.CylinderGeometry(0.048,0.042,0.32,7), skin);
+    fore.position.y = -0.16; elbow.add(fore);
+    arm.add(elbow); upper.add(arm);
+    arms.push({ arm, elbow, sgn });
+  });
+
+  const head = new THREE.Group();
+  head.position.y = 0.83; head.rotation.x = -lean; upper.add(head);
+  head.add(new THREE.Mesh(new THREE.SphereGeometry(0.135,16,12), skin));
+  const hair = new THREE.Mesh(
+    new THREE.SphereGeometry(0.143,16,12, 0, Math.PI*2, 0, Math.PI*0.62), hairM);
+  hair.position.z = -0.03; head.add(hair);
+  const eyeM = new THREE.MeshBasicMaterial({ color: 0x0d0d0d });
+  [-0.052, 0.052].forEach(ex => {
+    const e = new THREE.Mesh(new THREE.SphereGeometry(0.028,8,6), eyeM);
+    e.position.set(ex, 0.018, 0.118); head.add(e);
+  });
+  const nose = new THREE.Mesh(new THREE.ConeGeometry(0.028,0.07,6), skin);
+  nose.rotation.x = Math.PI/2; nose.position.set(0,-0.02,0.135); head.add(nose);
+
+  const shadow = new THREE.Mesh(new THREE.CircleGeometry(0.36, 20),
+    new THREE.MeshBasicMaterial({ color:0x000000, transparent:true,
+                                  opacity:0.30, depthWrite:false }));
+  shadow.rotation.x = -Math.PI/2; shadow.position.y = 0.03;
+  shadow.scale.z = 0.7; g.add(shadow);
+
+  const phase0 = Math.random() * Math.PI * 2;
+  g.userData.head  = head;
+  g.userData.upper = upper;
+  g.userData.pose = tSec => {
+    const w = phase0 + tSec * freq * Math.PI * 2;
+    legs.forEach(({leg, knee, ankle, sgn}) => {
+      const u = Math.sin(w) * sgn * amp;
+      const flex = run ? 0.28 + 1.60*Math.max(0, u) : 0.10;
+      leg.rotation.x   = u * 0.80;
+      knee.rotation.x  = flex;
+      ankle.rotation.x = -0.55*flex + 0.12;
+    });
+    arms.forEach(({arm, elbow, sgn}) => {
+      arm.rotation.x   = Math.sin(w) * sgn * amp * (run ? 0.75 + 0.35*speed : 0.15);
+      elbow.rotation.x = run ? -0.55 - 0.8*speed : -0.25;
+    });
+  };
+  g.userData.pose(0);
+  return g;
+}
+
+let placed = [];
+const clamp = (v,a,b) => Math.max(a, Math.min(b, v));
+function wrap(a){ while (a >  Math.PI) a -= Math.PI*2;
+                  while (a < -Math.PI) a += Math.PI*2; return a; }
+
+/* moveOx/moveOz say where he is RUNNING. opt.watch turns the torso and
+   head back onto the receiver, within the twist a real player has:
+   about 50 degrees at the waist, 70 more at the neck. */
+function place(kind, ox, oz, s, moveOx, moveOz, tag, opt){
+  opt = opt || {};
+  const speed = opt.speed || 0;
+  const W = s.wingX || CFG.wingX;
+  const x = s.side*(W + ox), z = s.zBase + oz;      // where he ENDS the look
+  const p = makePlayer(kind === 'own' ? CFG.colors.own : CFG.colors.opp, speed,
+    { skin: pick(SKINS), hair: pick(HAIRS), boot: pick(BOOTS) });
+
+  const toRec = Math.atan2(s.side*W - x, s.zBase - z);
+  const moveYaw = speed > 0.05
+    ? Math.atan2(s.side*(W + moveOx) - x, (s.zBase + moveOz) - z)
+    : toRec;
+  /* A backpedalling defender travels one way and faces another: chest stays
+     on the ball while his feet carry him back. */
+  const faceYaw = opt.backpedal ? toRec : moveYaw;
+  p.rotation.y = faceYaw;
+
+  if (opt.watch){
+    const d = wrap(toRec - faceYaw);
+    const waist = clamp(d, -0.9, 0.9);
+    p.userData.upper.rotation.y = waist;
+    p.userData.head.rotation.y  = clamp(d - waist, -1.2, 1.2);
+  }
+
+  /* rewind him to where he was half a second earlier */
+  const mps = opt.mps === undefined ? speed * CFG.mps.sprint : opt.mps;
+  const run = mps * (CFG.flashMs/1000);
+  const sx = x - Math.sin(moveYaw)*run, sz = z - Math.cos(moveYaw)*run;
+  p.position.set(sx, 0, sz);
+
+  actors.add(p);
+  placed.push({ mesh:p, tag, kind, sx, sz, ex:x, ez:z, pose:p.userData.pose });
+}
+
+/* k = 0 at the start of the look, 1 at the end */
+function setPhase(k, tSec){
+  placed.forEach(o => {
+    o.mesh.position.x = o.sx + (o.ex - o.sx)*k;
+    o.mesh.position.z = o.sz + (o.ez - o.sz)*k;
+    o.pose(tSec);
+  });
+}
+
+function buildScene(s){
+  while (actors.children.length) actors.remove(actors.children[0]);
+  placed = [];
+
+  const d = s.fbDist;
+  const lineZ = s.lineZ;
+
+  /* fx/fz = where he is RUNNING; his head comes back onto the ball regardless */
+  const M = CFG.mps;
+  const drops = s.markerDrop;
+  /* He is always closing — the shade is the ANGLE he closes on, not a
+     sideways run. Arriving at one shoulder shuts that side and shows him
+     the other. Only the dropping variants give ground, and those backpedal
+     with the chest still on the ball. */
+  const RUN = {
+    pressing: { fx: 0,    fz: 0,       sp:0.70, v:M.press, bp:false,
+                say:'closing you down straight on' },
+    shadeIn:  drops
+      ? { fx: -9,   fz: -(d+7), sp:0.45, v:2.2, bp:true,
+          say:'backing off, covering the inside' }
+      : { fx: -3.5, fz: 0.5,    sp:0.62, v:2.6, bp:false,
+          say:'closing your inside shoulder, showing you the line' },
+    shadeOut: drops
+      ? { fx: 5,    fz: -(d+7), sp:0.45, v:2.2, bp:true,
+          say:'backing off, covering the line' }
+      : { fx: 2.5,  fz: 0.5,    sp:0.62, v:2.6, bp:false,
+          say:'closing the outside, showing you inside' },
+    set:      { fx: 0,    fz: 0,       sp:0,    v:0,   bp:false,
+                say:'feet set, facing you' }
+  }[s.markerRun];
+
+  place('opp', s.markerAt[0], s.markerAt[1], s, RUN.fx, RUN.fz,
+    'your man · ' + d.toFixed(1) + 'm · ' + RUN.say,
+    { watch:true, speed:RUN.sp, mps:RUN.v, backpedal:RUN.bp });
+
+  /* When the ball arrives the whole opposition shifts onto it. Only the
+     marker's run is scripted; everyone else converges from wherever they are.
+  /* His chest is turned toward the middle, so defenders close on that
+     shoulder — they are trying to stop him turning inside, not just
+     arriving at where he stands. */
+  const atBall  = () => [rand(-2.6, -0.4), rand(-1.0, 1.4)];
+  const elsewhere = pos => [pos[0] + rand(-6, 6), pos[1] - rand(2, 7)];
+
+  if (s.presserAt){
+    const t = atBall();
+    place('opp', s.presserAt[0], s.presserAt[1], s, t[0], t[1],
+      'second man · closing you down',
+      { watch:true, speed:0.72, mps:CFG.mps.press });
+  }
+
+  if (s.cover){
+    const t = atBall();
+    place('opp', s.coverAt[0], s.coverAt[1], s, t[0], t[1],
+      'cover behind him', { watch:true, speed:rand(0.35,0.6), mps:rand(2.0,3.4) });
+  }
+
+  for (let i = 0; i < s.lineN; i++){
+    const pos = s.lineAt[i];
+    const t = Math.random() < 0.75 ? atBall() : elsewhere(pos);
+    place('opp', pos[0], pos[1], s, t[0], t[1],
+      i === 0 ? (s.lineHigh ? 'their line · high, grass behind'
+                            : 'their line · deep, grass in front') : null,
+      { watch:true, speed:rand(0.3,0.55), mps:rand(1.6,3.0) });
+  }
+
+  s.extras.forEach(([pos, sp]) => {
+    const t = Math.random() < 0.8 ? atBall() : elsewhere(pos);
+    place('opp', pos[0], pos[1], s, t[0], t[1],
+      null, { watch:true, speed:sp, mps:sp*CFG.mps.sprint });
+  });
+
+  /* his own men can look where they are going — they are marking nobody */
+  place('own', s.strikerAt[0], s.strikerAt[1], s,
+    s.strikerAt[0] + rand(2,7), s.strikerAt[1] - rand(4,9),
+    'your striker · running in behind', { speed:rand(0.8,1.0), mps:5.0 });
+
+  if (s.mate){
+    /* a teammate either shows for the ball or runs off it */
+    const t = Math.random() < 0.5 ? atBall()
+                                  : [s.mate[0] + rand(-4,4), s.mate[1] - rand(2,7)];
+    place('own', s.mate[0], s.mate[1], s, t[0], t[1], null,
+      { speed:rand(0.35,0.85), mps:rand(2.5,5) });
+  }
+}
+
+function aimCamera(s){
+  const px = s.side*(s.wingX || CFG.wingX), pz = s.zBase;
+  camera.position.set(px, CFG.eyeHeight, pz);
+  setFov();
+  camera.lookAt(px + s.side*CFG.look.ox, 1.5, pz + CFG.look.oz);
+}
+
+function resize(){
+  const w = stage.clientWidth, h = stage.clientHeight;
+  renderer.setSize(w,h,false);
+  camera.aspect = w/Math.max(h,1);
+  setFov();
+  const mc = document.getElementById('mask'); mc.width = w; mc.height = h;
+  if (current) aimCamera(current);
+}
+addEventListener('resize', resize);
+function loop(){ renderer.render(scene,camera); requestAnimationFrame(loop); }
+
+function drawMask(){
+  const c = document.getElementById('mask'), g = c.getContext('2d');
+  const cw = 96, ch = Math.max(1, Math.round(96*c.height/Math.max(c.width,1)));
+  const off = document.createElement('canvas'); off.width = cw; off.height = ch;
+  const og = off.getContext('2d'), img = og.createImageData(cw,ch);
+  for (let i = 0; i < img.data.length; i += 4){
+    const v = Math.random();
+    img.data[i] = 30+v*110; img.data[i+1] = 70+v*140; img.data[i+2] = 40+v*100; img.data[i+3] = 255;
+  }
+  og.putImageData(img,0,0);
+  g.imageSmoothingEnabled = false;
+  g.drawImage(off,0,0,c.width,c.height);
+}
+
+/* ---------------- flow ---------------- */
+const el = id => document.getElementById(id);
+const veil = el('veil'), maskEl = el('mask'), labels = el('labels'), timer = el('timer');
+const pIdle = el('panelIdle'), pAsk = el('panelAsk'), pFeed = el('panelFeedback'), pSum = el('panelSummary');
+
+let rep = 0, current = null, ranked = null, answerTimer = null, sPts = 0, sMax = 0;
+let bag = [], sBest = 0;
+let lastSide = Math.random() < 0.5 ? 1 : -1;
+
+function show(p){ [pIdle,pAsk,pFeed,pSum].forEach(x => x.classList.add('hide')); p.classList.remove('hide'); }
+function setVeil(on,big,sub){
+  veil.classList.toggle('on',on);
+  if (big !== undefined) el('veilBig').textContent = big;
+  if (sub !== undefined) el('veilSub').textContent = sub;
+}
+function paintSides(){
+  ['L','R'].forEach(k => {
+    const s = stats[k], pct = s.max ? Math.round(100*s.pts/s.max) : null;
+    el('pct'+k).textContent = pct === null ? '—' : pct+'%';
+    el('fill'+k).style.width = (pct === null ? 0 : pct)+'%';
+  });
+  const l = stats.L.max ? stats.L.pts/stats.L.max : null;
+  const r = stats.R.max ? stats.R.pts/stats.R.max : null;
+  el('sideL').classList.toggle('weak', l !== null && r !== null && l < r - 0.08);
+  el('sideR').classList.toggle('weak', l !== null && r !== null && r < l - 0.08);
+}
+
+function startSession(){ rep = 0; sPts = 0; sMax = 0; sBest = 0; bag = newBag(); nextRep(); }
+
+function nextRep(){
+  if (rep >= CFG.repsPerSession) return endSession();
+  rep++;
+  lastSide = stats.side === 'alt' ? -lastSide : (stats.side === 'R' ? 1 : -1);
+  el('hmeta').textContent = 'Rep '+rep+' / '+CFG.repsPerSession+
+    ' · '+(lastSide === 1 ? 'Right' : 'Left');
+  if (!bag.length) bag = newBag();
+  current = makeScene(lastSide, bag.pop());
+  ranked = scoreScene(current);
+  buildScene(current);
+  aimCamera(current);
+  setPhase(0, 0);
+  labels.style.display = 'none'; labels.innerHTML = '';
+  maskEl.style.display = 'none'; timer.style.display = 'none';
+  show(pAsk);
+  el('askWord').firstChild.textContent = 'Look';
+  el('askHint').textContent = 'Ball is on its way in.';
+  el('answers').innerHTML = '';
+  setVeil(true, current.side === 1 ? 'Right wing' : 'Left wing', 'One look over your shoulder, toward their goal.');
+  setTimeout(flash, CFG.cueMs);
+}
+
+function flash(){
+  setVeil(false);
+  const t0 = performance.now();
+  (function step(now){
+    const el = now - t0;
+    const k = Math.min(1, el / CFG.flashMs);
+    setPhase(k, el/1000);
+    if (k < 1) requestAnimationFrame(step);
+    else {
+      setPhase(1, CFG.flashMs/1000);
+      drawMask(); maskEl.style.display = 'block';
+      setTimeout(ask, CFG.maskMs);
+    }
+  })(t0);
+}
+
+function ask(){
+  maskEl.style.display = 'none';
+  setVeil(true, 'Go', 'Where does the first touch go?');
+  el('askWord').firstChild.textContent = 'First touch';
+  el('askHint').textContent = 'Where does it go?';
+  const box = el('answers'); box.innerHTML = '';
+  OPTIONS.forEach(o => {
+    const b = document.createElement('button');
+    b.className = 'ans';
+    b.innerHTML = '<span class="arw">' + o.arrow(current.side) + '</span>' +
+                  '<span class="cap">' + o.label + '</span>';
+    b.onclick = () => answer(o.id, b);
+    box.appendChild(b);
+  });
+  timer.style.display = 'block';
+  timer.style.transition = 'none'; timer.style.width = '100%';
+  requestAnimationFrame(() => {
+    timer.style.transition = 'width '+CFG.answerMs+'ms linear';
+    timer.style.width = '0%';
+  });
+  answerTimer = setTimeout(() => answer(null,null), CFG.answerMs);
+}
+
+function answer(choice, btn){
+  clearTimeout(answerTimer);
+  timer.style.display = 'none';
+  const chosen = choice ? ranked.find(x => x.id === choice) : null;
+  const pts = chosen ? chosen.tier : 0;
+  const best = ranked[0];
+
+  [...el('answers').children].forEach(b => {
+    b.disabled = true;
+    if (btn && b === btn) b.classList.add(pts >= 2 ? 'right' : 'wrong');
+  });
+
+  sPts += pts; sMax += 3;
+  const k = current.side === 1 ? 'R' : 'L';
+  stats[k].pts += pts; stats[k].max += 3;
+  if (pts === 3) sBest++;
+  paintSides(); saveStats();
+
+  setVeil(false);
+  setPhase(1, CFG.flashMs/1000);
+  aimCamera(current);
+  renderer.render(scene, camera);
+  drawLabels();
+
+  const box = el('rank'); box.innerHTML = '';
+  if (!chosen){
+    const w = document.createElement('div');
+    w.className = 'row picked';
+    w.innerHTML = '<span class="chip t0">Too slow</span>' +
+      '<span class="wy">On the pitch that is a tackle. The look has to happen before it arrives.</span>';
+    box.appendChild(w);
+  }
+  ranked.forEach(x => {
+    const opt = OPTIONS.find(z => z.id === x.id);
+    const why = x.why[0] || (x.tier >= 2 ? 'fits the picture' : 'the picture does not support it here');
+    const r = document.createElement('div');
+    r.className = 'row' + (chosen && x.id === chosen.id ? ' picked' : '');
+    r.innerHTML = '<span class="chip t' + x.tier + '">' + TIER_NAME[x.tier] + '</span>' +
+      '<span class="arw">' + opt.arrow(current.side) + '</span>' +
+      '<span class="wy"><b>' + x.label + '</b> — ' + why + '</span>' +
+      (chosen && x.id === chosen.id ? '<span class="you">You</span>' : '');
+    box.appendChild(r);
+  });
+  setTimeout(() => show(pFeed), 500);
+}
+
+function drawLabels(){
+  labels.innerHTML = ''; labels.style.display = 'block';
+  const w = stage.clientWidth, h = stage.clientHeight;
+  const v = new THREE.Vector3(); const used = [];
+  placed.forEach(p => {
+    if (!p.tag) return;
+    v.set(0,2.15,0); p.mesh.localToWorld(v); v.project(camera);
+    if (v.z > 1) return;
+    let x = (v.x*0.5+0.5)*w, y = (-v.y*0.5+0.5)*h;
+    if (x < 70 || x > w-70 || y < 12 || y > h-12) return;
+    while (used.some(u => Math.abs(u.y-y) < 27 && Math.abs(u.x-x) < 160)) y -= 27;
+    if (y < 14) return;
+    used.push({x,y});
+    const d = document.createElement('div');
+    d.className = 'tag ' + (p.kind === 'own' ? 'kit' : 'opp');
+    d.style.left = x+'px'; d.style.top = y+'px'; d.textContent = p.tag;
+    labels.appendChild(d);
+  });
+}
+
+function endSession(){
+  setVeil(true, 'Session done', 'Check the two bars. The lower one is where the work is.');
+  labels.style.display = 'none';
+  el('hmeta').textContent = 'Session done';
+  el('sumScore').textContent = (sMax ? Math.round(100*sPts/sMax) : 0)+'%';
+  el('sumFlash').textContent = sBest + '/' + CFG.repsPerSession;
+  const l = stats.L.max ? stats.L.pts/stats.L.max : null;
+  const r = stats.R.max ? stats.R.pts/stats.R.max : null;
+  if (l === null || r === null || stats.L.max < 8 || stats.R.max < 8){
+    el('sumGap').textContent = '—';
+    el('sumNote').textContent = 'A few more sessions and the left-right split becomes worth reading.';
+  } else {
+    const gap = Math.round(Math.abs(l-r)*100);
+    el('sumGap').textContent = gap+' pts';
+    el('sumNote').textContent = gap < 8
+      ? 'Both sides read about the same. Next step is a shorter flash, not a new drill.'
+      : 'He is '+gap+' points weaker on the '+(l<r?'left':'right')+' wing. The scenes are mirror images, so this is a looking habit, not a foot. Worth extra reps on that side at training.';
+  }
+  show(pSum);
+}
+
+function paintSeg(){
+  [...el('seg').children].forEach(b =>
+    b.setAttribute('aria-pressed', String(b.dataset.side === stats.side)));
+}
+el('seg').onclick = e => {
+  const b = e.target.closest('button'); if (!b) return;
+  stats.side = b.dataset.side; paintSeg(); saveStats();
+};
+
+el('start').onclick = startSession;
+el('again').onclick = startSession;
+el('next').onclick  = nextRep;
+el('done').onclick  = () => { show(pIdle); paintSeg(); el('hmeta').textContent = 'Rep 0 / '+CFG.repsPerSession;
+  setVeil(true,'Ready','One look over your shoulder, up the pitch. Then tell me what was there.'); };
+el('reset').onclick = () => {
+  stats = { L:{pts:0,max:0}, R:{pts:0,max:0}, side: stats.side };
+  paintSides(); paintSeg(); saveStats(); show(pIdle);
+  el('hmeta').textContent = 'Rep 0 / '+CFG.repsPerSession;
+  setVeil(true,'Ready','History cleared. Both sides start level.');
+};
+
+el('hmeta').textContent = 'Rep 0 / ' + CFG.repsPerSession;
+resize();
+const seed = makeScene(1, 'line'); buildScene(seed); aimCamera(seed);
+loadStats(); loop();
+</script>
