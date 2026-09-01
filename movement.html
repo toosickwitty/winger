@@ -189,9 +189,9 @@ const CFG = {
   eyeHeight: 1.55,
   wingX: 28,                        // where he is standing, off the touchline
   ballAt: [-11.5, 16.5],            // roughly where the pass will come from
-  hFov: 88,                         // HORIZONTAL degrees; vertical is derived from aspect
+  hFov: 96,                         // HORIZONTAL degrees; vertical is derived from aspect
   vFovMax: 76,
-  look: { ox: -12.98, oz: 5.24 },   // back and infield: the ball, their lines, the pocket
+  look: { ox: -13.58, oz: 3.39 },   // back and infield: the ball, their lines, the pocket
   colors: { own: 0x5b9dff, opp: 0xff5c44, skin: 0xe8c9a0 }
 };
 
@@ -228,7 +228,7 @@ const TEMPLATES = {
   check:  [ { press:true,  step:false, pocket:false, shifted:false } ]
 };
 
-const LOOK_DEG = 158, ARC_SAFE = 38;
+const LOOK_DEG = 166, ARC_SAFE = 40;
 function polar(offDeg, dist){
   const b = (LOOK_DEG + offDeg) * Math.PI/180;
   return [dist*Math.cos(b), dist*Math.sin(b)];
@@ -301,8 +301,10 @@ function nextVariant(answer){
 
 function makeScene(side, answer){
   const t = nextVariant(answer);
-  const gap = t.pocket ? rand(13,15) : rand(5,7);
+  const gap = t.pocket ? rand(15,18) : rand(4,6);
   const shift = t.shifted ? 7.5 : 0;
+  /* Their line must sit goal-side of him or he is stood offside. Negative oz
+     is toward their goal; his own position is oz 0. */
   const taken = [];
 
   /* Their back four, widest man first. He plays on their shoulder, so the
@@ -314,14 +316,14 @@ function makeScene(side, answer){
   const lineAt = [];
   for (let i = 0; i < 4; i++)
     lineAt.push(drop(taken,
-      () => [-(3.0 + shift + i*6.5) + rand(-0.7,0.7),
-             t.step ? rand(2.8,4.0) : rand(1.5,3.0)], 2.6));
+      () => [-(6.5 + shift + i*6.5) + rand(-0.5,0.5),
+             t.step ? rand(-1.4,-0.2) : rand(-1.6,-0.2)], 2.6));
   const markerAt = lineAt[0];
 
   /* the man on the ball sits behind their midfield line */
   /* he sits a clear 7-9 m behind their midfield line, so no opponent is ever
      accidentally next to him when he is meant to be free */
-  const passerAt = drop(taken, () => [rand(-17,-13), gap + rand(7,9)], 3.0);
+  const passerAt = drop(taken, () => [rand(-19,-15), gap + rand(6,8)], 3.0);
 
   /* pressed: one man sprinting onto him. free: nobody within nine metres,
      so there is never any doubt about which it is. */
@@ -340,22 +342,49 @@ function makeScene(side, answer){
   for (let i = 0; i < 3; i++)
     midAt.push(drop(taken, () => {
       for (let k = 0; k < 50; k++){
-        const q = [-(11 + i*6) + rand(-1.4,1.4), gap + rand(-1.0,1.0)];
+        const q = [-(13 + i*6) + rand(-1.2,1.2), gap + rand(-1.0,1.0)];
         if (Math.hypot(q[0]-passerAt[0], q[1]-passerAt[1]) > 6) return q;
       }
-      return [-(11 + i*6), gap];
+      return [-(13 + i*6), gap];
     }, 2.6));
 
-  const strikerAt = drop(taken, () => [rand(-20,-13), rand(-4.5,-2.2)], 2.6);
+  /* THE POCKET, made plain: when it is shut a midfielder has dropped into the
+     gap on his side. When it is open the band is guaranteed empty \u2014 nobody
+     else may be placed inside it at all. */
+  const inPocket = t.pocket ? null
+    : drop(taken, () => [rand(-9,-5), gap*0.55 + rand(-0.8,0.8)], 2.2);
+
+  const clearOfPocket = q =>
+    !t.pocket || !(q[1] > 2.0 && q[1] < gap - 2.0 && q[0] > -15 && q[0] < 1.5);
+
+  const strikerAt = drop(taken, () => [rand(-20,-13), rand(0.6,3.5)], 2.6);
+
+  const extras = [];
+  const nExtra = Math.floor(Math.random()*3);
+  for (let i = 0; i < nExtra; i++)
+    extras.push([drop(taken, () => {
+      for (let k = 0; k < 50; k++){
+        const q = polar(rand(-25, 20), rand(13,26));
+        if (clearOfPocket(q)) return q;
+      }
+      return polar(-24, 22);
+    }, 2.4), rand(0.3, 0.85)]);
+
   const mateAt = Math.random() < 0.6
-    ? drop(taken, () => polar(rand(-ARC_SAFE+8, ARC_SAFE-8), rand(11,18)), 2.6) : null;
+    ? drop(taken, () => {
+        for (let k = 0; k < 50; k++){
+          const q = polar(rand(-ARC_SAFE+8, ARC_SAFE-8), rand(11,18));
+          if (clearOfPocket(q)) return q;
+        }
+        return polar(-30, 17);
+      }, 2.6) : null;
 
   return {
     side,
     wingX: rand(26, 30),
-    zBase: rand(-43, -37),          // pinned high, on their shoulder
+    zBase: rand(-34, -28),          // holding width at the top of the final third
     press: t.press, step: t.step, pocketOpen: t.pocket, shifted: t.shifted,
-    gap, markerAt, lineAt, midAt, passerAt, pressAt, strikerAt, mateAt,
+    gap, markerAt, lineAt, midAt, inPocket, extras, passerAt, pressAt, strikerAt, mateAt,
     intended: answer
   };
 }
@@ -660,7 +689,7 @@ function buildScene(s){
        sliding over -> the back four travel together infield
        otherwise    -> the back four barely move at all                     */
   const lineRun = s.step
-    ? { d:[0, 9],   sp:0.45, v:1.6 }      // upfield, as a unit
+    ? { d:[0, 9],   sp:0.45, v:1.0 }      // upfield, as a unit
     : s.shifted
       ? { d:[-9, 0], sp:0.42, v:1.4 }     // across, as a unit
       : { d:null,    sp:0.18, v:0.35 };   // holding
@@ -676,8 +705,19 @@ function buildScene(s){
   /* their midfield holds its line whatever happens — the gap in front of it
      is a spatial read, not a moving one */
   s.midAt.forEach((p, i) => place('opp', p[0], p[1], s, nudge(p)[0], nudge(p)[1],
-    i === 0 ? ('their midfield \u00b7 ' + s.gap.toFixed(0) + 'm gap') : null,
+    i === 0 ? ('their midfield \u00b7 ' + s.gap.toFixed(0) + 'm gap'
+               + (s.pocketOpen ? ', nobody in it' : '')) : null,
     Object.assign({ speed:0.18, mps:0.35 }, ball)));
+
+  /* Whether anybody is standing in the gap is the clearest read there is.
+     When the pocket is open nothing is placed inside it at all. */
+  if (s.inPocket)
+    place('opp', s.inPocket[0], s.inPocket[1], s, nudge(s.inPocket)[0], nudge(s.inPocket)[1],
+      'sitting in the gap', Object.assign({ speed:0.2, mps:0.4 }, ball));
+
+  s.extras.forEach(([pos, sp]) =>
+    place('opp', pos[0], pos[1], s, nudge(pos)[0], nudge(pos)[1],
+      null, Object.assign({ speed: Math.min(sp, 0.35), mps: 0.6 }, ball)));
 
   /* the man on the ball, and whether anyone is actually on him */
   place('opp', s.pressAt[0], s.pressAt[1], s,
