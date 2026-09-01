@@ -183,7 +183,7 @@ const CFG = {
   /* metres per second. A quick 12-year-old tops out near 6; jockeying
      and shuffling are far slower, and that difference is the read. */
   mps: { sprint:5.5, press:4.0, recover:5.0, jockey:2.0, shuffle:1.6 },
-  answerMs: 7000,
+  answerMs: 4500,
   repsPerSession: 16,
   eyeHeight: 1.55,
   wingX: 28,                        // where he is standing, off the touchline
@@ -217,13 +217,24 @@ const pick = a => a[Math.floor(Math.random()*a.length)];
 /* Each rep is built backwards from an intended answer, so the picture is
    unambiguous. A session deals three of each, shuffled — he cannot lean on
    one option being rare. */
+/* Ten different pictures, five each way. What decides it is not how far he is
+   NOW but how far he will be when the ball reaches you \u2014 so a man sprinting in
+   from five metres is closed, and a man three metres away backing off is open. */
+const BALL_TIME = 0.8;
+const closeRate = (run, drop) =>
+  drop ? -1.8 : run === 'pressing' ? 4.0 : run === 'set' ? 0 : 1.2;
+
 const TEMPLATES = {
-  openRun:   [ { run:'shadeIn',  d:[3.0,4.2], high:true,  cover:false } ],
-  openTouch: [ { run:'set',      d:[4.6,6.0], high:false, cover:false },
-               { run:'shadeIn',  d:[4.6,6.0], high:false, cover:false } ],
-  shield:    [ { run:'set',      d:[1.5,2.4], high:false, cover:false },
-               { run:'shadeOut', d:[1.5,2.4], high:true,  cover:false } ],
-  setBack:   [ { run:'pressing', d:[1.3,2.2], high:false, cover:true  } ]
+  closed: [ { run:'pressing', d:[4.4,5.4], drop:false },
+            { run:'pressing', d:[2.2,3.2], drop:false },
+            { run:'shadeIn',  d:[2.4,3.2], drop:false },
+            { run:'shadeOut', d:[2.4,3.2], drop:false },
+            { run:'set',      d:[1.5,2.4], drop:false } ],
+  open:   [ { run:'set',      d:[4.2,6.0], drop:false },
+            { run:'shadeIn',  d:[5.0,6.5], drop:false },
+            { run:'shadeOut', d:[5.0,6.5], drop:false },
+            { run:'shadeIn',  d:[2.8,4.0], drop:true  },
+            { run:'shadeOut', d:[4.0,5.0], drop:true  } ]
 };
 
 /* The decisive cue is fixed by the template. Everything else in the
@@ -267,7 +278,13 @@ function drop(taken, gen, min){
 function makeScene(side, answer){
   const t = nextVariant(answer);
   const d = rand(t.d[0], t.d[1]);
-  const lineZ = t.high ? d + rand(3,6) : d + rand(12,17);
+  /* Their line height and whether there is cover no longer decide the answer
+     here \u2014 only pressure does \u2014 so both are free to vary. They must be decided
+     ONCE, though: rolling them separately for the geometry and for the scene
+     meant claiming a cover defender who was never put on the pitch. */
+  const hasHigh  = Math.random() < 0.5;
+  const hasCover = Math.random() < 0.45;
+  const lineZ = hasHigh ? d + rand(3,6) : d + rand(12,17);
   const spread = Math.min(1.55*lineZ, 26);   // how wide their line can sit and still be seen
 
   /* fbDist is the straight-line distance at the END of the look. How far
@@ -278,7 +295,7 @@ function makeScene(side, answer){
   const markerAt = [mox, -Math.sqrt(Math.max(0.4, d*d - mox*mox))];
 
   const taken = [markerAt];
-  const coverAt = t.cover
+  const coverAt = hasCover
     ? drop(taken, () => polar(rand(-22,-7), d + rand(4,8)), 2.0) : null;
 
   /* If his marker is loose, jockeying away or turned and running, somebody
@@ -288,7 +305,7 @@ function makeScene(side, answer){
   /* He can also be dropping off while he shades — backpedalling, chest
      still on the ball. Only far enough out that half a second of it does
      not put him on top of the winger. */
-  const markerDrop = d > 3.2 && Math.random() < 0.35;
+  const markerDrop = t.drop;
 
   /* A supporting man, always BEHIND the marker. The nearest defender is
      the one engaging — nobody hands a winger off to a man further away. */
@@ -319,9 +336,11 @@ function makeScene(side, answer){
     zBase: rand(-17, -9),               // just past halfway, coming into the attacking third
     fbDist: d,
     markerRun: t.run,
-    cover: t.cover,
-    lineHigh: t.high,
+    cover: hasCover,
+    lineHigh: hasHigh,
     lineZ, lineN, lineAt, coverAt, extras, strikerAt, mate, markerAt, presserAt, markerDrop,
+    closeRate: closeRate(t.run, t.drop),
+    eff: d - closeRate(t.run, t.drop) * BALL_TIME,
     intended: answer
   };
 }
@@ -339,29 +358,13 @@ function shuffle(a){
    until that happens by luck does not scale: with 8 of each, almost every
    shuffle has a collision. So it is built one slot at a time, never
    repeating the last answer, and never painting itself into a corner. */
+/* Eight of each, shuffled freely. A no-repeats rule on a two-way answer would
+   force a strict alternation, and he would read the pattern instead of the
+   picture. */
 function newBag(){
-  const n = CFG.repsPerSession, ids = ['openRun','openTouch','shield','setBack'];
-  const left = {}, base = Math.floor(n/4);
-  ids.forEach(k => left[k] = base);
-  shuffle(ids.slice()).slice(0, n % 4).forEach(k => left[k]++);
-
-  const out = [];
-  let prev = null;
-  for (let slots = n; slots > 0; slots--){
-    const elig = ids.filter(k => left[k] > 0 && k !== prev);
-    /* after this pick, nothing may be left so often that it has to double up */
-    const cap = Math.ceil((slots - 1) / 2);
-    const safe = elig.filter(k => {
-      const after = Object.assign({}, left); after[k]--;
-      return Math.max.apply(null, ids.map(z => after[z])) <= cap;
-    });
-    const from = safe.length ? safe : elig;
-
-    let r = Math.random() * from.reduce((a,k) => a + left[k], 0), choice = from[0];
-    for (const k of from){ r -= left[k]; if (r <= 0){ choice = k; break; } }
-    out.push(choice); left[choice]--; prev = choice;
-  }
-  return out;
+  const n = CFG.repsPerSession, b = [];
+  for (let i = 0; i < n/2; i++) b.push('open', 'closed');
+  return shuffle(b);
 }
 
 /* Within an answer, cycle its scenarios rather than picking at random, so
@@ -375,47 +378,33 @@ function nextVariant(answer){
 
 /* The real decision is open or closed \u2014 whether you can turn at all. What
    you then do with the ball follows from that, so it is asked second. */
-const SHAPES = [
+const OPTIONS = [
   { id:'open',   label:'Open body',   hint:'half-turn \u2014 you can see forward' },
   { id:'closed', label:'Closed body', hint:'back to him \u2014 you cannot turn' }
 ];
-const OPTIONS = [
-  { id:'openRun',   shape:'open',   label:'Let it run',   hint:'no touch \u2014 let it across you' },
-  { id:'openTouch', shape:'open',   label:'Take a touch', hint:'control it and go forward' },
-  { id:'shield',    shape:'closed', label:'Shield it',    hint:'body in the way, hold it up' },
-  { id:'setBack',   shape:'closed', label:'Set it back',  hint:'first time, back where it came from' }
-];
 const TIER_NAME = ['Turnover','Workable','Good','Best'];
 
+/* Scored purely on where he will be when the ball lands. 3.2 m is about the
+   room you need to turn out without being nicked. */
 function scoreScene(s){
-  const o = {}; OPTIONS.forEach(x => o[x.id] = { id:x.id, label:x.label, shape:x.shape, v:1, why:[] });
-  const add = (k,d,why) => { if (!d) return; o[k].v += d; if (why && Math.abs(d) >= 1) o[k].why.push(why); };
-  const tight = s.fbDist < 2.6, loose = s.fbDist > 4.4, R = s.markerRun;
+  const o = {};
+  OPTIONS.forEach(x => o[x.id] = { id:x.id, label:x.label, v:1, why:[] });
+  const now = s.fbDist.toFixed(1), then = s.eff.toFixed(1);
+  const moving = s.closeRate > 0.5 ? 'closing' : s.closeRate < -0.5 ? 'backing off' : 'stood still';
+  const line = moving === 'stood still'
+    ? 'he is ' + now + ' m off you and not moving'
+    : 'he is ' + now + ' m off you and ' + moving + ' \u2014 that is ' + then + ' m by the time it arrives';
 
-  add('setBack', (tight && R === 'pressing') ? 3.0 : 0,
-      'he is arriving through you \u2014 first time back before he gets there');
-  add('setBack', loose ? -1.8 : 0, 'nobody is close enough to force you backwards');
-  add('setBack', R !== 'pressing' ? -1.2 : 0, '');
-
-  add('shield', (tight && R !== 'pressing') ? 3.0 : 0,
-      'he is tight but not committed \u2014 you cannot turn, so put your body in and hold it');
-  add('shield', loose ? -1.8 : 0, 'you have time to turn; shielding wastes it');
-  add('shield', R === 'pressing' ? -1.2 : 0, '');
-
-  add('openTouch', loose ? 2.8 : 0,
-      'four metres and nobody arriving \u2014 open up, take it forward and get your head up');
-  add('openTouch', tight ? -2.2 : 0, 'you cannot open your body with a man that close');
-
-  add('openRun', (R === 'shadeIn' && s.lineHigh && !tight) ? 2.8 : 0,
-      'he has come to your inside and there is grass behind them \u2014 open up and let it run past you both');
-  add('openRun', s.lineHigh ? 0 : -2.0, 'nothing behind them to let it run into');
-  add('openRun', tight ? -2.0 : 0, 'he is close enough to nick it if you do not touch it');
+  o.open.v   += (s.eff - 3.2) * 1.2;
+  o.closed.v += (3.2 - s.eff) * 1.2;
+  o.open.why.push(s.eff > 3.2 ? line + ', so you have room to turn out'
+                              : line + ', which is not enough room to turn');
+  o.closed.why.push(s.eff > 3.2 ? line + ', so shutting up shop wastes the space'
+                                : line + ', so get your body in the way');
 
   const list = Object.values(o).sort((a,b) => b.v - a.v);
   const max = list[0].v;
-  list.forEach(x => {
-    x.tier = x.v >= max - 0.4 ? 3 : x.v >= max - 1.6 ? 2 : x.v >= max - 3.4 ? 1 : 0;
-  });
+  list.forEach(x => { x.tier = x.v >= max - 0.4 ? 3 : x.v >= max - 1.6 ? 2 : 0; });
   return list;
 }
 
@@ -841,20 +830,18 @@ function flash(){
   })(t0);
 }
 
-/* Two taps. Shape first, because that is the decision \u2014 then what you do
-   with the ball, which only makes sense once the shape is chosen. */
 function ask(){
   maskEl.style.display = 'none';
   setVeil(true, 'Go', 'Open or closed?');
   el('askWord').firstChild.textContent = 'Body shape';
   el('askHint').textContent = 'Can you turn, or not?';
   const box = el('answers'); box.innerHTML = '';
-  SHAPES.forEach(sh => {
+  OPTIONS.forEach(o => {
     const b = document.createElement('button');
     b.className = 'ans';
-    b.innerHTML = '<span class="cap">' + sh.label + '</span>' +
-                  '<span class="sub">' + sh.hint + '</span>';
-    b.onclick = () => stageTwo(sh.id);
+    b.innerHTML = '<span class="cap">' + o.label + '</span>' +
+                  '<span class="sub">' + o.hint + '</span>';
+    b.onclick = () => answer(o.id, b);
     box.appendChild(b);
   });
   timer.style.display = 'block';
@@ -864,22 +851,6 @@ function ask(){
     timer.style.width = '0%';
   });
   answerTimer = setTimeout(() => answer(null, null), CFG.answerMs);
-}
-
-function stageTwo(shape){
-  setVeil(false);
-  el('askWord').firstChild.textContent = shape === 'open' ? 'Open \u2014 then what?'
-                                                          : 'Closed \u2014 then what?';
-  el('askHint').textContent = 'What does the first touch do?';
-  const box = el('answers'); box.innerHTML = '';
-  OPTIONS.filter(o => o.shape === shape).forEach(o => {
-    const b = document.createElement('button');
-    b.className = 'ans';
-    b.innerHTML = '<span class="cap">' + o.label + '</span>' +
-                  '<span class="sub">' + o.hint + '</span>';
-    b.onclick = () => answer(o.id, b);
-    box.appendChild(b);
-  });
 }
 
 function answer(choice, btn){
@@ -919,8 +890,7 @@ function answer(choice, btn){
     const r = document.createElement('div');
     r.className = 'row' + (chosen && x.id === chosen.id ? ' picked' : '');
     r.innerHTML = '<span class="chip t' + x.tier + '">' + TIER_NAME[x.tier] + '</span>' +
-      '<span class="wy"><b>' + (x.shape === 'open' ? 'Open' : 'Closed') + ' · ' +
-        x.label + '</b> — ' + why + '</span>' +
+      '<span class="wy"><b>' + x.label + '</b> — ' + why + '</span>' +
       (chosen && x.id === chosen.id ? '<span class="you">You</span>' : '');
     box.appendChild(r);
   });
@@ -1060,6 +1030,6 @@ el('reset').onclick = () => {
 
 el('hmeta').textContent = 'Rep 0 / ' + CFG.repsPerSession;
 resize();
-const seed = makeScene(1, 'openRun'); buildScene(seed); aimCamera(seed);
+const seed = makeScene(1, 'open'); buildScene(seed); aimCamera(seed);
 loadStats(); loop();
 </script>
