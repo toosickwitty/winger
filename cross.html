@@ -182,7 +182,10 @@ const CFG = {
   maskMs: 200,
   /* metres per second. A quick 12-year-old tops out near 6; jockeying
      and shuffling are far slower, and that difference is the read. */
-  mps: { sprint:5.5, press:4.0, recover:5.0, jockey:2.0, shuffle:1.6 },
+  /* metres per second for a 12-year-old IN A GAME, not on a stopwatch. They
+     rarely reach top speed over these distances, and defenders move a lot
+     slower than people remember. */
+  mps: { sprint:4.6, press:3.4, jockey:1.9, shuffle:1.1 },
   answerMs: 5000,
   repsPerSession: 16,
   eyeHeight: 1.55,
@@ -322,7 +325,7 @@ function makeScene(side, answer){
     cut:  unit([rand(-0.3, 0.2),  -1]),                 // ten, straight in from the edge
     far:  unit([rand(0.75, 1.0),  rand(-0.55,-0.25)])   // far winger, in off his own flank
   };
-  const pace = { near:5.2, cut:5.0, far:4.6 };
+  const pace = { near:4.4, cut:4.2, far:4.0 };
 
   const taken = [], runner = {}, marker = {}, dest = {},
         mDest = {}, mPace = {}, sep = {}, lag = {};
@@ -374,7 +377,7 @@ function makeScene(side, answer){
     const free = (t.free === k);
     lag[k]      = free ? rand(freeLag[k][0], freeLag[k][1]) : rand(0.8, 1.3);
     mDest[k]    = free ? wrongWay[k]() : dest[k];
-    mPace[k]    = free ? rand(3.6, 4.5) : pace[k] - rand(-0.05, 0.10);
+    mPace[k]    = free ? rand(3.0, 3.7) : pace[k] - rand(-0.05, 0.10);
 
     /* The beaten marker is given a DIRECTION, not a destination. Aiming him at
        a point could put him past it, after which he would turn round and run
@@ -542,8 +545,8 @@ const SKINS = [0xf2d8b8, 0xe8c9a0, 0xc9985f, 0x9a6238, 0x6b4126];
 const HAIRS = [0x2a1d16, 0x14100c, 0x5a3a20, 0x8f7040, 0x1c1c1c];
 const BOOTS = [0xf2f5ef, 0xf5d33a, 0xff4f9d, 0x2ee6a8, 0x1a1a1a, 0xff8a2b];
 
-function makePlayer(color, speed, look){
-  const run = speed > 0.05;
+function makePlayer(color, mps, look){
+  const run = mps > 0.5;
   look = look || {};
   const HIP = 0.86;
   const g = new THREE.Group();
@@ -553,9 +556,13 @@ function makePlayer(color, speed, look){
   const shortM= new THREE.MeshLambertMaterial({ color: 0x16221a });
   const bootM = new THREE.MeshLambertMaterial({ color: look.boot || 0xf2f5ef });
 
-  const amp  = run ? 0.45 + 0.55*speed : 0.12;
-  const freq = 1.1 + 1.7*speed;              // strides per second
-  const lean = 0.05 + 0.20*speed;
+  /* Cadence and stride length come from how fast he is ACTUALLY travelling, so
+     the legs and the ground agree instead of the figure appearing to skate.
+     A 12-year-old at 4.4 m/s takes about three strides a second \u2014 roughly a
+     1.5 m stride \u2014 and far shorter, slower ones at a jockeying pace. */
+  const freq = run ? 1.55 + 0.32*mps : 0.9;          // strides per second
+  const amp  = run ? Math.min(0.95, 0.22 + 0.145*mps) : 0.10;
+  const lean = 0.03 + 0.036*mps;
   const legs = [], arms = [];
 
   /* Positive rotation.x swings a limb BACKWARD. Hip flexion is negative,
@@ -627,8 +634,8 @@ function makePlayer(color, speed, look){
       ankle.rotation.x = -0.55*flex + 0.12;
     });
     arms.forEach(({arm, elbow, sgn}) => {
-      arm.rotation.x   = Math.sin(w) * sgn * amp * (run ? 0.75 + 0.35*speed : 0.15);
-      elbow.rotation.x = run ? -0.55 - 0.8*speed : -0.25;
+      arm.rotation.x   = Math.sin(w) * sgn * amp * (run ? 0.85 : 0.15);
+      elbow.rotation.x = run ? -0.50 - 0.15*mps : -0.25;
     });
   };
   g.userData.pose(0);
@@ -648,8 +655,9 @@ function place(kind, ox, oz, s, moveOx, moveOz, tag, opt){
   const speed = opt.speed || 0;
   const W = s.wingX || CFG.wingX;
   const x = s.side*(W + ox), z = s.zBase + oz;      // where he ENDS the look
+  const mps = opt.mps === undefined ? speed * CFG.mps.sprint : opt.mps;
   const p = makePlayer(kind === 'own' ? CFG.colors.own
-                     : kind === 'gk'  ? CFG.colors.gk : CFG.colors.opp, speed,
+                     : kind === 'gk'  ? CFG.colors.gk : CFG.colors.opp, mps,
     { skin: pick(SKINS), hair: pick(HAIRS), boot: pick(BOOTS) });
 
   const toRec = Math.atan2(s.side*W - x, s.zBase - z);
@@ -668,8 +676,7 @@ function place(kind, ox, oz, s, moveOx, moveOz, tag, opt){
     p.userData.head.rotation.y  = clamp(d - waist, -1.2, 1.2);
   }
 
-  /* rewind him to where he was half a second earlier */
-  const mps = opt.mps === undefined ? speed * CFG.mps.sprint : opt.mps;
+  /* rewind him to where he was when the look began */
   const run = mps * (CFG.flashMs/1000);
   const sx = x - Math.sin(moveYaw)*run, sz = z - Math.cos(moveYaw)*run;
   p.position.set(sx, 0, sz);
@@ -711,7 +718,7 @@ function buildScene(s){
 
   s.extras.forEach(p =>
     place('opp', p[0], p[1], s, p[0] - rand(0.5,2.5), p[1] - rand(0.5,1.5),
-      null, Object.assign({ speed:0.4, mps:1.2 }, ball)));
+      null, Object.assign({ speed:0.4, mps:1.0 }, ball)));
 }
 
 function aimCamera(s){
