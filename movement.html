@@ -229,6 +229,26 @@ const TEMPLATES = {
 };
 
 const LOOK_DEG = 166, ARC_SAFE = 40;
+
+/* Where he would actually receive the ball for each answer. The whole point
+   of a movement is to become passable \u2014 so the lane from the ball to that
+   spot has to be open, or the answer is not an answer. */
+const RECV = {
+  width:  [ 0.5, -1.0],   // stays put, ball down the line
+  behind: [-2.0, -9.0],   // in behind their line
+  pocket: [-9.0,  8.0],   // between their lines, half-space
+  check:  [ 1.5,  9.0]    // back down the touchline toward the ball
+};
+/* a driven ball in behind can go between defenders; the others cannot */
+const LANE_R = { width:1.9, behind:1.3, pocket:1.9, check:1.9 };
+
+function distToLane(q, a, b){
+  const vx = b[0]-a[0], vz = b[1]-a[1];
+  const L2 = vx*vx + vz*vz || 1;
+  let t = ((q[0]-a[0])*vx + (q[1]-a[1])*vz) / L2;
+  t = Math.max(0, Math.min(1, t));
+  return Math.hypot(q[0] - (a[0]+vx*t), q[1] - (a[1]+vz*t));
+}
 function polar(offDeg, dist){
   const b = (LOOK_DEG + offDeg) * Math.PI/180;
   return [dist*Math.cos(b), dist*Math.sin(b)];
@@ -299,7 +319,7 @@ function nextVariant(answer){
   return TEMPLATES[answer][varBag[answer].pop()];
 }
 
-function makeScene(side, answer){
+function buildCandidate(side, answer){
   const t = nextVariant(answer);
   const gap = t.pocket ? rand(15,18) : rand(4,6);
   const shift = t.shifted ? 7.5 : 0;
@@ -327,37 +347,52 @@ function makeScene(side, answer){
 
   /* pressed: one man sprinting onto him. free: nobody within nine metres,
      so there is never any doubt about which it is. */
+  const recv = RECV[answer], laneR = LANE_R[answer];
+  const onLane = q => distToLane(q, passerAt, recv) < laneR;
+
   const pressAt = t.press
     ? drop(taken, () => [passerAt[0] - rand(0.5,1.4), passerAt[1] + rand(0.3,1.0)], 1.2)
     : drop(taken, () => {
         for (let i = 0; i < 50; i++){
           const q = polar(rand(-28,-14), rand(10,19));
-          if (Math.hypot(q[0]-passerAt[0], q[1]-passerAt[1]) > 9) return q;
+          if (Math.hypot(q[0]-passerAt[0], q[1]-passerAt[1]) > 9 && !onLane(q)) return q;
         }
         return polar(-20, 11);
       }, 2.6);
 
-  /* their midfield line, kept clear of the ball carrier */
+  /* Everything placed from here on must stay off the passing lane, or the
+     movement he is being asked to make would not actually get him the ball. */
+
+
   const midAt = [];
   for (let i = 0; i < 3; i++)
     midAt.push(drop(taken, () => {
-      for (let k = 0; k < 50; k++){
-        const q = [-(13 + i*6) + rand(-1.2,1.2), gap + rand(-1.0,1.0)];
-        if (Math.hypot(q[0]-passerAt[0], q[1]-passerAt[1]) > 6) return q;
+      for (let k = 0; k < 60; k++){
+        const q = [-(13 + shift*0.6 + i*6) + rand(-2.2,2.2), gap + rand(-1.0,1.0)];
+        if (Math.hypot(q[0]-passerAt[0], q[1]-passerAt[1]) > 6 && !onLane(q)) return q;
       }
-      return [-(13 + i*6), gap];
+      return [-(13 + shift*0.6 + i*6) - 3, gap];
     }, 2.6));
 
   /* THE POCKET, made plain: when it is shut a midfielder has dropped into the
      gap on his side. When it is open the band is guaranteed empty \u2014 nobody
      else may be placed inside it at all. */
   const inPocket = t.pocket ? null
-    : drop(taken, () => [rand(-9,-5), gap*0.55 + rand(-0.8,0.8)], 2.2);
+    : drop(taken, () => {
+        for (let k = 0; k < 50; k++){
+          const q = [rand(-9,-5), gap*0.55 + rand(-0.8,0.8)];
+          if (!onLane(q)) return q;
+        }
+        return [-7, gap*0.55];
+      }, 2.2);
 
   const clearOfPocket = q =>
     !t.pocket || !(q[1] > 2.0 && q[1] < gap - 2.0 && q[0] > -15 && q[0] < 1.5);
 
-  const strikerAt = drop(taken, () => [rand(-20,-13), rand(0.6,3.5)], 2.6);
+  /* He pins the centre backs high and central. Standing him in the half-space
+     would mean the pocket is already taken, and pinching in would be wrong. */
+  const lastLine = Math.max.apply(null, lineAt.map(q => q[1]));
+  const strikerAt = drop(taken, () => [rand(-24,-18), lastLine + rand(0.4, 3.2)], 2.6);
 
   const extras = [];
   const nExtra = Math.floor(Math.random()*3);
@@ -365,7 +400,7 @@ function makeScene(side, answer){
     extras.push([drop(taken, () => {
       for (let k = 0; k < 50; k++){
         const q = polar(rand(-25, 20), rand(13,26));
-        if (clearOfPocket(q)) return q;
+        if (clearOfPocket(q) && !onLane(q)) return q;
       }
       return polar(-24, 22);
     }, 2.4), rand(0.3, 0.85)]);
@@ -374,7 +409,7 @@ function makeScene(side, answer){
     ? drop(taken, () => {
         for (let k = 0; k < 50; k++){
           const q = polar(rand(-ARC_SAFE+8, ARC_SAFE-8), rand(11,18));
-          if (clearOfPocket(q)) return q;
+          if (clearOfPocket(q) && Math.hypot(q[0]-recv[0], q[1]-recv[1]) > 5.5) return q;
         }
         return polar(-30, 17);
       }, 2.6) : null;
@@ -387,6 +422,34 @@ function makeScene(side, answer){
     gap, markerAt, lineAt, midAt, inPocket, extras, passerAt, pressAt, strikerAt, mateAt,
     intended: answer
   };
+}
+
+/* A movement is only the right answer if the ball can actually reach him
+   there. The back line is placed before the lane is known, so rather than
+   patch each body individually the whole scene is generated and then
+   accepted or thrown away. */
+function laneOK(sc, answer){
+  const recv = RECV[answer], R = LANE_R[answer];
+  let opp = [...sc.midAt, sc.pressAt];
+  if (sc.inPocket) opp.push(sc.inPocket);
+  sc.extras.forEach(e => opp.push(e[0]));
+  /* a ball played in behind travels past their line, so they do not block it */
+  if (answer !== 'behind') opp = opp.concat(sc.lineAt);
+  /* and whoever is pressing the ball stands at the start of every lane by
+     definition \u2014 he is closing the man down, not covering the pass */
+  return opp.every(q =>
+    Math.hypot(q[0]-sc.passerAt[0], q[1]-sc.passerAt[1]) < 3.0 ||
+    distToLane(q, sc.passerAt, recv) >= R);
+}
+
+function makeScene(side, answer){
+  let last = null;
+  for (let attempt = 0; attempt < 60; attempt++){
+    const sc = buildCandidate(side, answer);
+    if (laneOK(sc, answer)) return sc;
+    last = sc;
+  }
+  return last;
 }
 
 const OPTIONS = [
