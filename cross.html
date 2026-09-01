@@ -1,6 +1,6 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Shoulder — winger scanning trainer</title>
+<title>Byline — winger crossing trainer</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
@@ -67,9 +67,9 @@ footer{flex:0 0 auto;border-top:1px solid var(--line);background:var(--turf);col
   text-transform:uppercase;margin:0 0 11px;text-align:center}
 .ask small{display:block;font-family:Inter,sans-serif;font-size:13px;letter-spacing:0;text-transform:none;
   color:var(--dim);margin-top:5px;font-weight:400}
-.answers{display:flex;gap:7px}
+.answers{display:grid;grid-template-columns:1fr 1fr;gap:7px}
 .ans .arw{display:block;font-size:34px;line-height:1;margin-bottom:2px}
-.ans .cap{display:block;font-size:14px;letter-spacing:.04em;opacity:.85}
+.ans .cap{display:block}
 .rank{display:flex;flex-direction:column;gap:5px;margin-bottom:10px}
 .row{display:flex;align-items:center;gap:9px;padding:8px 10px;border:1px solid var(--line);
   border-radius:8px;background:var(--turf-2)}
@@ -82,9 +82,11 @@ footer{flex:0 0 auto;border-top:1px solid var(--line);background:var(--turf);col
 .row .wy b{color:var(--flood);font-weight:600}
 .row .you{margin-left:auto;font-family:'Barlow Condensed',sans-serif;font-size:12px;
   letter-spacing:.1em;color:var(--dim);flex:0 0 auto}
-.ans{flex:1;background:var(--turf-2);border:1px solid var(--line);color:var(--flood);border-radius:9px;
-  padding:17px 6px;font-family:'Barlow Condensed',sans-serif;font-size:23px;letter-spacing:.05em;
-  text-transform:uppercase;cursor:pointer;min-height:62px}
+.ans{background:var(--turf-2);border:1px solid var(--line);color:var(--flood);border-radius:9px;
+  padding:12px 9px;font-family:'Barlow Condensed',sans-serif;font-size:19px;letter-spacing:.04em;
+  text-transform:uppercase;cursor:pointer;min-height:74px;line-height:1.1;text-align:left}
+.ans .sub{display:block;font-family:Inter,sans-serif;font-size:11.5px;font-weight:400;
+  letter-spacing:0;text-transform:none;color:var(--dim);margin-top:5px;line-height:1.25}
 .ans:disabled{opacity:.4;cursor:default}
 .ans.right{background:var(--go);color:#0d1b12;border-color:var(--go)}
 .ans.wrong{background:var(--opp);color:#fff;border-color:var(--opp)}
@@ -109,7 +111,7 @@ footer{flex:0 0 auto;border-top:1px solid var(--line);background:var(--turf);col
 
 <div id="bg"></div>
 <header>
-  <div class="mark">Shoulder<span>.</span></div>
+  <div class="mark">Byline<span>.</span></div>
   <div class="hgap"></div>
   <div class="meta" id="hmeta">Rep 0 / 16</div>
   <button class="iconbtn" id="reset">Reset</button>
@@ -133,7 +135,7 @@ footer{flex:0 0 auto;border-top:1px solid var(--line);background:var(--turf);col
   <svg id="leaders"></svg>
   <div class="veil on" id="veil">
     <div class="big" id="veilBig">Ready</div>
-    <div class="sub" id="veilSub">One look over your shoulder, up the pitch. Then tell me what was there.</div>
+    <div class="sub" id="veilSub">You are at the byline with the ball. One look in, then pick where it goes — the cross takes about a second to get there.</div>
   </div>
 </div>
 
@@ -176,7 +178,7 @@ footer{flex:0 0 auto;border-top:1px solid var(--line);background:var(--turf);col
 /* ---------------- tunables — everything worth changing is here ---------------- */
 const CFG = {
   cueMs: 800,
-  flashMs: 500,        // a real scan: roughly half a second, and everyone is moving
+  flashMs: 900,        // the glance up before you strike it
   maskMs: 200,
   /* metres per second. A quick 12-year-old tops out near 6; jockeying
      and shuffling are far slower, and that difference is the read. */
@@ -185,10 +187,10 @@ const CFG = {
   repsPerSession: 16,
   eyeHeight: 1.55,
   wingX: 28,                        // where he is standing, off the touchline
-  hFov: 62,                         // HORIZONTAL degrees; vertical is derived from aspect
+  hFov: 52,                         // HORIZONTAL degrees; vertical is derived from aspect
   vFovMax: 76,
-  look: { ox: -7.42, oz: -11.87 },  // up the pitch and infield, over his shoulder toward goal
-  colors: { own: 0x5b9dff, opp: 0xff5c44, skin: 0xe8c9a0 }
+  look: { ox: -25.75, oz: 3.62 },   // into the box, wide enough to hold the late runner
+  colors: { own: 0x5b9dff, opp: 0xff5c44, gk: 0xf7c948, skin: 0xe8c9a0 }
 };
 
 /* ---------------- storage ---------------- */
@@ -215,32 +217,16 @@ const pick = a => a[Math.floor(Math.random()*a.length)];
 /* Each rep is built backwards from an intended answer, so the picture is
    unambiguous. A session deals three of each, shuffled — he cannot lean on
    one option being rare. */
+/* One runner gets free; which one is the answer. When nobody does, the
+   answer is to keep the ball. */
 const TEMPLATES = {
-  line: [ { run:'shadeIn',  d:[3.2,5.0], high:true,  cover:false },
-          { run:'shadeIn',  d:[1.8,2.5], high:true,  cover:false } ],
-  in45: [ { run:'shadeOut', d:[4.3,6.0], high:false, cover:false },
-          { run:'shadeOut', d:[4.3,6.0], high:true,  cover:false },
-          { run:'set',      d:[4.5,6.0], high:false, cover:false } ],
-  cut90:[ { run:'shadeOut', d:[1.5,2.4], high:true,  cover:false },
-          { run:'shadeOut', d:[1.5,2.4], high:false, cover:false } ],
-  back: [ { run:'pressing', d:[1.4,2.2], high:false, cover:true  },
-          { run:'pressing', d:[1.4,2.2], high:true,  cover:true  },
-          { run:'pressing', d:[1.4,1.9], high:false, cover:false } ]
+  near: [ { free:'near' } ],
+  cut:  [ { free:'cut'  } ],
+  far:  [ { free:'far'  } ],
+  none: [ { free:'none' } ]
 };
 
-/* The decisive cue is fixed by the template. Everything else in the
-   picture — how many other shirts, where they are, what they look like,
-   where he is standing — is resampled every rep, so he cannot recognise
-   a scene by its shape. */
-const LOOK_DEG = 238, ARC_SAFE = 26;
-function polar(offDeg, dist){
-  const b = (LOOK_DEG + offDeg) * Math.PI/180;
-  return [dist*Math.cos(b), dist*Math.sin(b)];
-}
 const rand = (a,b) => a + Math.random()*(b-a);
-
-/* Nothing gets placed on top of anything else: each body is resampled
-   until it clears everyone already down. */
 function clears(taken, pt, min){
   return taken.every(t => Math.hypot(t[0]-pt[0], t[1]-pt[1]) >= min);
 }
@@ -253,9 +239,6 @@ function drop(taken, gen, min){
     taken.forEach(t => d = Math.min(d, Math.hypot(t[0]-p[0], t[1]-p[1])));
     if (d > bestD){ bestD = d; best = p; }
   }
-  /* Nothing random cleared, so take the roomiest candidate and shove it off
-     whatever is crowding it. Giving up and placing anyway put players on top
-     of each other. */
   let p = best.slice();
   for (let k = 0; k < 20 && !clears(taken, p, min); k++){
     let near = taken[0], nd = Infinity;
@@ -266,68 +249,6 @@ function drop(taken, gen, min){
   taken.push(p); return p;
 }
 
-function makeScene(side, answer){
-  const t = nextVariant(answer);
-  const d = rand(t.d[0], t.d[1]);
-  const lineZ = t.high ? d + rand(3,6) : d + rand(12,17);
-  const spread = Math.min(1.55*lineZ, 26);   // how wide their line can sit and still be seen
-
-  /* fbDist is the straight-line distance at the END of the look. How far
-     across he sits depends on what he is doing. */
-  const LAT = { pressing:[0.12,0.28], set:[0.12,0.28],
-                shadeIn:[0.45,0.72], shadeOut:[0.15,0.32] }[t.run];
-  const mox = -rand(LAT[0], LAT[1]) * d;
-  const markerAt = [mox, -Math.sqrt(Math.max(0.4, d*d - mox*mox))];
-
-  const taken = [markerAt];
-  const coverAt = t.cover
-    ? drop(taken, () => polar(rand(-22,-7), d + rand(4,8)), 2.0) : null;
-
-  /* If his marker is loose, jockeying away or turned and running, somebody
-     else steps in. There is no moment on a pitch with nobody closing you.
-     He comes from the side that reinforces the read: infield when the line
-     is the answer, off the touchline when coming inside is. */
-  /* He can also be dropping off while he shades — backpedalling, chest
-     still on the ball. Only far enough out that half a second of it does
-     not put him on top of the winger. */
-  const markerDrop = d > 3.2 && Math.random() < 0.35;
-
-  /* A supporting man, always BEHIND the marker. The nearest defender is
-     the one engaging — nobody hands a winger off to a man further away. */
-  const presserAt = d > 3.0
-    ? drop(taken, () => polar(answer === 'line' ? rand(-24,-8) : rand(8,26),
-                              d + rand(2.0, 4.5)), 2.2)
-    : null;
-
-  const lineN = Math.random() < 0.55 ? 2 : 1;
-  const lineAt = [];
-  for (let i = 0; i < lineN; i++)
-    lineAt.push(drop(taken,
-      () => [-rand(0.15, 0.92) * spread, -lineZ + rand(-1.2, 1.2)], 2.6));
-
-  const extras = [];
-  const nExtra = Math.floor(Math.random()*3);
-  for (let i = 0; i < nExtra; i++)
-    extras.push([drop(taken, () => polar(rand(-23, 19), rand(13,26)), 2.4),
-                 rand(0.3, 0.85)]);
-
-  const strikerAt = drop(taken, () => polar(rand(-20, -3), rand(12,20)), 2.4);
-  const mate = Math.random() < 0.55
-    ? drop(taken, () => polar(rand(-ARC_SAFE, 8), rand(10,22)), 2.4) : null;
-
-  return {
-    side,
-    wingX: rand(25.5, 30.5),            // how tightly he is hugging the touchline
-    zBase: rand(-17, -9),               // just past halfway, coming into the attacking third
-    fbDist: d,
-    markerRun: t.run,
-    cover: t.cover,
-    lineHigh: t.high,
-    lineZ, lineN, lineAt, coverAt, extras, strikerAt, mate, markerAt, presserAt, markerDrop,
-    intended: answer
-  };
-}
-
 function shuffle(a){
   for (let i = a.length-1; i > 0; i--){
     const j = Math.floor(Math.random()*(i+1));
@@ -336,29 +257,21 @@ function shuffle(a){
   return a;
 }
 
-/* As even as the session length allows — 16 reps deals 4 of each — and
-   built so no two identical answers ever sit next to each other. Shuffling
-   until that happens by luck does not scale: with 8 of each, almost every
-   shuffle has a collision. So it is built one slot at a time, never
-   repeating the last answer, and never painting itself into a corner. */
+/* Exactly 4 of each per session, and no two identical answers next to each other. */
 function newBag(){
-  const n = CFG.repsPerSession, ids = ['line','in45','cut90','back'];
+  const n = CFG.repsPerSession, ids = ['near','cut','far','none'];
   const left = {}, base = Math.floor(n/4);
   ids.forEach(k => left[k] = base);
   shuffle(ids.slice()).slice(0, n % 4).forEach(k => left[k]++);
-
-  const out = [];
-  let prev = null;
+  const out = []; let prev = null;
   for (let slots = n; slots > 0; slots--){
     const elig = ids.filter(k => left[k] > 0 && k !== prev);
-    /* after this pick, nothing may be left so often that it has to double up */
     const cap = Math.ceil((slots - 1) / 2);
     const safe = elig.filter(k => {
       const after = Object.assign({}, left); after[k]--;
       return Math.max.apply(null, ids.map(z => after[z])) <= cap;
     });
     const from = safe.length ? safe : elig;
-
     let r = Math.random() * from.reduce((a,k) => a + left[k], 0), choice = from[0];
     for (const k of from){ r -= left[k]; if (r <= 0){ choice = k; break; } }
     out.push(choice); left[choice]--; prev = choice;
@@ -366,70 +279,173 @@ function newBag(){
   return out;
 }
 
-/* Within an answer, cycle its scenarios rather than picking at random, so
-   every variant shows up instead of one dominating by luck. */
 const varBag = {};
 function nextVariant(answer){
+  if (!TEMPLATES[answer]) answer = 'near';
   if (!varBag[answer] || !varBag[answer].length)
     varBag[answer] = shuffle(TEMPLATES[answer].map((_, i) => i));
   return TEMPLATES[answer][varBag[answer].pop()];
 }
 
-/* The four first-touch directions. Arrows mirror with the wing so they
-   always match his own body, not a diagram. */
+/* Ball travel time. A near-post ball is there in under a second; a far-post
+   ball hangs. Who is free is decided at ARRIVAL, not now — so every runner is
+   marked, and the one who gets free is the one whose marker is already
+   trailing and losing ground. */
+const TRAVEL = { near:0.9, cut:0.8, far:1.3 };
+function unit(v){ const L = Math.hypot(v[0], v[1]) || 1; return [v[0]/L, v[1]/L]; }
+function travelTo(from, to, mps, t){
+  const dx = to[0]-from[0], dz = to[1]-from[1], L = Math.hypot(dx, dz) || 1;
+  return [from[0] + dx/L*mps*t, from[1] + dz/L*mps*t];
+}
+
+function makeScene(side, answer){
+  const t = nextVariant(answer);
+  const wingX = rand(25, 27), zBase = rand(-47, -44.5);
+  const W = (wx, wz) => [wx - wingX, wz - zBase];
+
+  /* Where each man needs to BE when the ball lands. The cutback man arrives
+     onto the penalty spot as it gets there \u2014 he is not standing waiting on it. */
+  /* The posts are at x = +/-3.66. Arriving WIDER than the post is not a
+     finishing position, so both post runners land inside the frame of the
+     goal, on the six-yard line. */
+  const target = {
+    near: [rand(1.6, 3.2),  rand(-50.2,-49.0)],
+    cut:  [rand(-0.8, 1.6), rand(-42.6,-41.2)],
+    far:  [rand(-4.6,-2.8), rand(-50.4,-49.2)]
+  };
+  /* the line each of them runs in on */
+  /* Standard box pattern for a cross from this side: the striker attacks the
+     front post, the opposite winger comes in off the far flank to the back
+     post, and the ten arrives late on the penalty spot. */
+  const dir = {
+    near: unit([rand(0.25, 0.55), rand(-1.0,-0.75)]),   // striker, in from central
+    cut:  unit([rand(-0.3, 0.2),  -1]),                 // ten, straight in from the edge
+    far:  unit([rand(0.75, 1.0),  rand(-0.55,-0.25)])   // far winger, in off his own flank
+  };
+  const pace = { near:5.2, cut:5.0, far:4.6 };
+
+  const taken = [], runner = {}, marker = {}, dest = {},
+        mDest = {}, mPace = {}, sep = {}, lag = {};
+
+  /* Their run-in lines are fixed by where they must arrive, so they get no
+     collision nudge \u2014 if two of them would start on top of each other, the
+     angles are resampled instead. */
+  const keys = ['near','cut','far'];
+  let at = {};
+  for (let tries = 0; tries < 30; tries++){
+    keys.forEach(k => {
+      const back = pace[k] * TRAVEL[k];
+      at[k] = [target[k][0] - dir[k][0]*back, target[k][1] - dir[k][1]*back];
+    });
+    const ok = keys.every((k,i) => keys.slice(i+1).every(j =>
+      Math.hypot(at[k][0]-at[j][0], at[k][1]-at[j][1]) > 2.4));
+    if (ok) break;
+    dir.near = unit([rand(0.25,0.55), rand(-1.0,-0.75)]);
+    dir.cut  = unit([rand(-0.3,0.2), -1]);
+    dir.far  = unit([rand(0.75,1.0), rand(-0.55,-0.25)]);
+  }
+
+  /* all three runners down first, so a later runner cannot land on an
+     earlier runner's marker */
+  keys.forEach(k => {
+    runner[k] = W(at[k][0], at[k][1]);
+    dest[k]   = [target[k][0] + dir[k][0]*10, target[k][1] + dir[k][1]*10];
+    taken.push(runner[k]);
+  });
+
+  /* A marker who is merely slower looks identical to a marker who is doing
+     his job \u2014 especially at the back post, thirty metres away. The man who
+     gets beaten is the one going somewhere ELSE: dragged ball-side, or
+     dropping toward his own goal while the runner arrives behind him. So the
+     free runner's marker is given a different destination, and the two paths
+     visibly split during the look. */
+  const wrongWay = {
+    near: () => [rand(-4.5,-1.5), rand(-51.8,-50.8)],   // ball-watching, central; runner goes across his face
+    cut:  () => [rand(2.5, 6.0),  rand(-49.5,-47.5)],   // pulled ball-side and goal-side
+    far:  () => [rand(4.0, 8.0),  rand(-49.0,-46.5)]    // whole line ball-watching, back post left empty
+  };
+  /* A late run to the penalty spot works because nobody picks it up, so his
+     nearest defender starts further off than a beaten marker elsewhere. */
+  /* Nobody picks up a late arrival at the penalty spot, and nobody stays with
+     the far winger when the whole line is watching the ball \u2014 so those two get
+     a bigger head start than a beaten near-post marker. */
+  const freeLag = { near:[2.6,3.4], cut:[4.2,5.4], far:[5.0,6.5] };
+  keys.forEach(k => {
+    const free = (t.free === k);
+    lag[k]      = free ? rand(freeLag[k][0], freeLag[k][1]) : rand(0.8, 1.3);
+    mDest[k]    = free ? wrongWay[k]() : dest[k];
+    mPace[k]    = free ? rand(3.6, 4.5) : pace[k] - rand(-0.05, 0.10);
+
+    /* The beaten marker is given a DIRECTION, not a destination. Aiming him at
+       a point could put him past it, after which he would turn round and run
+       back at the runner \u2014 separation shrinking instead of growing. He is
+       placed on that ray and keeps going down it. */
+    const away = free ? unit([mDest[k][0]-at[k][0], mDest[k][1]-at[k][1]])
+                      : [-dir[k][0], -dir[k][1]];
+    const mAt = [at[k][0] + away[0]*lag[k] + rand(-0.35, 0.35),
+                 at[k][1] + away[1]*lag[k] + rand(-0.35, 0.35)];
+    if (free) mDest[k] = [mAt[0] + away[0]*25, mAt[1] + away[1]*25];
+    marker[k] = drop(taken, () => W(mAt[0], mAt[1]), 1.0);
+
+    /* where each of them actually is when the ball lands */
+    const rArr = travelTo(at[k],  dest[k],  pace[k],  TRAVEL[k]);
+    const mW   = [marker[k][0] + wingX, marker[k][1] + zBase];
+    const mArr = travelTo(mW,    mDest[k], mPace[k], TRAVEL[k]);
+    sep[k] = Math.hypot(rArr[0]-mArr[0], rArr[1]-mArr[1]);
+  });
+
+  const keeperAt = drop(taken, () => W(rand(-1.5,1.5), rand(-51.4,-50.8)), 1.6);
+
+  const extras = [];
+  const nExtra = 1 + Math.floor(Math.random()*2);
+  for (let i = 0; i < nExtra; i++)
+    extras.push(drop(taken, () => {
+      for (let k = 0; k < 60; k++){
+        const q = W(rand(-8, 6), rand(-50.5, -45.5));
+        if (['near','cut','far'].every(r => Math.hypot(q[0]-runner[r][0], q[1]-runner[r][1]) > 4.0))
+          return q;
+      }
+      return W(7.5, -45);
+    }, 2.6));
+
+  return {
+    side, wingX, zBase,
+    free: t.free, runner, marker, dest, pace, mDest, mPace, sep, lag,
+    keeperAt, extras, toOff: W, intended: answer
+  };
+}
+
 const OPTIONS = [
-  { id:'line',  label:'Down the line', arrow: sd => '\u2191' },
-  { id:'in45',  label:'45\u00b0 in',  arrow: sd => sd === 1 ? '\u2196' : '\u2197' },
-  { id:'cut90', label:'Cut in 90\u00b0', arrow: sd => sd === 1 ? '\u2190' : '\u2192' },
-  { id:'back',  label:'Pass back',    arrow: sd => '\u2193' }
+  { id:'near', label:'Near post',   hint:'whip it in front of the first defender' },
+  { id:'cut',  label:'Cut it back', hint:'pull it back to the penalty spot' },
+  { id:'far',  label:'Far post',    hint:'hang it up to the back post' },
+  { id:'none', label:'Nobody there', hint:'keep it \u2014 take it back and go again' }
 ];
 const TIER_NAME = ['Turnover','Workable','Good','Best'];
 
-/* Interaction-based, not a pile of independent bonuses. What makes a
-   direction right is a combination — tight AND committed outside, loose
-   AND a deep block — not any single fact about the picture. */
+const ZONE = { near:'front post', cut:'penalty spot', far:'back post' };
+
+/* Scored on the gap when the ball lands, not the gap now. Two and a half
+   metres is about what a runner needs to attack a cross unopposed. */
 function scoreScene(s){
   const o = {}; OPTIONS.forEach(x => o[x.id] = { id:x.id, label:x.label, v:1, why:[] });
-  const add = (k,d,why) => { if (!d) return; o[k].v += d; if (why && Math.abs(d) >= 1) o[k].why.push(why); };
-  const tight = s.fbDist < 2.6, loose = s.fbDist > 4.2, R = s.markerRun;
-
-  /* down the line */
-  add('line', R === 'shadeIn'  ?  2.4 : 0, 'he has shaded infield and left you the whole line');
-  add('line', R === 'shadeOut' ? -2.0 : 0, 'he is already sitting on the line');
-  add('line', s.lineHigh ? 1.2 : -1.0, s.lineHigh ? '' : 'they are dropped deep, so there is nothing to run onto');
-  add('line', tight ? -1.0 : 0, 'he is too close to knock it past and win the race');
-  add('line', loose ?  0.6 : 0, '');
-  add('line', s.cover ? -0.8 : 0, '');
-
-  /* 45 degrees infield */
-  add('in45', (R === 'shadeOut' && !tight) ? 2.2 : 0, 'he has committed to the touchline, so the diagonal inside is open');
-  add('in45', loose ? 1.4 : 0, 'he has given you four metres — carry it in at an angle');
-  add('in45', s.lineHigh ? 0 : 0.8, '');
-  add('in45', tight ? -1.4 : 0, 'no room to take a diagonal touch with him that close');
-  add('in45', s.cover ? -1.2 : 0, 'the second defender is sitting in that half-space');
-  add('in45', R === 'shadeIn' ? -0.8 : 0, '');
-
-  /* square cut inside */
-  add('cut90', (tight && R === 'shadeOut') ? 2.6 : 0, 'he is tight and committed to the touchline — cut square across his face');
-  add('cut90', (tight && s.lineHigh) ? 0.8 : 0, '');
-  add('cut90', R === 'shadeIn'    ? -2.0 : 0, 'you would be running into the side he has just closed');
-  add('cut90', R === 'pressing'   ? -1.4 : 0, 'he is arriving on exactly that line');
-
-  add('cut90', s.cover ? -1.6 : 0, 'the cover is sitting where you would cut into');
-  add('cut90', loose  ? -0.8 : 0, '');
-
-  /* set it back */
-  add('back', (tight && R === 'pressing') ? 2.6 : 0, 'he is on your hip and coming — the first-time ball back is the only clean one');
-  add('back', s.cover ? 1.0 : 0, 'a second man inside means there is no way through');
-  add('back', s.lineHigh ? 0 : 0.6, '');
-  add('back', loose ? -2.0 : 0, 'passing back throws away the space he gave you');
-  add('back', R === 'shadeIn' ? -1.0 : 0, 'the line is open and you went backwards');
+  let mostFree = 0;
+  ['near','cut','far'].forEach(k => {
+    const gap = s.sep[k];
+    mostFree = Math.max(mostFree, gap);
+    o[k].v += (gap - 2.5) * 1.4;
+    o[k].why.push(gap > 2.5
+      ? 'his marker is trailing \u2014 ' + gap.toFixed(1) + 'm clear at the ' + ZONE[k] + ' by the time it lands'
+      : 'still only ' + gap.toFixed(1) + 'm off him when the ball arrives \u2014 that is a defender\'s ball');
+  });
+  o.none.v += (2.5 - mostFree) * 1.4;
+  o.none.why.push(mostFree > 2.5
+    ? 'somebody did get free \u2014 you had a cross on'
+    : 'nobody breaks clear in time; keep it and go again');
 
   const list = Object.values(o).sort((a,b) => b.v - a.v);
   const max = list[0].v;
-  list.forEach(x => {
-    x.tier = x.v >= max - 0.4 ? 3 : x.v >= max - 1.6 ? 2 : x.v >= max - 3.4 ? 1 : 0;
-  });
+  list.forEach(x => { x.tier = x.v >= max - 0.4 ? 3 : x.v >= max - 1.6 ? 2 : x.v >= max - 3.4 ? 1 : 0; });
   return list;
 }
 
@@ -632,7 +648,8 @@ function place(kind, ox, oz, s, moveOx, moveOz, tag, opt){
   const speed = opt.speed || 0;
   const W = s.wingX || CFG.wingX;
   const x = s.side*(W + ox), z = s.zBase + oz;      // where he ENDS the look
-  const p = makePlayer(kind === 'own' ? CFG.colors.own : CFG.colors.opp, speed,
+  const p = makePlayer(kind === 'own' ? CFG.colors.own
+                     : kind === 'gk'  ? CFG.colors.gk : CFG.colors.opp, speed,
     { skin: pick(SKINS), hair: pick(HAIRS), boot: pick(BOOTS) });
 
   const toRec = Math.atan2(s.side*W - x, s.zBase - z);
@@ -674,85 +691,27 @@ function buildScene(s){
   while (actors.children.length) actors.remove(actors.children[0]);
   placed = [];
 
-  const d = s.fbDist;
-  const lineZ = s.lineZ;
+  const W = s.toOff;
+  const ball = { watch:true };
 
-  /* fx/fz = where he is RUNNING; his head comes back onto the ball regardless */
-  const M = CFG.mps;
-  const drops = s.markerDrop;
-  /* He is always closing — the shade is the ANGLE he closes on, not a
-     sideways run. Arriving at one shoulder shuts that side and shows him
-     the other. Only the dropping variants give ground, and those backpedal
-     with the chest still on the ball. */
-  const RUN = {
-    pressing: { fx: 0,    fz: 0,       sp:0.70, v:M.press, bp:false,
-                say:'closing you down straight on' },
-    shadeIn:  drops
-      ? { fx: -9,   fz: -(d+7), sp:0.45, v:2.2, bp:true,
-          say:'backing off, covering the inside' }
-      : { fx: -3.5, fz: 0.5,    sp:0.62, v:2.6, bp:false,
-          say:'closing your inside shoulder, showing you the line' },
-    shadeOut: drops
-      ? { fx: 5,    fz: -(d+7), sp:0.45, v:2.2, bp:true,
-          say:'backing off, covering the line' }
-      : { fx: 2.5,  fz: 0.5,    sp:0.62, v:2.6, bp:false,
-          say:'closing the outside, showing you inside' },
-    set:      { fx: 0,    fz: 0,       sp:0,    v:0,   bp:false,
-                say:'feet set, facing you' }
-  }[s.markerRun];
+  ['near','cut','far'].forEach(k => {
+    const from = s.runner[k], to = W(s.dest[k][0], s.dest[k][1]);
+    place('own', from[0], from[1], s, to[0], to[1],
+      'arriving \u00b7 ' + ZONE[k], { speed:0.9, mps:s.pace[k] });
 
-  place('opp', s.markerAt[0], s.markerAt[1], s, RUN.fx, RUN.fz,
-    'your man · ' + d.toFixed(1) + 'm · ' + RUN.say,
-    { watch:true, speed:RUN.sp, mps:RUN.v, backpedal:RUN.bp });
-
-  /* When the ball arrives the whole opposition shifts onto it. Only the
-     marker's run is scripted; everyone else converges from wherever they are.
-  /* His chest is turned toward the middle, so defenders close on that
-     shoulder — they are trying to stop him turning inside, not just
-     arriving at where he stands. */
-  const atBall  = () => [rand(-2.6, -0.4), rand(-1.0, 1.4)];
-  const elsewhere = pos => [pos[0] + rand(-6, 6), pos[1] - rand(2, 7)];
-
-  if (s.presserAt){
-    const t = atBall();
-    place('opp', s.presserAt[0], s.presserAt[1], s, t[0], t[1],
-      'second man · closing you down',
-      { watch:true, speed:0.72, mps:CFG.mps.press });
-  }
-
-  if (s.cover){
-    const t = atBall();
-    place('opp', s.coverAt[0], s.coverAt[1], s, t[0], t[1],
-      'cover behind him', { watch:true, speed:rand(0.35,0.6), mps:rand(2.0,3.4) });
-  }
-
-  for (let i = 0; i < s.lineN; i++){
-    const pos = s.lineAt[i];
-    const t = Math.random() < 0.75 ? atBall() : elsewhere(pos);
-    place('opp', pos[0], pos[1], s, t[0], t[1],
-      i === 0 ? (s.lineHigh ? 'their line · high, grass behind'
-                            : 'their line · deep, grass in front') : null,
-      { watch:true, speed:rand(0.3,0.55), mps:rand(1.6,3.0) });
-  }
-
-  s.extras.forEach(([pos, sp]) => {
-    const t = Math.random() < 0.8 ? atBall() : elsewhere(pos);
-    place('opp', pos[0], pos[1], s, t[0], t[1],
-      null, { watch:true, speed:sp, mps:sp*CFG.mps.sprint });
+    const m = s.marker[k], md = W(s.mDest[k][0], s.mDest[k][1]);
+    place('opp', m[0], m[1], s, md[0], md[1],
+      s.sep[k] > 2.5 ? 'his marker \u00b7 going the other way' : null,
+      Object.assign({ speed:0.85, mps: s.mPace[k] }, ball));
   });
 
-  /* his own men can look where they are going — they are marking nobody */
-  place('own', s.strikerAt[0], s.strikerAt[1], s,
-    s.strikerAt[0] + rand(2,7), s.strikerAt[1] - rand(4,9),
-    'your striker · running in behind', { speed:rand(0.8,1.0), mps:5.0 });
+  place('gk', s.keeperAt[0], s.keeperAt[1], s,
+    s.keeperAt[0] + rand(-1.5,1.5), s.keeperAt[1] + 1.2,
+    'keeper', Object.assign({ speed:0.3, mps:1.0 }, ball));
 
-  if (s.mate){
-    /* a teammate either shows for the ball or runs off it */
-    const t = Math.random() < 0.5 ? atBall()
-                                  : [s.mate[0] + rand(-4,4), s.mate[1] - rand(2,7)];
-    place('own', s.mate[0], s.mate[1], s, t[0], t[1], null,
-      { speed:rand(0.35,0.85), mps:rand(2.5,5) });
-  }
+  s.extras.forEach(p =>
+    place('opp', p[0], p[1], s, p[0] - rand(0.5,2.5), p[1] - rand(0.5,1.5),
+      null, Object.assign({ speed:0.4, mps:1.2 }, ball)));
 }
 
 function aimCamera(s){
@@ -833,9 +792,9 @@ function nextRep(){
   maskEl.style.display = 'none'; timer.style.display = 'none';
   show(pAsk);
   el('askWord').firstChild.textContent = 'Look';
-  el('askHint').textContent = 'Ball is on its way in.';
+  el('askHint').textContent = 'Ball is at your feet.';
   el('answers').innerHTML = '';
-  setVeil(true, current.side === 1 ? 'Right wing' : 'Left wing', 'One look over your shoulder, toward their goal.');
+  setVeil(true, current.side === 1 ? 'Right wing' : 'Left wing', 'One look into the box.');
   setTimeout(flash, CFG.cueMs);
 }
 
@@ -857,15 +816,15 @@ function flash(){
 
 function ask(){
   maskEl.style.display = 'none';
-  setVeil(true, 'Go', 'Where does the first touch go?');
-  el('askWord').firstChild.textContent = 'First touch';
-  el('askHint').textContent = 'Where does it go?';
+  setVeil(true, 'Go', 'Where does the cross go?');
+  el('askWord').firstChild.textContent = 'The cross';
+  el('askHint').textContent = 'Where do you put it?';
   const box = el('answers'); box.innerHTML = '';
   OPTIONS.forEach(o => {
     const b = document.createElement('button');
     b.className = 'ans';
-    b.innerHTML = '<span class="arw">' + o.arrow(current.side) + '</span>' +
-                  '<span class="cap">' + o.label + '</span>';
+    b.innerHTML = '<span class="cap">' + o.label + '</span>' +
+                  '<span class="sub">' + o.hint + '</span>';
     b.onclick = () => answer(o.id, b);
     box.appendChild(b);
   });
@@ -897,10 +856,19 @@ function answer(choice, btn){
   paintSides(); saveStats();
 
   setVeil(false);
-  setPhase(1, CFG.flashMs/1000);
   aimCamera(current);
-  renderer.render(scene, camera);
-  drawLabels();
+
+  /* Play it on to the moment the ball would land, so he sees where everyone
+     actually was when it arrived rather than where they were when he looked. */
+  const travel = TRAVEL[choice] || 1.0;
+  const T = CFG.flashMs/1000, kEnd = 1 + travel/T;
+  const t0 = performance.now(), dur = 750;
+  (function settle(now){
+    const a = Math.min(1, (now - t0)/dur);
+    setPhase(1 + (kEnd - 1)*a, T + travel*a);
+    if (a < 1) requestAnimationFrame(settle);
+    else { renderer.render(scene, camera); drawLabels(); }
+  })(t0);
 
   const box = el('rank'); box.innerHTML = '';
   if (!chosen){
@@ -911,12 +879,10 @@ function answer(choice, btn){
     box.appendChild(w);
   }
   ranked.forEach(x => {
-    const opt = OPTIONS.find(z => z.id === x.id);
     const why = x.why[0] || (x.tier >= 2 ? 'fits the picture' : 'the picture does not support it here');
     const r = document.createElement('div');
     r.className = 'row' + (chosen && x.id === chosen.id ? ' picked' : '');
     r.innerHTML = '<span class="chip t' + x.tier + '">' + TIER_NAME[x.tier] + '</span>' +
-      '<span class="arw">' + opt.arrow(current.side) + '</span>' +
       '<span class="wy"><b>' + x.label + '</b> — ' + why + '</span>' +
       (chosen && x.id === chosen.id ? '<span class="you">You</span>' : '');
     box.appendChild(r);
@@ -1047,7 +1013,7 @@ el('start').onclick = startSession;
 el('again').onclick = startSession;
 el('next').onclick  = nextRep;
 el('done').onclick  = () => { show(pIdle); paintSeg(); el('hmeta').textContent = 'Rep 0 / '+CFG.repsPerSession;
-  setVeil(true,'Ready','One look over your shoulder, up the pitch. Then tell me what was there.'); };
+  setVeil(true,'Ready','You are at the byline with the ball. One look in, then pick where it goes — the cross takes about a second to get there.'); };
 el('reset').onclick = () => {
   stats = { L:{pts:0,max:0}, R:{pts:0,max:0}, side: stats.side };
   paintSides(); paintSeg(); saveStats(); show(pIdle);
@@ -1057,6 +1023,6 @@ el('reset').onclick = () => {
 
 el('hmeta').textContent = 'Rep 0 / ' + CFG.repsPerSession;
 resize();
-const seed = makeScene(1, 'line'); buildScene(seed); aimCamera(seed);
+const seed = makeScene(1, 'near'); buildScene(seed); aimCamera(seed);
 loadStats(); loop();
 </script>

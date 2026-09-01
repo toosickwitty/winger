@@ -1,6 +1,6 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Shoulder — winger scanning trainer</title>
+<title>Body Shape — winger receiving trainer</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
@@ -67,9 +67,9 @@ footer{flex:0 0 auto;border-top:1px solid var(--line);background:var(--turf);col
   text-transform:uppercase;margin:0 0 11px;text-align:center}
 .ask small{display:block;font-family:Inter,sans-serif;font-size:13px;letter-spacing:0;text-transform:none;
   color:var(--dim);margin-top:5px;font-weight:400}
-.answers{display:flex;gap:7px}
+.answers{display:grid;grid-template-columns:1fr 1fr;gap:7px}
 .ans .arw{display:block;font-size:34px;line-height:1;margin-bottom:2px}
-.ans .cap{display:block;font-size:14px;letter-spacing:.04em;opacity:.85}
+.ans .cap{display:block}
 .rank{display:flex;flex-direction:column;gap:5px;margin-bottom:10px}
 .row{display:flex;align-items:center;gap:9px;padding:8px 10px;border:1px solid var(--line);
   border-radius:8px;background:var(--turf-2)}
@@ -82,9 +82,11 @@ footer{flex:0 0 auto;border-top:1px solid var(--line);background:var(--turf);col
 .row .wy b{color:var(--flood);font-weight:600}
 .row .you{margin-left:auto;font-family:'Barlow Condensed',sans-serif;font-size:12px;
   letter-spacing:.1em;color:var(--dim);flex:0 0 auto}
-.ans{flex:1;background:var(--turf-2);border:1px solid var(--line);color:var(--flood);border-radius:9px;
-  padding:17px 6px;font-family:'Barlow Condensed',sans-serif;font-size:23px;letter-spacing:.05em;
-  text-transform:uppercase;cursor:pointer;min-height:62px}
+.ans{background:var(--turf-2);border:1px solid var(--line);color:var(--flood);border-radius:9px;
+  padding:12px 9px;font-family:'Barlow Condensed',sans-serif;font-size:19px;letter-spacing:.04em;
+  text-transform:uppercase;cursor:pointer;min-height:74px;line-height:1.1;text-align:left}
+.ans .sub{display:block;font-family:Inter,sans-serif;font-size:11.5px;font-weight:400;
+  letter-spacing:0;text-transform:none;color:var(--dim);margin-top:5px;line-height:1.25}
 .ans:disabled{opacity:.4;cursor:default}
 .ans.right{background:var(--go);color:#0d1b12;border-color:var(--go)}
 .ans.wrong{background:var(--opp);color:#fff;border-color:var(--opp)}
@@ -109,7 +111,7 @@ footer{flex:0 0 auto;border-top:1px solid var(--line);background:var(--turf);col
 
 <div id="bg"></div>
 <header>
-  <div class="mark">Shoulder<span>.</span></div>
+  <div class="mark">Body<span>.</span></div>
   <div class="hgap"></div>
   <div class="meta" id="hmeta">Rep 0 / 16</div>
   <button class="iconbtn" id="reset">Reset</button>
@@ -181,7 +183,7 @@ const CFG = {
   /* metres per second. A quick 12-year-old tops out near 6; jockeying
      and shuffling are far slower, and that difference is the read. */
   mps: { sprint:5.5, press:4.0, recover:5.0, jockey:2.0, shuffle:1.6 },
-  answerMs: 5000,
+  answerMs: 7000,
   repsPerSession: 16,
   eyeHeight: 1.55,
   wingX: 28,                        // where he is standing, off the touchline
@@ -216,16 +218,12 @@ const pick = a => a[Math.floor(Math.random()*a.length)];
    unambiguous. A session deals three of each, shuffled — he cannot lean on
    one option being rare. */
 const TEMPLATES = {
-  line: [ { run:'shadeIn',  d:[3.2,5.0], high:true,  cover:false },
-          { run:'shadeIn',  d:[1.8,2.5], high:true,  cover:false } ],
-  in45: [ { run:'shadeOut', d:[4.3,6.0], high:false, cover:false },
-          { run:'shadeOut', d:[4.3,6.0], high:true,  cover:false },
-          { run:'set',      d:[4.5,6.0], high:false, cover:false } ],
-  cut90:[ { run:'shadeOut', d:[1.5,2.4], high:true,  cover:false },
-          { run:'shadeOut', d:[1.5,2.4], high:false, cover:false } ],
-  back: [ { run:'pressing', d:[1.4,2.2], high:false, cover:true  },
-          { run:'pressing', d:[1.4,2.2], high:true,  cover:true  },
-          { run:'pressing', d:[1.4,1.9], high:false, cover:false } ]
+  openRun:   [ { run:'shadeIn',  d:[3.0,4.2], high:true,  cover:false } ],
+  openTouch: [ { run:'set',      d:[4.6,6.0], high:false, cover:false },
+               { run:'shadeIn',  d:[4.6,6.0], high:false, cover:false } ],
+  shield:    [ { run:'set',      d:[1.5,2.4], high:false, cover:false },
+               { run:'shadeOut', d:[1.5,2.4], high:true,  cover:false } ],
+  setBack:   [ { run:'pressing', d:[1.3,2.2], high:false, cover:true  } ]
 };
 
 /* The decisive cue is fixed by the template. Everything else in the
@@ -342,7 +340,7 @@ function shuffle(a){
    shuffle has a collision. So it is built one slot at a time, never
    repeating the last answer, and never painting itself into a corner. */
 function newBag(){
-  const n = CFG.repsPerSession, ids = ['line','in45','cut90','back'];
+  const n = CFG.repsPerSession, ids = ['openRun','openTouch','shield','setBack'];
   const left = {}, base = Math.floor(n/4);
   ids.forEach(k => left[k] = base);
   shuffle(ids.slice()).slice(0, n % 4).forEach(k => left[k]++);
@@ -375,55 +373,43 @@ function nextVariant(answer){
   return TEMPLATES[answer][varBag[answer].pop()];
 }
 
-/* The four first-touch directions. Arrows mirror with the wing so they
-   always match his own body, not a diagram. */
+/* The real decision is open or closed \u2014 whether you can turn at all. What
+   you then do with the ball follows from that, so it is asked second. */
+const SHAPES = [
+  { id:'open',   label:'Open body',   hint:'half-turn \u2014 you can see forward' },
+  { id:'closed', label:'Closed body', hint:'back to him \u2014 you cannot turn' }
+];
 const OPTIONS = [
-  { id:'line',  label:'Down the line', arrow: sd => '\u2191' },
-  { id:'in45',  label:'45\u00b0 in',  arrow: sd => sd === 1 ? '\u2196' : '\u2197' },
-  { id:'cut90', label:'Cut in 90\u00b0', arrow: sd => sd === 1 ? '\u2190' : '\u2192' },
-  { id:'back',  label:'Pass back',    arrow: sd => '\u2193' }
+  { id:'openRun',   shape:'open',   label:'Let it run',   hint:'no touch \u2014 let it across you' },
+  { id:'openTouch', shape:'open',   label:'Take a touch', hint:'control it and go forward' },
+  { id:'shield',    shape:'closed', label:'Shield it',    hint:'body in the way, hold it up' },
+  { id:'setBack',   shape:'closed', label:'Set it back',  hint:'first time, back where it came from' }
 ];
 const TIER_NAME = ['Turnover','Workable','Good','Best'];
 
-/* Interaction-based, not a pile of independent bonuses. What makes a
-   direction right is a combination — tight AND committed outside, loose
-   AND a deep block — not any single fact about the picture. */
 function scoreScene(s){
-  const o = {}; OPTIONS.forEach(x => o[x.id] = { id:x.id, label:x.label, v:1, why:[] });
+  const o = {}; OPTIONS.forEach(x => o[x.id] = { id:x.id, label:x.label, shape:x.shape, v:1, why:[] });
   const add = (k,d,why) => { if (!d) return; o[k].v += d; if (why && Math.abs(d) >= 1) o[k].why.push(why); };
-  const tight = s.fbDist < 2.6, loose = s.fbDist > 4.2, R = s.markerRun;
+  const tight = s.fbDist < 2.6, loose = s.fbDist > 4.4, R = s.markerRun;
 
-  /* down the line */
-  add('line', R === 'shadeIn'  ?  2.4 : 0, 'he has shaded infield and left you the whole line');
-  add('line', R === 'shadeOut' ? -2.0 : 0, 'he is already sitting on the line');
-  add('line', s.lineHigh ? 1.2 : -1.0, s.lineHigh ? '' : 'they are dropped deep, so there is nothing to run onto');
-  add('line', tight ? -1.0 : 0, 'he is too close to knock it past and win the race');
-  add('line', loose ?  0.6 : 0, '');
-  add('line', s.cover ? -0.8 : 0, '');
+  add('setBack', (tight && R === 'pressing') ? 3.0 : 0,
+      'he is arriving through you \u2014 first time back before he gets there');
+  add('setBack', loose ? -1.8 : 0, 'nobody is close enough to force you backwards');
+  add('setBack', R !== 'pressing' ? -1.2 : 0, '');
 
-  /* 45 degrees infield */
-  add('in45', (R === 'shadeOut' && !tight) ? 2.2 : 0, 'he has committed to the touchline, so the diagonal inside is open');
-  add('in45', loose ? 1.4 : 0, 'he has given you four metres — carry it in at an angle');
-  add('in45', s.lineHigh ? 0 : 0.8, '');
-  add('in45', tight ? -1.4 : 0, 'no room to take a diagonal touch with him that close');
-  add('in45', s.cover ? -1.2 : 0, 'the second defender is sitting in that half-space');
-  add('in45', R === 'shadeIn' ? -0.8 : 0, '');
+  add('shield', (tight && R !== 'pressing') ? 3.0 : 0,
+      'he is tight but not committed \u2014 you cannot turn, so put your body in and hold it');
+  add('shield', loose ? -1.8 : 0, 'you have time to turn; shielding wastes it');
+  add('shield', R === 'pressing' ? -1.2 : 0, '');
 
-  /* square cut inside */
-  add('cut90', (tight && R === 'shadeOut') ? 2.6 : 0, 'he is tight and committed to the touchline — cut square across his face');
-  add('cut90', (tight && s.lineHigh) ? 0.8 : 0, '');
-  add('cut90', R === 'shadeIn'    ? -2.0 : 0, 'you would be running into the side he has just closed');
-  add('cut90', R === 'pressing'   ? -1.4 : 0, 'he is arriving on exactly that line');
+  add('openTouch', loose ? 2.8 : 0,
+      'four metres and nobody arriving \u2014 open up, take it forward and get your head up');
+  add('openTouch', tight ? -2.2 : 0, 'you cannot open your body with a man that close');
 
-  add('cut90', s.cover ? -1.6 : 0, 'the cover is sitting where you would cut into');
-  add('cut90', loose  ? -0.8 : 0, '');
-
-  /* set it back */
-  add('back', (tight && R === 'pressing') ? 2.6 : 0, 'he is on your hip and coming — the first-time ball back is the only clean one');
-  add('back', s.cover ? 1.0 : 0, 'a second man inside means there is no way through');
-  add('back', s.lineHigh ? 0 : 0.6, '');
-  add('back', loose ? -2.0 : 0, 'passing back throws away the space he gave you');
-  add('back', R === 'shadeIn' ? -1.0 : 0, 'the line is open and you went backwards');
+  add('openRun', (R === 'shadeIn' && s.lineHigh && !tight) ? 2.8 : 0,
+      'he has come to your inside and there is grass behind them \u2014 open up and let it run past you both');
+  add('openRun', s.lineHigh ? 0 : -2.0, 'nothing behind them to let it run into');
+  add('openRun', tight ? -2.0 : 0, 'he is close enough to nick it if you do not touch it');
 
   const list = Object.values(o).sort((a,b) => b.v - a.v);
   const max = list[0].v;
@@ -855,27 +841,45 @@ function flash(){
   })(t0);
 }
 
+/* Two taps. Shape first, because that is the decision \u2014 then what you do
+   with the ball, which only makes sense once the shape is chosen. */
 function ask(){
   maskEl.style.display = 'none';
-  setVeil(true, 'Go', 'Where does the first touch go?');
-  el('askWord').firstChild.textContent = 'First touch';
-  el('askHint').textContent = 'Where does it go?';
+  setVeil(true, 'Go', 'Open or closed?');
+  el('askWord').firstChild.textContent = 'Body shape';
+  el('askHint').textContent = 'Can you turn, or not?';
   const box = el('answers'); box.innerHTML = '';
-  OPTIONS.forEach(o => {
+  SHAPES.forEach(sh => {
     const b = document.createElement('button');
     b.className = 'ans';
-    b.innerHTML = '<span class="arw">' + o.arrow(current.side) + '</span>' +
-                  '<span class="cap">' + o.label + '</span>';
-    b.onclick = () => answer(o.id, b);
+    b.innerHTML = '<span class="cap">' + sh.label + '</span>' +
+                  '<span class="sub">' + sh.hint + '</span>';
+    b.onclick = () => stageTwo(sh.id);
     box.appendChild(b);
   });
   timer.style.display = 'block';
   timer.style.transition = 'none'; timer.style.width = '100%';
   requestAnimationFrame(() => {
-    timer.style.transition = 'width '+CFG.answerMs+'ms linear';
+    timer.style.transition = 'width ' + CFG.answerMs + 'ms linear';
     timer.style.width = '0%';
   });
-  answerTimer = setTimeout(() => answer(null,null), CFG.answerMs);
+  answerTimer = setTimeout(() => answer(null, null), CFG.answerMs);
+}
+
+function stageTwo(shape){
+  setVeil(false);
+  el('askWord').firstChild.textContent = shape === 'open' ? 'Open \u2014 then what?'
+                                                          : 'Closed \u2014 then what?';
+  el('askHint').textContent = 'What does the first touch do?';
+  const box = el('answers'); box.innerHTML = '';
+  OPTIONS.filter(o => o.shape === shape).forEach(o => {
+    const b = document.createElement('button');
+    b.className = 'ans';
+    b.innerHTML = '<span class="cap">' + o.label + '</span>' +
+                  '<span class="sub">' + o.hint + '</span>';
+    b.onclick = () => answer(o.id, b);
+    box.appendChild(b);
+  });
 }
 
 function answer(choice, btn){
@@ -911,13 +915,12 @@ function answer(choice, btn){
     box.appendChild(w);
   }
   ranked.forEach(x => {
-    const opt = OPTIONS.find(z => z.id === x.id);
     const why = x.why[0] || (x.tier >= 2 ? 'fits the picture' : 'the picture does not support it here');
     const r = document.createElement('div');
     r.className = 'row' + (chosen && x.id === chosen.id ? ' picked' : '');
     r.innerHTML = '<span class="chip t' + x.tier + '">' + TIER_NAME[x.tier] + '</span>' +
-      '<span class="arw">' + opt.arrow(current.side) + '</span>' +
-      '<span class="wy"><b>' + x.label + '</b> — ' + why + '</span>' +
+      '<span class="wy"><b>' + (x.shape === 'open' ? 'Open' : 'Closed') + ' · ' +
+        x.label + '</b> — ' + why + '</span>' +
       (chosen && x.id === chosen.id ? '<span class="you">You</span>' : '');
     box.appendChild(r);
   });
@@ -1057,6 +1060,6 @@ el('reset').onclick = () => {
 
 el('hmeta').textContent = 'Rep 0 / ' + CFG.repsPerSession;
 resize();
-const seed = makeScene(1, 'line'); buildScene(seed); aimCamera(seed);
+const seed = makeScene(1, 'openRun'); buildScene(seed); aimCamera(seed);
 loadStats(); loop();
 </script>

@@ -42,10 +42,16 @@ header{display:flex;align-items:center;gap:14px;padding:9px 14px;border-bottom:1
 #stage canvas{display:block;width:100%;height:100%}
 #mask{position:absolute;inset:0;display:none;image-rendering:pixelated}
 #labels{position:absolute;inset:0;pointer-events:none;display:none}
-.tag{position:absolute;transform:translate(-50%,-50%);white-space:nowrap;
-  font-family:'Barlow Condensed',sans-serif;font-size:15px;letter-spacing:.06em;text-transform:uppercase;
-  background:rgba(10,20,14,.88);border:1px solid var(--line);border-left:3px solid var(--go);
-  padding:3px 9px;color:var(--flood)}
+#leaders{position:absolute;inset:0;display:none;pointer-events:none}
+#leaders line{stroke:var(--opp);stroke-width:1.3;opacity:.9}
+#leaders line.kit{stroke:var(--kit)}
+#leaders circle{fill:var(--opp)}
+#leaders circle.kit{fill:var(--kit)}
+
+.tag{position:absolute;white-space:nowrap;
+  font-family:'Barlow Condensed',sans-serif;font-size:13.5px;letter-spacing:.04em;text-transform:uppercase;
+  background:rgba(10,20,14,.92);border:1px solid var(--line);border-left:3px solid var(--go);
+  padding:2px 7px;color:var(--flood)}
 .tag.opp{border-left-color:var(--opp)}
 .tag.kit{border-left-color:var(--kit)}
 .veil{position:absolute;inset:0;display:none;align-items:center;justify-content:center;
@@ -127,6 +133,7 @@ footer{flex:0 0 auto;border-top:1px solid var(--line);background:var(--turf);col
   <div id="timer"></div>
   <canvas id="mask"></canvas>
   <div id="labels"></div>
+  <svg id="leaders"></svg>
   <div class="veil on" id="veil">
     <div class="big" id="veilBig">Ready</div>
     <div class="sub" id="veilSub">You are high and wide. Watch the ball for two seconds, then decide where to move.</div>
@@ -772,6 +779,7 @@ function nextRep(){
   aimCamera(current);
   setPhase(0, 0);
   labels.style.display = 'none'; labels.innerHTML = '';
+  el('leaders').style.display = 'none';
   maskEl.style.display = 'none'; timer.style.display = 'none';
   show(pAsk);
   el('askWord').firstChild.textContent = 'Look';
@@ -866,27 +874,96 @@ function answer(choice, btn){
 
 function drawLabels(){
   labels.innerHTML = ''; labels.style.display = 'block';
+  const svg = document.getElementById('leaders');
+  svg.style.display = 'block';
+  svg.innerHTML = '';
   const w = stage.clientWidth, h = stage.clientHeight;
-  const v = new THREE.Vector3(); const used = [];
+  svg.setAttribute('viewBox', '0 0 ' + w + ' ' + h);
+
+  const v = new THREE.Vector3();
+  const toScreen = (mesh, y) => {
+    v.set(0, y, 0); mesh.localToWorld(v); v.project(camera);
+    return { x:(v.x*0.5+0.5)*w, y:(-v.y*0.5+0.5)*h, z:v.z };
+  };
+
+  /* Every figure on screen, labelled or not \u2014 a caption may not sit on any. */
+  const figures = [];
+  placed.forEach(p => {
+    const head = toScreen(p.mesh, 1.95), foot = toScreen(p.mesh, 0);
+    if (head.z > 1) return;
+    /* head down to about the knee \u2014 a caption may clip empty grass by his
+       boots, but never his body */
+    const tall = Math.abs(foot.y - head.y);
+    const halfW = Math.max(9, tall * 0.30);
+    figures.push({ x0:head.x-halfW, x1:head.x+halfW,
+                   y0:head.y-4, y1:head.y + tall*0.8 + 4 });
+  });
+
+  const items = [];
   placed.forEach(p => {
     if (!p.tag) return;
-    v.set(0,2.15,0); p.mesh.localToWorld(v); v.project(camera);
-    if (v.z > 1) return;
-    let x = (v.x*0.5+0.5)*w, y = (-v.y*0.5+0.5)*h;
-    if (x < 70 || x > w-70 || y < 12 || y > h-12) return;
-    while (used.some(u => Math.abs(u.y-y) < 27 && Math.abs(u.x-x) < 160)) y -= 27;
-    if (y < 14) return;
-    used.push({x,y});
+    const a = toScreen(p.mesh, 2.0);
+    if (a.z > 1 || a.x < -60 || a.x > w + 60) return;
     const d = document.createElement('div');
     d.className = 'tag ' + (p.kind === 'own' ? 'kit' : 'opp');
-    d.style.left = x+'px'; d.style.top = y+'px'; d.textContent = p.tag;
+    d.textContent = p.tag;
+    d.style.visibility = 'hidden';
     labels.appendChild(d);
+    items.push({ el:d, a, w:d.offsetWidth || 120, h:d.offsetHeight || 20,
+                 kit:(p.kind === 'own') });
+  });
+
+  /* Search outward from the player and take the FIRST clear spot, so the
+     leader stays short and the caption stays next to whoever it names. */
+  const M = 5, RMAX = 115, taken = [];
+  items.sort((x, y) => x.a.y - y.a.y);
+  items.forEach(it => {
+    const hw = it.w/2, hh = it.h/2;
+    let best = null;
+    for (let r = 14; r <= RMAX && !best; r += 5){
+      for (let k = 0; k < 24; k++){
+        // sweep out from straight above, alternating left and right
+        const ang = -Math.PI/2 + (k % 2 ? 1 : -1) * Math.ceil(k/2) * (Math.PI/12);
+        const cx = it.a.x + Math.cos(ang)*r, cy = it.a.y + Math.sin(ang)*r;
+        const rect = { x0:cx-hw, x1:cx+hw, y0:cy-hh, y1:cy+hh };
+        if (rect.x0 < M || rect.x1 > w-M || rect.y0 < M || rect.y1 > h-M) continue;
+        if (figures.some(f => !(rect.x1 < f.x0 || rect.x0 > f.x1 || rect.y1 < f.y0 || rect.y0 > f.y1))) continue;
+        if (taken.some(f => !(rect.x1 < f.x0-4 || rect.x0 > f.x1+4 || rect.y1 < f.y0-4 || rect.y0 > f.y1+4))) continue;
+        const cost = r + (Math.sin(ang) > 0 ? 16 : 0);   // prefer above the player
+        if (!best || cost < best.cost) best = { cx, cy, rect, cost };
+      }
+    }
+    if (!best){ if (it.el.remove) it.el.remove(); return; }
+
+    it.el.style.left = (best.cx - hw) + 'px';
+    it.el.style.top  = (best.cy - hh) + 'px';
+    it.el.style.visibility = 'visible';
+    taken.push(best.rect);
+
+    /* leader runs from the edge of the box, not its centre, so it is only as
+       long as the gap between them */
+    const dx = it.a.x - best.cx, dy = it.a.y - best.cy;
+    const t = Math.min(dx ? hw/Math.abs(dx) : 9, dy ? hh/Math.abs(dy) : 9);
+    const ex = best.cx + dx*t, ey = best.cy + dy*t;
+    const len = Math.hypot(it.a.x - ex, it.a.y - ey);
+    if (len > 3){
+      const NS = 'http://www.w3.org/2000/svg';
+      const ln = document.createElementNS(NS, 'line');
+      ln.setAttribute('x1', ex); ln.setAttribute('y1', ey);
+      ln.setAttribute('x2', it.a.x); ln.setAttribute('y2', it.a.y);
+      if (it.kit) ln.setAttribute('class', 'kit');
+      svg.appendChild(ln);
+      const dot = document.createElementNS(NS, 'circle');
+      dot.setAttribute('cx', it.a.x); dot.setAttribute('cy', it.a.y); dot.setAttribute('r', 2.4);
+      if (it.kit) dot.setAttribute('class', 'kit');
+      svg.appendChild(dot);
+    }
   });
 }
 
 function endSession(){
   setVeil(true, 'Session done', 'Check the two bars. The lower one is where the work is.');
-  labels.style.display = 'none';
+  labels.style.display = 'none'; el('leaders').style.display = 'none';
   el('hmeta').textContent = 'Session done';
   el('sumScore').textContent = (sMax ? Math.round(100*sPts/sMax) : 0)+'%';
   el('sumFlash').textContent = sBest + '/' + CFG.repsPerSession;
