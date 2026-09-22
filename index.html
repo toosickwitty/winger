@@ -1,0 +1,115 @@
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0d1b12">
+<title>Winger Training</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600&family=Inter:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root{
+  color-scheme: dark;
+  --turf:#0d1b12; --card:#17301f; --line:#33553d;
+  --flood:#f5f8f3; --dim:#b6c9bb; --go:#c6ef2f;
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html{background:var(--turf)}
+body{margin:0;min-height:100%;background:var(--turf);color:var(--flood);
+  font-family:Inter,system-ui,-apple-system,sans-serif;
+  background-image:repeating-linear-gradient(180deg,
+    rgba(255,255,255,.015) 0 44px, rgba(0,0,0,.015) 44px 88px);}
+.wrap{max-width:620px;margin:0 auto;padding:32px 18px calc(40px + env(safe-area-inset-bottom))}
+
+.mark{font-family:'Barlow Condensed',sans-serif;font-weight:600;font-size:30px;
+  letter-spacing:.16em;text-transform:uppercase;margin:0}
+.mark span{color:var(--go)}
+.tag{color:var(--dim);font-size:14.5px;line-height:1.55;margin:9px 0 26px;max-width:46ch}
+
+a.card{display:block;text-decoration:none;color:inherit;background:var(--card);
+  border:1px solid var(--line);border-radius:12px;padding:18px 18px 16px;margin-bottom:12px}
+a.card:active{background:#1d3c27}
+.row{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap}
+.name{font-family:'Barlow Condensed',sans-serif;font-size:27px;letter-spacing:.09em;
+  text-transform:uppercase;line-height:1}
+.kind{font-family:'Barlow Condensed',sans-serif;font-size:14px;letter-spacing:.12em;
+  text-transform:uppercase;color:var(--go)}
+.desc{color:var(--dim);font-size:14.5px;line-height:1.55;margin:10px 0 0}
+.meta{display:flex;flex-wrap:wrap;gap:7px;margin-top:13px}
+.pill{font-family:'Barlow Condensed',sans-serif;font-size:13px;letter-spacing:.1em;
+  text-transform:uppercase;color:var(--dim);border:1px solid var(--line);
+  border-radius:5px;padding:3px 9px}
+.go{display:flex;align-items:center;gap:7px;margin-top:15px;
+  font-family:'Barlow Condensed',sans-serif;font-size:17px;letter-spacing:.11em;
+  text-transform:uppercase;color:var(--go)}
+.go svg{width:15px;height:15px}
+
+.note{border-top:1px solid var(--line);margin-top:24px;padding-top:18px;
+  color:var(--dim);font-size:13.5px;line-height:1.6}
+.note b{color:var(--flood);font-weight:500}
+.note p{margin:0 0 10px}
+.note p:last-child{margin:0}
+@media (min-width:560px){ .wrap{padding-top:52px} .mark{font-size:34px} }
+</style>
+
+<div class="wrap">
+  <h1 class="mark">Winger<span>.</span></h1>
+  <p class="tag">Two decision drills, played from a winger's own eye level. Pick a side, watch a
+     moment of live play, then choose. All three track the left and right wing separately, so a
+     weaker side shows up on its own.</p>
+
+  <a class="card" href="shoulder.html">
+    <div class="row"><span class="name">Shoulder</span><span class="kind">First touch</span></div>
+    <p class="desc">The ball is already on its way to you. Half a second to look up the pitch over
+       your shoulder, then decide where the first touch goes — down the line, 45&deg; in, square
+       inside, or set it back.</p>
+    <div class="meta">
+      <span class="pill">Half-second look</span>
+      <span class="pill">16 reps</span>
+      <span class="pill">Left or right</span>
+    </div>
+    <div class="go">Start
+      <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2"
+           stroke-linecap="round" stroke-linejoin="round"><path d="M3 8h10M9 4l4 4-4 4"/></svg>
+    </div>
+  </a>
+
+  <a class="card" href="movement.html">
+    <div class="row"><span class="name">Pocket</span><span class="kind">Movement</span></div>
+    <p class="desc">One player per lane, the way Guardiola and Flick coach it. Two blue shirts
+       decide where you go: is your full-back overlapping outside you, and is your 8 in
+       the half-space inside you?</p>
+    <div class="meta">
+      <span class="pill">Two-second watch</span>
+      <span class="pill">16 reps</span>
+      <span class="pill">Left or right</span>
+    </div>
+    <div class="go">Start
+      <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2"
+           stroke-linecap="round" stroke-linejoin="round"><path d="M3 8h10M9 4l4 4-4 4"/></svg>
+    </div>
+  </a>
+
+  <a class="card" href="cross.html">
+    <div class="row"><span class="name">Byline</span><span class="kind">Crossing</span></div>
+    <p class="desc">You are at the byline with the ball and three runners attacking the box.
+       One glance in, then pick the delivery — near post, cutback, far post, or nobody is on
+       and you keep it.</p>
+    <div class="meta">
+      <span class="pill">One glance</span>
+      <span class="pill">16 reps</span>
+      <span class="pill">Left or right</span>
+    </div>
+    <div class="go">Start
+      <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2"
+           stroke-linecap="round" stroke-linejoin="round"><path d="M3 8h10M9 4l4 4-4 4"/></svg>
+    </div>
+  </a>
+
+  <div class="note">
+    <p><b>On a phone or tablet</b>, open this page in the browser and use <b>Add to Home
+       Screen</b>. It gets an icon and opens full-screen, with no browser bar eating the pitch.</p>
+    <p>Sessions run about six minutes. Short and often beats long and once — and screen work only
+       earns its keep if it gets rehearsed on grass, with someone calling for a look before the
+       ball is played.</p>
+    <p>Needs an internet connection to load.</p>
+  </div>
+</div>
