@@ -48,6 +48,7 @@ header{display:flex;align-items:center;gap:14px;padding:9px 14px;border-bottom:1
 #leaders circle{fill:var(--opp)}
 #leaders circle.kit{fill:var(--kit)}
 
+
 .tag{position:absolute;white-space:nowrap;
   font-family:'Barlow Condensed',sans-serif;font-size:13.5px;letter-spacing:.04em;text-transform:uppercase;
   background:rgba(10,20,14,.92);border:1px solid var(--line);border-left:3px solid var(--go);
@@ -91,6 +92,8 @@ footer{flex:0 0 auto;border-top:1px solid var(--line);background:var(--turf);col
 .ans.right{background:var(--go);color:#0d1b12;border-color:var(--go)}
 .ans.right .sub,.ans.wrong .sub{color:inherit;opacity:.75}
 .ans.wrong{background:var(--opp);color:#fff;border-color:var(--opp)}
+.ans.part{background:var(--warn);color:#0d1b12;border-color:var(--warn)}
+.ans.part .sub{color:inherit;opacity:.75}
 .cta{width:100%;background:var(--go);color:#0d1b12;border:0;border-radius:9px;padding:15px;
   font-family:'Barlow Condensed',sans-serif;font-size:20px;letter-spacing:.1em;text-transform:uppercase;font-weight:600;cursor:pointer}
 .cta.ghost{background:none;color:var(--dim);border:1px solid var(--line);margin-top:6px}
@@ -136,7 +139,7 @@ footer{flex:0 0 auto;border-top:1px solid var(--line);background:var(--turf);col
   <svg id="leaders"></svg>
   <div class="veil on" id="veil">
     <div class="big" id="veilBig">Ready</div>
-    <div class="sub" id="veilSub">You are high and wide. Watch the ball for two seconds, then decide where to move.</div>
+    <div class="sub" id="veilSub">You are holding width. Two seconds: where are your full-back and your 8?</div>
   </div>
 </div>
 
@@ -149,7 +152,7 @@ footer{flex:0 0 auto;border-top:1px solid var(--line);background:var(--turf);col
       <button data-side="alt" aria-pressed="false">Both</button>
     </div>
     <button class="cta" id="start">Start session</button>
-    <p class="note">16 reps, about six minutes. The ball is at your midfielder's feet. Watch two seconds of play, then decide where to move before the pass comes.</p>
+    <p class="note">16 reps, about six minutes. Each rep starts with a check over your shoulder at the ball, then your head comes round to read the lanes. One player per lane: is your full-back overlapping outside you, and is your 8 in the half-space inside you?</p>
   </div>
 
   <div id="panelAsk" class="hide">
@@ -159,6 +162,7 @@ footer{flex:0 0 auto;border-top:1px solid var(--line);background:var(--turf);col
 
   <div id="panelFeedback" class="hide">
     <div class="rank" id="rank"></div>
+    <button class="cta ghost" id="replay">Replay the look</button>
     <button class="cta" id="next">Next rep</button>
   </div>
 
@@ -180,6 +184,8 @@ footer{flex:0 0 auto;border-top:1px solid var(--line);background:var(--turf);col
 const CFG = {
   cueMs: 800,
   flashMs: 2000,       // he is watching the ball develop, not stealing a glance
+  checkMs: 550,        // the shoulder check: eyes on the ball carrier first
+  turnMs:  500,        // then the head comes round to read the lanes
   maskMs: 200,
   /* metres per second. A quick 12-year-old tops out near 6; jockeying
      and shuffling are far slower, and that difference is the read. */
@@ -192,9 +198,9 @@ const CFG = {
   eyeHeight: 1.55,
   wingX: 28,                        // where he is standing, off the touchline
   ballAt: [-11.5, 16.5],            // roughly where the pass will come from
-  hFov: 96,                         // HORIZONTAL degrees; vertical is derived from aspect
+  hFov: 104,                         // HORIZONTAL degrees; vertical is derived from aspect
   vFovMax: 76,
-  look: { ox: -13.58, oz: 3.39 },   // back and infield: the ball, their lines, the pocket
+  look: { ox: -12.21, oz: -22.96 },  // forward and infield: his lane, the half-space, their line
   colors: { own: 0x5b9dff, opp: 0xff5c44, skin: 0xe8c9a0 }
 };
 
@@ -224,34 +230,57 @@ const pick = a => a[Math.floor(Math.random()*a.length)];
    one option being rare. */
 /* One cue decides each rep. Everything else in the picture is noise he has
    to see past. */
+/* Three things a winger can actually see, each a different object on the
+   pitch, and exactly one of them is "on" in any given rep:
+
+     their full-back has tucked inside   -> the touchline is yours, hold width
+     their line is high                  -> grass behind them, go
+     the gap between their lines is open -> underlap into the half-space
+     none of the above                   -> nothing is on, come and get it
+
+   Whether the man on the ball is under pressure is deliberately NOT a cue. It
+   is a ball-carrier's problem; it does not change where a winger should be. */
+/* ONE question: which space has nobody standing in it?
+
+   Three zones ahead of him. Each has a defender in it EXCEPT one \u2014 and that
+   one is the answer. If all three are occupied, nothing is on and he comes
+   back to the ball. No magnitudes to judge, no distances to estimate: a body
+   is either there or it is not. */
+/* POSITIONAL PLAY: one player per lane.
+
+   In juego de posicion the winger's position is decided by his TEAMMATES as
+   much as by the opposition. Two blue shirts settle it:
+
+     your full-back overlapping outside you?   your 8 in the half-space inside you?
+
+       no  / yes  -> HOLD WIDTH      the 8 has the half-space; pin their full-back
+                                      high and wide so the 8 has room (Yamal's job)
+       yes / no   -> TAKE THE HALF-SPACE   the touchline is his now; two in one
+                                      lane is one too many, so go inside
+       yes / yes  -> COME SHORT      your full-back is already making the run down
+                                      the channel and your 8 has the half-space. A
+                                      third runner there is one too many: drop,
+                                      drag their full-back with you, and give the
+                                      ball the inside option
+       no  / no   -> RUN IN BEHIND   nobody is ahead of you this side, so the
+                                      run is yours to make */
 const TEMPLATES = {
-  width:  [ { press:false, step:false, pocket:false, shifted:true  } ],
-  behind: [ { press:false, step:true,  pocket:false, shifted:false } ],
-  pocket: [ { press:false, step:false, pocket:true,  shifted:false } ],
-  check:  [ { press:true,  step:false, pocket:false, shifted:false } ]
+  width:  [ { fb:false, eight:true  } ],
+  half:   [ { fb:true,  eight:false } ],
+  behind: [ { fb:false, eight:false } ],
+  short:  [ { fb:true,  eight:true  } ]
 };
 
-const LOOK_DEG = 166, ARC_SAFE = 40;
-
-/* Where he would actually receive the ball for each answer. The whole point
-   of a movement is to become passable \u2014 so the lane from the ball to that
-   spot has to be open, or the answer is not an answer. */
-const RECV = {
-  width:  [ 0.5, -1.0],   // stays put, ball down the line
-  behind: [-2.0, -9.0],   // in behind their line
-  pocket: [-9.0,  8.0],   // between their lines, half-space
-  check:  [ 1.5,  9.0]    // back down the touchline toward the ball
-};
-/* a driven ball in behind can go between defenders; the others cannot */
-const LANE_R = { width:1.9, behind:1.3, pocket:1.9, check:1.9 };
+const LANE_R = { width:1.9, half:1.9, behind:1.3, short:1.9 };
 
 function distToLane(q, a, b){
-  const vx = b[0]-a[0], vz = b[1]-a[1];
-  const L2 = vx*vx + vz*vz || 1;
+  const vx = b[0]-a[0], vz = b[1]-a[1], L2 = vx*vx + vz*vz || 1;
   let t = ((q[0]-a[0])*vx + (q[1]-a[1])*vz) / L2;
   t = Math.max(0, Math.min(1, t));
   return Math.hypot(q[0] - (a[0]+vx*t), q[1] - (a[1]+vz*t));
 }
+
+const LOOK_DEG = 242, ARC_SAFE = 50;
 function polar(offDeg, dist){
   const b = (LOOK_DEG + offDeg) * Math.PI/180;
   return [dist*Math.cos(b), dist*Math.sin(b)];
@@ -270,9 +299,6 @@ function drop(taken, gen, min){
     taken.forEach(t => d = Math.min(d, Math.hypot(t[0]-p[0], t[1]-p[1])));
     if (d > bestD){ bestD = d; best = p; }
   }
-  /* Nothing random cleared, so take the roomiest candidate and shove it off
-     whatever is crowding it. Giving up and placing anyway put players on top
-     of each other. */
   let p = best.slice();
   for (let k = 0; k < 20 && !clears(taken, p, min); k++){
     let near = taken[0], nd = Infinity;
@@ -282,7 +308,6 @@ function drop(taken, gen, min){
   }
   taken.push(p); return p;
 }
-
 function shuffle(a){
   for (let i = a.length-1; i > 0; i--){
     const j = Math.floor(Math.random()*(i+1));
@@ -290,11 +315,8 @@ function shuffle(a){
   }
   return a;
 }
-
-/* Exactly 4 of each per session, built so no two identical answers sit next
-   to each other. */
 function newBag(){
-  const n = CFG.repsPerSession, ids = ['width','behind','pocket','check'];
+  const n = CFG.repsPerSession, ids = ['width','half','behind','short'];
   const left = {}, base = Math.floor(n/4);
   ids.forEach(k => left[k] = base);
   shuffle(ids.slice()).slice(0, n % 4).forEach(k => left[k]++);
@@ -313,180 +335,156 @@ function newBag(){
   }
   return out;
 }
-
 const varBag = {};
 function nextVariant(answer){
-  if (!TEMPLATES[answer]) answer = 'width';
+  if (!TEMPLATES[answer]) answer = 'short';
   if (!varBag[answer] || !varBag[answer].length)
     varBag[answer] = shuffle(TEMPLATES[answer].map((_, i) => i));
   return TEMPLATES[answer][varBag[answer].pop()];
 }
 
+function recvPoint(answer, lineOz){
+  switch (answer){
+    case 'width':  return [ 1.0, -2.0];                 // stays on the touchline
+    case 'half':   return [-10.0,-3.0];                 // inside, into the half-space
+    case 'behind': return [-3.0, lineOz - 6.0];         // vertical, past their last man
+    default:       return [-3.5,  8.5];                 // back toward the ball
+  }
+}
+
 function buildCandidate(side, answer){
   const t = nextVariant(answer);
-  const gap = t.pocket ? rand(15,18) : rand(4,6);
-  const shift = t.shifted ? 7.5 : 0;
-  /* Their line must sit goal-side of him or he is stood offside. Negative oz
-     is toward their goal; his own position is oz 0. */
+  const wingX = rand(26.5, 29.5);
+  const zBase = rand(-21, -17);                          // start of the attacking third
+  const lineOz = rand(-12.0, -10.0);                     // their line, constant: not a cue
+  const W = (wx, wz) => [wx - wingX, wz - zBase];
+  const recv = recvPoint(answer, lineOz);
   const taken = [];
 
-  /* Their back four, widest man first. He plays on their shoulder, so the
-     line sits a metre or two behind him. When the line slides across, the
-     whole thing moves and the wide lane opens. */
-  /* The widest of their four is his marker. Unless the line has slid across
-     he is TIGHT — which is what makes staying wide a dead end and forces the
-     other three answers to earn themselves. */
+  const passerAt = drop(taken, () => [rand(-26,-22), rand(7.0, 10.0)], 3.0);
+  const onLane = q => distToLane(q, passerAt, recv) < LANE_R[answer];
+
+  /* THE TWO CUES \u2014 both teammates, both in blue, each either there or not */
+  const fbAt    = t.fb    ? drop(taken, () => [rand( 0.2, 1.6), lineOz + rand(2.5, 5.0)], 2.2) : null;   // onside by construction
+  const eightAt = t.eight ? drop(taken, () => [rand(-13.0,-10.0), rand(-7.0,-4.0)], 2.2) : null;
+
+  /* their shape: full-back on him, back line, a holding midfielder, keeper */
+  const markerAt = drop(taken, () => [rand(-3.0,-1.2), rand(-4.8,-3.2)], 1.4);
   const lineAt = [];
-  for (let i = 0; i < 4; i++)
-    lineAt.push(drop(taken,
-      () => [-(6.5 + shift + i*6.5) + rand(-0.5,0.5),
-             t.step ? rand(-1.4,-0.2) : rand(-1.6,-0.2)], 2.6));
-  const markerAt = lineAt[0];
-
-  /* the man on the ball sits behind their midfield line */
-  /* he sits a clear 7-9 m behind their midfield line, so no opponent is ever
-     accidentally next to him when he is meant to be free */
-  const passerAt = drop(taken, () => [rand(-19,-15), gap + rand(6,8)], 3.0);
-
-  /* pressed: one man sprinting onto him. free: nobody within nine metres,
-     so there is never any doubt about which it is. */
-  const recv = RECV[answer], laneR = LANE_R[answer];
-  const onLane = q => distToLane(q, passerAt, recv) < laneR;
-
-  const pressAt = t.press
-    ? drop(taken, () => [passerAt[0] - rand(0.5,1.4), passerAt[1] + rand(0.3,1.0)], 1.2)
-    : drop(taken, () => {
-        for (let i = 0; i < 50; i++){
-          const q = polar(rand(-28,-14), rand(10,19));
-          if (Math.hypot(q[0]-passerAt[0], q[1]-passerAt[1]) > 9 && !onLane(q)) return q;
-        }
-        return polar(-20, 11);
-      }, 2.6);
-
-  /* Everything placed from here on must stay off the passing lane, or the
-     movement he is being asked to make would not actually get him the ball. */
-
-
-  const midAt = [];
-  for (let i = 0; i < 3; i++)
-    midAt.push(drop(taken, () => {
-      for (let k = 0; k < 60; k++){
-        const q = [-(13 + shift*0.6 + i*6) + rand(-2.2,2.2), gap + rand(-1.0,1.0)];
-        if (Math.hypot(q[0]-passerAt[0], q[1]-passerAt[1]) > 6 && !onLane(q)) return q;
+  for (let i = 0; i < 2; i++)
+    lineAt.push(drop(taken, () => {
+      for (let k = 0; k < 40; k++){
+        const q = [-(17 + i*11) + rand(-1.5,1.5), lineOz + rand(-0.6,0.6)];
+        if (!onLane(q)) return q;
       }
-      return [-(13 + shift*0.6 + i*6) - 3, gap];
+      return [-(17 + i*11), lineOz];
     }, 2.6));
+  const holderAt = drop(taken, () => {
+    for (let k = 0; k < 40; k++){
+      const q = [rand(-23,-20), lineOz + rand(3.5,5.0)];
+      if (!onLane(q)) return q;
+    }
+    return [-21.5, lineOz + 4.2];
+  }, 2.6);
 
-  /* THE POCKET, made plain: when it is shut a midfielder has dropped into the
-     gap on his side. When it is open the band is guaranteed empty \u2014 nobody
-     else may be placed inside it at all. */
-  const inPocket = t.pocket ? null
-    : drop(taken, () => {
-        for (let k = 0; k < 50; k++){
-          const q = [rand(-9,-5), gap*0.55 + rand(-0.8,0.8)];
-          if (!onLane(q)) return q;
-        }
-        return [-7, gap*0.55];
-      }, 2.2);
-
-  const clearOfPocket = q =>
-    !t.pocket || !(q[1] > 2.0 && q[1] < gap - 2.0 && q[0] > -15 && q[0] < 1.5);
-
-  /* He pins the centre backs high and central. Standing him in the half-space
-     would mean the pocket is already taken, and pinching in would be wrong. */
-  const lastLine = Math.max.apply(null, lineAt.map(q => q[1]));
-  const strikerAt = drop(taken, () => [rand(-24,-18), lastLine + rand(0.4, 3.2)], 2.6);
-
-  const extras = [];
-  const nExtra = Math.floor(Math.random()*3);
-  for (let i = 0; i < nExtra; i++)
-    extras.push([drop(taken, () => {
-      for (let k = 0; k < 50; k++){
-        const q = polar(rand(-25, 20), rand(13,26));
-        if (clearOfPocket(q) && !onLane(q)) return q;
-      }
-      return polar(-24, 22);
-    }, 2.4), rand(0.3, 0.85)]);
-
-  const mateAt = Math.random() < 0.6
-    ? drop(taken, () => {
-        for (let k = 0; k < 50; k++){
-          const q = polar(rand(-ARC_SAFE+8, ARC_SAFE-8), rand(11,18));
-          if (clearOfPocket(q) && Math.hypot(q[0]-recv[0], q[1]-recv[1]) > 5.5) return q;
-        }
-        return polar(-30, 17);
-      }, 2.6) : null;
+  /* his 9, central and on the shoulder of their line */
+  const strikerAt = drop(taken, () => [-wingX + rand(-2.5, 2.5), lineOz + rand(0.8, 2.2)], 2.6);
 
   return {
-    side,
-    wingX: rand(26, 30),
-    zBase: rand(-34, -28),          // holding width at the top of the final third
-    press: t.press, step: t.step, pocketOpen: t.pocket, shifted: t.shifted,
-    gap, markerAt, lineAt, midAt, inPocket, extras, passerAt, pressAt, strikerAt, mateAt,
-    intended: answer
+    side, wingX, zBase, lineOz, recv, fb:t.fb, eight:t.eight,
+    fbAt, eightAt, markerAt, lineAt, holderAt, passerAt, strikerAt,
+    keeperAt: W(rand(-1.5,1.5), rand(-50.0,-49.2)),
+    toOff: W, intended: answer
   };
 }
 
-/* A movement is only the right answer if the ball can actually reach him
-   there. The back line is placed before the lane is known, so rather than
-   patch each body individually the whole scene is generated and then
-   accepted or thrown away. */
 function laneOK(sc, answer){
-  const recv = RECV[answer], R = LANE_R[answer];
-  let opp = [...sc.midAt, sc.pressAt];
-  if (sc.inPocket) opp.push(sc.inPocket);
-  sc.extras.forEach(e => opp.push(e[0]));
-  /* a ball played in behind travels past their line, so they do not block it */
-  if (answer !== 'behind') opp = opp.concat(sc.lineAt);
-  /* and whoever is pressing the ball stands at the start of every lane by
-     definition \u2014 he is closing the man down, not covering the pass */
-  return opp.every(q =>
-    Math.hypot(q[0]-sc.passerAt[0], q[1]-sc.passerAt[1]) < 3.0 ||
-    distToLane(q, sc.passerAt, recv) >= R);
+  const opp = [sc.markerAt, ...sc.lineAt, sc.holderAt];
+  return opp.every(q => distToLane(q, sc.passerAt, sc.recv) >= LANE_R[answer]);
 }
-
+function inPlay(sc){
+  /* the ball is behind his shoulder: he has checked it, now he reads the lanes */
+  const base = [sc.markerAt, ...sc.lineAt, sc.holderAt, sc.strikerAt, sc.keeperAt];
+  if (sc.fbAt) base.push(sc.fbAt);
+  if (sc.eightAt) base.push(sc.eightAt);
+  const B = sc.passerAt, pts = base.slice();
+  base.forEach(p => {
+    const dx = p[0]-B[0], dz = p[1]-B[1], L = Math.hypot(dx, dz) || 1;
+    pts.push([p[0] + dx/L*1.2, p[1] + dz/L*1.2]);
+  });
+  return pts.every(p =>
+    Math.abs(sc.wingX + p[0]) <= 33.5 && Math.abs(sc.zBase + p[1]) <= 52.2 &&
+    Math.abs(((Math.atan2(p[1], p[0])*180/Math.PI) - LOOK_DEG + 540) % 360 - 180) <= ARC_SAFE);
+}
+/* The cue players must be SEEN: clear of every red shirt on the pitch, and
+   clear of them from his eye too, so no defender stands in front of or behind
+   them on the same bearing. An 8 two metres from their holding midfielder is
+   an 8 you do not notice. */
+function cuesStandOut(sc){
+  const opp = [sc.markerAt, ...sc.lineAt, sc.holderAt, sc.keeperAt];
+  const cues = [sc.eightAt, sc.fbAt].filter(Boolean);
+  return cues.every(c => opp.every(q => {
+    if (Math.hypot(c[0]-q[0], c[1]-q[1]) < 5.0) return false;
+    let d = Math.atan2(c[1], c[0]) - Math.atan2(q[1], q[0]);
+    while (d >  Math.PI) d -= Math.PI*2;
+    while (d < -Math.PI) d += Math.PI*2;
+    return Math.abs(d) * 180/Math.PI >= 4.0;
+  }));
+}
 function makeScene(side, answer){
   let last = null;
-  for (let attempt = 0; attempt < 60; attempt++){
+  for (let attempt = 0; attempt < 300; attempt++){
     const sc = buildCandidate(side, answer);
-    if (laneOK(sc, answer)) return sc;
+    if (laneOK(sc, answer) && inPlay(sc) && cuesStandOut(sc)) return sc;
     last = sc;
   }
   return last;
 }
 
 const OPTIONS = [
-  { id:'width',  label:'High and wide',      hint:'hold your spot on the touchline' },
-  { id:'behind', label:'Make a run',         hint:'forward, beyond their line' },
-  { id:'pocket', label:'Pinch in to pocket', hint:'into the gap between their lines' },
-  { id:'check',  label:'Drop and square',    hint:'back toward the ball, stay wide' }
+  { id:'width',  label:'Hold width',          hint:'stay on the touchline, pin their full-back' },
+  { id:'half',   label:'Take the half-space', hint:'inside, between their full-back and centre back' },
+  { id:'behind', label:'Run in behind',       hint:'vertical, past their last man' },
+  { id:'short',  label:'Come short',          hint:'back toward the ball' }
 ];
 const TIER_NAME = ['Turnover','Workable','Good','Best'];
 
+/* Every answer, in every picture, gets its OWN reason \u2014 saying why that
+   particular move is right, workable or wrong, rather than repeating the
+   winning reason at the losers. Tier: 3 best, 1 workable, 0 turnover. */
+const VERDICT = {
+  width: {        // 8 in the half-space, nobody outside you
+    width:  [3, 'your 8 has the half-space and nobody has gone outside you \u2014 hold the width and pin their full-back so the 8 has room'],
+    behind: [1, 'it is on, but running pulls their full-back back with you and closes the gap your 8 is standing in \u2014 holding width helps him more'],
+    half:   [0, 'your 8 is already in the half-space \u2014 going there puts two of you in one lane'],
+    short:  [0, 'coming back leaves the wide lane empty, and their full-back tucks in onto your 8']
+  },
+  half: {         // full-back overlapping, half-space empty
+    half:   [3, 'your full-back has overlapped into your lane \u2014 two in one lane is one too many, so go inside into the half-space'],
+    width:  [0, 'your full-back has the touchline now \u2014 staying there puts two of you in the wide lane'],
+    behind: [0, 'your full-back is already making that run down the channel \u2014 two runners in one lane'],
+    short:  [0, 'coming back leaves the half-space empty, with nobody inside to link with your full-back']
+  },
+  behind: {       // nobody ahead of you on this side
+    behind: [3, 'nobody is ahead of you on this side \u2014 the run in behind is yours to make'],
+    width:  [1, 'safe, and in your lane \u2014 but nobody is ahead of you, and nobody else is going to make the run in behind'],
+    half:   [0, 'the half-space is empty, but so is everything ahead \u2014 going inside takes away the only run on this side'],
+    short:  [0, 'coming back leaves nobody ahead of the ball on this side at all']
+  },
+  short: {        // full-back overlapping AND 8 in the half-space
+    short:  [3, 'your full-back is already running down the channel and your 8 has the half-space \u2014 a third runner is one too many, so come short, drag their full-back with you and give the ball the inside option'],
+    width:  [0, 'your full-back already has the touchline \u2014 two of you in the wide lane'],
+    half:   [0, 'your 8 is already in the half-space \u2014 two of you in one lane'],
+    behind: [0, 'your full-back is already making that run \u2014 a third runner down the channel is one too many']
+  }
+};
+
 function scoreScene(s){
-  const o = {}; OPTIONS.forEach(x => o[x.id] = { id:x.id, label:x.label, v:1, why:[] });
-  const add = (k,d,why) => { if (!d) return; o[k].v += d; if (why && Math.abs(d) >= 1) o[k].why.push(why); };
-
-  add('check',  s.press ?  3.0 : -1.5,
-      s.press ? 'a man is on your passer — give him an easy wide ball to escape' : '');
-  add('behind', s.step  ?  2.6 : -2.0,
-      s.step ? 'their whole line is stepping up together — go the moment it moves' : '');
-  add('behind', s.press ? -1.5 : 0, 'he is under pressure and cannot hit that pass');
-  add('pocket', s.pocketOpen ? 2.6 : -2.0,
-      s.pocketOpen ? 'marked out wide with nothing behind them — the empty gap is the only place you get the ball facing forward' : '');
-  add('pocket', s.press ? -1.0 : 0, '');
-  add('pocket', s.step  ? -0.8 : 0, '');
-  add('width',  s.shifted ? 2.2 : -1.5,
-      s.shifted ? 'their line slid across and your marker went with it — the touchline is yours' : '');
-  add('width',  s.press ? -1.2 : 0, '');
-  add('width',  s.step  ? -0.6 : 0, '');
-  add('width',  s.pocketOpen ? -0.6 : 0, '');
-
-  const list = Object.values(o).sort((a,b) => b.v - a.v);
-  const max = list[0].v;
-  list.forEach(x => {
-    x.tier = x.v >= max - 0.4 ? 3 : x.v >= max - 1.6 ? 2 : x.v >= max - 3.4 ? 1 : 0;
-  });
+  const key = s.fb ? (s.eight ? 'short' : 'half') : (s.eight ? 'width' : 'behind');
+  const V = VERDICT[key];
+  const list = OPTIONS.map(x => ({ id:x.id, label:x.label, tier:V[x.id][0],
+                                   v:1 + V[x.id][0], why:[V[x.id][1]] }));
+  list.sort((a,b) => b.tier - a.tier);
   return list;
 }
 
@@ -504,6 +502,36 @@ const sun = new THREE.DirectionalLight(0xffffff, 0.85);
 sun.position.set(-25, 40, 25); scene.add(sun);
 
 const camera = new THREE.PerspectiveCamera(50, 1, 0.1, 300);
+
+/* The path he should have run, laid ON the grass as geometry rather than
+   painted over the top of everything. Drawn flat at boot height, so a player
+   standing in the way hides the part behind him \u2014 an overlay went straight
+   through people. */
+const pathGroup = new THREE.Group();
+function clearPath(){ while (pathGroup.children.length) pathGroup.remove(pathGroup.children[0]); }
+function drawPath3D(s){
+  clearPath();
+  const r = recvPoint(s.intended, s.lineOz);
+  const ax = s.side*s.wingX, az = s.zBase;
+  const bx = s.side*(s.wingX + r[0]), bz = s.zBase + r[1];
+  const mat = new THREE.MeshBasicMaterial({ color: 0xc6ef2f });
+  const dx = bx-ax, dz = bz-az, L = Math.hypot(dx, dz) || 1;
+  const ux = dx/L, uz = dz/L, yaw = Math.atan2(ux, uz);
+
+  for (let d = 1.9; d < L - 1.5; d += 0.95){
+    const m = new THREE.Mesh(new THREE.BoxGeometry(0.17, 0.02, 0.55), mat);
+    m.position.set(ax + ux*(d + 0.27), 0.05, az + uz*(d + 0.27));
+    m.rotation.y = yaw;
+    pathGroup.add(m);
+  }
+  for (let i = 0; i < 18; i++){
+    const a0 = i/18 * Math.PI*2;
+    const m = new THREE.Mesh(new THREE.BoxGeometry(0.17, 0.02, 0.45), mat);
+    m.position.set(bx + Math.cos(a0)*1.45, 0.05, bz + Math.sin(a0)*1.45);
+    m.rotation.y = -a0;
+    pathGroup.add(m);
+  }
+}
 
 function setFov(){
   const half = (CFG.hFov * Math.PI / 180) / 2;
@@ -575,6 +603,7 @@ netTop.rotation.x = -Math.PI/2; netTop.position.set(0, BAR, GOAL_Z - GOAL_D/2); 
 });
 
 const actors = new THREE.Group(); scene.add(actors);
+scene.add(pathGroup);
 
 /* A jointed figure. Body direction comes from the stride and shoulders,
    head direction from the face — and the two can disagree, which is
@@ -747,75 +776,61 @@ function buildScene(s){
   while (actors.children.length) actors.remove(actors.children[0]);
   placed = [];
 
-  const B = CFG.ballAt;
-  const ball = { watchAt: B };
-  const nudge = p => [p[0] + (B[0]-p[0])*0.12, p[1] + (B[1]-p[1])*0.12];
+  const B = s.passerAt;
+  const ball = { watch:true, watchAt:B };
+  const drift = p => [p[0] + (B[0]-p[0])*0.08, p[1] + (B[1]-p[1])*0.08];
 
-  /* ONE thing moves per rep. Everybody else holds their shape, so the cue is
-     the only motion in the picture instead of being buried in nine players
-     all drifting toward the ball at slightly different speeds.
+  /* the two cues, labelled for the feedback */
+  if (s.fbAt)
+    place('own', s.fbAt[0], s.fbAt[1], s, s.fbAt[0] + 0.3, s.fbAt[1] - 4.0,
+      'your full-back \u00b7 overlapping, the touchline is his', { speed:0.8, mps:3.4 });
+  if (s.eightAt)
+    place('own', s.eightAt[0], s.eightAt[1], s, s.eightAt[0], s.eightAt[1] - 1.5,
+      'your 8 \u00b7 in the half-space', { speed:0.35, mps:1.0, watch:true, watchAt:B });
 
-       stepping up  -> the back four travel together toward halfway
-       sliding over -> the back four travel together infield
-       otherwise    -> the back four barely move at all                     */
-  const lineRun = s.step
-    ? { d:[0, 9],   sp:0.45, v:0.9 }      // upfield, as a unit
-    : s.shifted
-      ? { d:[-9, 0], sp:0.42, v:1.1 }     // across, as a unit
-      : { d:null,    sp:0.18, v:0.35 };   // holding
+  place('own', s.strikerAt[0], s.strikerAt[1], s, s.strikerAt[0], s.strikerAt[1] - 1.5,
+    'your 9 \u00b7 central', { speed:0.3, mps:0.9, watch:true, watchAt:B });
 
-  const lineTo = p => lineRun.d ? [p[0] + lineRun.d[0], p[1] + lineRun.d[1]] : nudge(p);
-  const lineOpt = Object.assign({ speed: lineRun.sp, mps: lineRun.v }, ball);
+  place('opp', s.markerAt[0], s.markerAt[1], s, drift(s.markerAt)[0], drift(s.markerAt)[1],
+    'their full-back', Object.assign({ speed:0.2, mps:0.3 }, ball));
+  s.lineAt.forEach((p, i) => place('opp', p[0], p[1], s, drift(p)[0], drift(p)[1],
+    i === 0 ? 'their back line' : null, Object.assign({ speed:0.2, mps:0.5 }, ball)));
+  place('opp', s.holderAt[0], s.holderAt[1], s, drift(s.holderAt)[0], drift(s.holderAt)[1],
+    null, Object.assign({ speed:0.2, mps:0.5 }, ball));
+  place('gk', s.keeperAt[0], s.keeperAt[1], s, drift(s.keeperAt)[0], drift(s.keeperAt)[1],
+    'their keeper', Object.assign({ speed:0.15, mps:0.4 }, ball));
 
-  s.lineAt.forEach((p, i) => place('opp', p[0], p[1], s, lineTo(p)[0], lineTo(p)[1],
-    i === 0 ? (s.step     ? 'their line \u00b7 stepping up together'
-             : s.shifted ? 'their line \u00b7 slid across, wide lane open'
-             : null) : null, lineOpt));
-
-  /* their midfield holds its line whatever happens — the gap in front of it
-     is a spatial read, not a moving one */
-  s.midAt.forEach((p, i) => place('opp', p[0], p[1], s, nudge(p)[0], nudge(p)[1],
-    i === 0 ? ('their midfield \u00b7 ' + s.gap.toFixed(0) + 'm gap'
-               + (s.pocketOpen ? ', nobody in it' : '')) : null,
-    Object.assign({ speed:0.18, mps:0.35 }, ball)));
-
-  /* Whether anybody is standing in the gap is the clearest read there is.
-     When the pocket is open nothing is placed inside it at all. */
-  if (s.inPocket)
-    place('opp', s.inPocket[0], s.inPocket[1], s, nudge(s.inPocket)[0], nudge(s.inPocket)[1],
-      'sitting in the gap', Object.assign({ speed:0.2, mps:0.4 }, ball));
-
-  s.extras.forEach(([pos, sp]) =>
-    place('opp', pos[0], pos[1], s, nudge(pos)[0], nudge(pos)[1],
-      null, Object.assign({ speed: Math.min(sp, 0.35), mps: 0.6 }, ball)));
-
-  /* the man on the ball, and whether anyone is actually on him */
-  place('opp', s.pressAt[0], s.pressAt[1], s,
-    s.press ? s.passerAt[0] : nudge(s.pressAt)[0],
-    s.press ? s.passerAt[1] : nudge(s.pressAt)[1],
-    s.press ? 'sprinting in to shut your passer down' : null,
-    Object.assign({ speed: s.press ? 0.8 : 0.2, mps: s.press ? 2.8 : 0.5 }, ball));
-
-  place('own', s.passerAt[0], s.passerAt[1], s, s.passerAt[0] - 1.5, s.passerAt[1] - 0.5,
-    'the ball \u00b7 ' + (s.press ? 'a man is on him' : 'he has his head up'),
-    { speed:0.15, mps:0.4, watch:true, watchAt:[0,0], flag:true });
-
+  place('own', s.passerAt[0], s.passerAt[1], s, s.passerAt[0] - 1.2, s.passerAt[1] - 0.4,
+    'the ball', { speed:0.2, mps:0.4, watch:true, watchAt:[0,0], flag:true });
   const bl = new THREE.Mesh(new THREE.SphereGeometry(0.115,10,8),
     new THREE.MeshLambertMaterial({ color: 0xf7f7f2 }));
   bl.position.set(s.side*(s.wingX + s.passerAt[0] + 0.5), 0.115, s.zBase + s.passerAt[1] - 0.4);
   actors.add(bl);
-
-  place('own', s.strikerAt[0], s.strikerAt[1], s,
-    s.strikerAt[0] + rand(-1,1), s.strikerAt[1] - 6,
-    'your striker', { speed:0.5, mps:1.9 });
-
-  if (s.mateAt)
-    place('own', s.mateAt[0], s.mateAt[1], s,
-      s.mateAt[0] + rand(-2,2), s.mateAt[1] - rand(1,3), null,
-      { speed:0.25, mps:0.9 });
 }
 
+function aimReview(s){
+  reviewing = true; camAim = null;
+  camera.position.set(s.side*(s.wingX + 10), 14, s.zBase + 19);
+  camera.fov = 66;
+  camera.updateProjectionMatrix();
+  camera.lookAt(s.side*(s.wingX - 14), 0, s.zBase - 3);
+}
+/* The shoulder check. The rep opens with his eyes on the ball carrier, then
+   his head turns to the usual look. A winger knows where the ball is because
+   he has just checked it \u2014 this is that check, and the habit it trains is
+   the point of the whole suite. */
+let camAim = null;                      // [bearing, height] while not on the usual look
+function ballBearing(s){ return Math.atan2(s.passerAt[1], s.passerAt[0]) * 180/Math.PI; }
+function lookBearing(){ return Math.atan2(CFG.look.oz, CFG.look.ox) * 180/Math.PI; }
+function aimAt(s, bearingDeg, y){
+  reviewing = false; camAim = [bearingDeg, y];
+  const px = s.side*(s.wingX || CFG.wingX), pz = s.zBase, b = bearingDeg*Math.PI/180;
+  camera.position.set(px, CFG.eyeHeight, pz);
+  setFov();
+  camera.lookAt(px + s.side*26*Math.cos(b), y, pz + 26*Math.sin(b));
+}
 function aimCamera(s){
+  reviewing = false; camAim = null;
   const px = s.side*(s.wingX || CFG.wingX), pz = s.zBase;
   camera.position.set(px, CFG.eyeHeight, pz);
   setFov();
@@ -828,7 +843,11 @@ function resize(){
   camera.aspect = w/Math.max(h,1);
   setFov();
   const mc = document.getElementById('mask'); mc.width = w; mc.height = h;
-  if (current) aimCamera(current);
+  if (current){
+    if (reviewing) aimReview(current);
+    else if (camAim) aimAt(current, camAim[0], camAim[1]);
+    else aimCamera(current);
+  }
 }
 addEventListener('resize', resize);
 function loop(){ renderer.render(scene,camera); requestAnimationFrame(loop); }
@@ -877,6 +896,8 @@ function paintSides(){
 function startSession(){ rep = 0; sPts = 0; sMax = 0; sBest = 0; bag = newBag(); nextRep(); }
 
 function nextRep(){
+  replaying = false;
+  const rb = el('replay'); if (rb){ rb.disabled = false; rb.textContent = 'Replay the look'; }
   if (rep >= CFG.repsPerSession) return endSession();
   rep++;
   lastSide = stats.side === 'alt' ? -lastSide : (stats.side === 'R' ? 1 : -1);
@@ -886,7 +907,8 @@ function nextRep(){
   current = makeScene(lastSide, bag.pop());
   ranked = scoreScene(current);
   buildScene(current);
-  aimCamera(current);
+  aimAt(current, ballBearing(current), 1.1);   // eyes on the ball first
+  clearPath();
   setPhase(0, 0);
   labels.style.display = 'none'; labels.innerHTML = '';
   el('leaders').style.display = 'none';
@@ -895,12 +917,29 @@ function nextRep(){
   el('askWord').firstChild.textContent = 'Look';
   el('askHint').textContent = 'Ball is at your midfielder.';
   el('answers').innerHTML = '';
-  setVeil(true, current.side === 1 ? 'Right wing' : 'Left wing', 'Watch. Two seconds, then decide.');
+  setVeil(true, current.side === 1 ? 'Right wing' : 'Left wing', 'Check the ball, then read the picture.');
   setTimeout(flash, CFG.cueMs);
 }
 
 function flash(){
   setVeil(false);
+  const a0 = ballBearing(current), a1 = lookBearing();
+  const d = ((a1 - a0 + 540) % 360) - 180;          // the short way round, over the inside shoulder
+  aimAt(current, a0, 1.1);
+  const t0 = performance.now();
+  (function turn(now){
+    const e = now - t0;
+    if (e < CFG.checkMs){ requestAnimationFrame(turn); return; }
+    const k = Math.min(1, (e - CFG.checkMs) / CFG.turnMs);
+    const q = k < 0.5 ? 2*k*k : 1 - Math.pow(-2*k + 2, 2)/2;   // ease in and out, like a head turn
+    aimAt(current, a0 + d*q, 1.1 + 0.4*q);
+    if (k < 1){ requestAnimationFrame(turn); return; }
+    aimCamera(current);
+    look();
+  })(t0);
+}
+
+function look(){
   const t0 = performance.now();
   (function step(now){
     const el = now - t0;
@@ -912,6 +951,46 @@ function flash(){
       drawMask(); maskEl.style.display = 'block';
       setTimeout(ask, CFG.maskMs);
     }
+  })(t0);
+}
+
+/* Watch the same rep again from his eyes, now that he knows what the
+   explanations are talking about. Nothing is re-scored and the rep does not
+   advance \u2014 it is the identical scene, played back. */
+let replaying = false;
+function replayLook(){
+  if (replaying || !current) return;
+  replaying = true;
+  const btn = el('replay'); btn.disabled = true; btn.textContent = 'Watching\u2026';
+  labels.style.display = 'none'; el('leaders').style.display = 'none';
+  clearPath();
+  setPhase(0, 0);
+
+  const a0 = ballBearing(current), a1 = lookBearing();
+  const d = ((a1 - a0 + 540) % 360) - 180;
+  aimAt(current, a0, 1.1);
+  const t0 = performance.now();
+  (function turn(now){
+    const e = now - t0;
+    if (e < CFG.checkMs){ requestAnimationFrame(turn); return; }
+    const k = Math.min(1, (e - CFG.checkMs) / CFG.turnMs);
+    const q = k < 0.5 ? 2*k*k : 1 - Math.pow(-2*k + 2, 2)/2;
+    aimAt(current, a0 + d*q, 1.1 + 0.4*q);
+    if (k < 1){ requestAnimationFrame(turn); return; }
+    aimCamera(current);
+    const t1 = performance.now();
+    (function step(now2){
+      const el2 = now2 - t1, kk = Math.min(1, el2 / CFG.flashMs);
+      setPhase(kk, el2/1000);
+      if (kk < 1){ requestAnimationFrame(step); return; }
+      setPhase(1, CFG.flashMs/1000);
+      drawPath3D(current);
+      aimReview(current);
+      renderer.render(scene, camera);
+      drawLabels();
+      replaying = false;
+      btn.disabled = false; btn.textContent = 'Replay the look';
+    })(t1);
   })(t0);
 }
 
@@ -947,7 +1026,7 @@ function answer(choice, btn){
 
   [...el('answers').children].forEach(b => {
     b.disabled = true;
-    if (btn && b === btn) b.classList.add(pts >= 2 ? 'right' : 'wrong');
+    if (btn && b === btn) b.classList.add(pts >= 2 ? 'right' : pts === 1 ? 'part' : 'wrong');
   });
 
   sPts += pts; sMax += 3;
@@ -958,7 +1037,8 @@ function answer(choice, btn){
 
   setVeil(false);
   setPhase(1, CFG.flashMs/1000);
-  aimCamera(current);
+  drawPath3D(current);
+  aimReview(current);
   renderer.render(scene, camera);
   drawLabels();
 
@@ -1104,8 +1184,9 @@ el('seg').onclick = e => {
 el('start').onclick = startSession;
 el('again').onclick = startSession;
 el('next').onclick  = nextRep;
+el('replay').onclick = replayLook;
 el('done').onclick  = () => { show(pIdle); paintSeg(); el('hmeta').textContent = 'Rep 0 / '+CFG.repsPerSession;
-  setVeil(true,'Ready','You are high and wide. Watch the ball for two seconds, then decide where to move.'); };
+  setVeil(true,'Ready','You are holding width. Two seconds: where are your full-back and your 8?'); };
 el('reset').onclick = () => {
   stats = { L:{pts:0,max:0}, R:{pts:0,max:0}, side: stats.side };
   paintSides(); paintSeg(); saveStats(); show(pIdle);
