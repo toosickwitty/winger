@@ -1447,6 +1447,7 @@ function wrap(a){ while (a >  Math.PI) a -= Math.PI*2;
    about 50 degrees at the waist, 70 more at the neck. */
 function place(kind, ox, oz, s, moveOx, moveOz, tag, opt){
   opt = opt || {};
+  if (kind === 'gk') opt = Object.assign({}, opt, { speed:0, mps:0, backpedal:false, pre:0 });
   const speed = opt.speed || 0;
   const W = s.wingX || CFG.wingX;
   const x = s.side*(W + ox), z = s.zBase + oz;      // where he ENDS the look

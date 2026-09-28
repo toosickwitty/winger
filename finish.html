@@ -344,9 +344,10 @@ function shuffle(a){
 /* Exactly 4 of each per session, never two the same back to back. */
 function newBag(){
   const n = CFG.repsPerSession, ids = Object.keys(TEMPLATES);
-  const left = {}, base = Math.floor(n/ids.length);
-  ids.forEach(k => left[k] = base);
-  shuffle(ids.slice()).slice(0, n % ids.length).forEach(k => left[k]++);
+  const W8 = { far:5, near:3, square:4, reverse:4 }, tot = 16;
+  const left = {}; ids.forEach(k => left[k] = Math.floor(W8[k]*n/tot));
+  let short = n - ids.reduce((a,k) => a + left[k], 0);
+  shuffle(ids.slice()).forEach(k => { if (short > 0){ left[k]++; short--; } });
   const out = []; let prev = null;
   for (let slots = n; slots > 0; slots--){
     const elig = ids.filter(k => left[k] > 0 && k !== prev);
@@ -362,6 +363,23 @@ function newBag(){
 }
 function recvPoint(answer, s){ return s.target[answer] || s.target.far; }
 
+function keeperSpot(W, off){
+  const un = [ZONE.post - W[0], ZONE.goalZ - W[1]], uf = [-ZONE.post - W[0], ZONE.goalZ - W[1]];
+  const ln = Math.hypot(...un), lf = Math.hypot(...uf);
+  const b = [un[0]/ln + uf[0]/lf, un[1]/ln + uf[1]/lf], lb = Math.hypot(...b);
+  const bx = b[0]/lb, bz = b[1]/lb, depth = rand(1.0, 1.5);
+  const t = ((ZONE.goalZ + depth) - W[1]) / bz;
+  return [W[0] + bx*t + off, ZONE.goalZ + depth];          // off > 0 toward his near post
+}
+/* the gaps he leaves, as the shooter sees them: degrees of open goal either side of him */
+function gaps(s){
+  const W = [s.wingX, s.zBase], k = [s.wingX + s.opp.keeper[0], s.zBase + s.opp.keeper[1]];
+  const ang = p => Math.atan2(p[0] - W[0], -(p[1] - W[1])) * 180/Math.PI;
+  const reach = 0.45;                                        // his body, standing set
+  const aN = ang([ZONE.post, ZONE.goalZ]), aF = ang([-ZONE.post, ZONE.goalZ]);
+  const kN = ang([k[0] + reach, k[1]]), kF = ang([k[0] - reach, k[1]]);
+  return { near: aN - kN, far: kF - aF };
+}
 function buildCandidate(side, answer){
   const on = answer;
   const W  = [rand(9, 12), rand(-37.5, -35.5)];          // just outside the box, right of centre
@@ -401,9 +419,11 @@ function buildCandidate(side, answer){
         return [runner[0] + (T.reverse[0]-runner[0])*k + rand(-0.4, 0.4), runner[1] + (T.reverse[1]-runner[1])*k]; }, 0.6);
   if (on === 'reverse') taken.push(lb);
 
-  /* the keeper: which post is he giving you? */
-  const kx = on === 'far' ? rand(2.2, 2.8) : on === 'near' ? -rand(2.0, 2.6) : rand(0.4, 1.1);
-  const keeper = [kx, -51.2];
+  /* the keeper. A good one stands on the line that splits the angle between
+     your ball and his two posts, a metre or so off his line, square to you.
+     Far post is the default finish from here. The near post only opens when
+     he has taken a step too far across, reading the curler.               */
+  const keeper = keeperSpot(W, on === 'near' ? -rand(0.9, 1.25) : on === 'far' ? rand(0, 0.45) : rand(-0.15, 0.3));
 
   /* the rest of their shape */
   const cbB = drop(taken, gap(() => [rand(-5.5, -3), rand(-48, -46)]), 2.4);
@@ -430,9 +450,8 @@ const field = s => Object.entries(s.opp).filter(([k]) => k !== 'keeper').map(([,
 /* Everything below works in offsets from his feet, which sit at [0,0]. */
 function shotState(s){
   const lanes = ['far', 'near'].map(k => Math.min(...field(s).map(q => distToLane(q, [0,0], s.target[k]))));
-  const kx = s.wingX + s.opp.keeper[0];
-  return { farLane: lanes[0], nearLane: lanes[1],
-           farGap: Math.abs(kx - (-2.9)), nearGap: Math.abs(kx - 2.9) };
+  const g = gaps(s);
+  return { farLane: lanes[0], nearLane: lanes[1], farGap: g.far, nearGap: g.near };
 }
 function passState(s, k){
   const tgt = s.target[k], blk = s.blocker ? s.opp[s.blocker] : null;
@@ -446,8 +465,8 @@ function passState(s, k){
 }
 function sceneOK(s){
   const sh = shotState(s);
-  if (s.on === 'far'  && !(sh.farLane >= 1.5 && sh.nearLane >= 1.5 && sh.farGap >= 5.0 && sh.nearGap <= 0.8)) return false;
-  if (s.on === 'near' && !(sh.farLane >= 1.5 && sh.nearLane >= 1.5 && sh.nearGap >= 4.8 && sh.farGap <= 1.0)) return false;
+  if (s.on === 'far'  && !(sh.farLane >= 1.5 && sh.nearLane >= 1.5 && sh.farGap >= sh.nearGap)) return false;
+  if (s.on === 'near' && !(sh.farLane >= 1.5 && sh.nearLane >= 1.5 && sh.nearGap >= sh.farGap*1.6)) return false;
   if (s.blocker && !(sh.farLane <= 0.6 && sh.nearLane <= 0.6)) return false;          // the shot really is blocked
   for (const k of ['square', 'reverse']){
     const st = passState(s, k);
@@ -491,16 +510,16 @@ function scoreScene(s){
   const fb = FB(s), blocked = !!s.blocker;
   const who = s.blocker === 'cbA' ? 'their centre-back' : 'their ' + fb;
   const ON = {
-    far:     'nobody is blocking you and their keeper is cheating toward his near post — curl it into the far corner',
-    near:    'nobody is blocking you and their keeper has shaded across to cover the curler — the near post is open',
+    far:     'nobody is blocking you and their keeper is set square in the middle of his goal — far post, low: the default finish, and a save spills into the middle for a tap-in',
+    near:    'nobody is blocking you and their keeper has taken a step across to read the curler — the gap at his near post is now the bigger one',
     square:  'their centre-back has left your 9 to block your shot — square it, your 9 is free',
     reverse: 'their ' + fb + ' has stepped inside to block your shot — slip your runner in behind him'
   };
   const OFF = {
     far:     blocked ? who + ' is standing in your shooting lane — it hits him'
-                     : 'their keeper is covering the far post — you are shooting at him',
+                     : 'their keeper has stepped across to cover the far post — that is the shot he is waiting for',
     near:    blocked ? who + ' is standing in your shooting lane — it hits him'
-                     : 'their keeper is on his near post — nothing to aim at',
+                     : 'their keeper is set and his near post is covered — far post is the bigger target, and a save spills into the middle',
     square:  'their centre-back is tight on your 9 — the pass gets cut out',
     reverse: 'their ' + fb + ' is goal-side of your runner — he gets there first'
   };
@@ -1369,6 +1388,7 @@ function wrap(a){ while (a >  Math.PI) a -= Math.PI*2;
    about 50 degrees at the waist, 70 more at the neck. */
 function place(kind, ox, oz, s, moveOx, moveOz, tag, opt){
   opt = opt || {};
+  if (kind === 'gk') opt = Object.assign({}, opt, { speed:0, mps:0, backpedal:false, pre:0 });
   const speed = opt.speed || 0;
   const W = s.wingX || CFG.wingX;
   const x = s.side*(W + ox), z = s.zBase + oz;      // where he ENDS the look
