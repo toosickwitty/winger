@@ -990,8 +990,10 @@ const LOOK = (() => {
        bone from the clip each time makes the pose a pure function of time. */
     function clipFor(m){
       let name = 'idle', rate = 1;
-      if (m >= 2.4)       { name = 'run';  rate = Math.min(1.35, Math.max(0.7, m / RUN_MPS)); }
-      else if (m >= 0.35) { name = 'walk'; rate = Math.min(1.4, Math.max(0.45, m / WALK_MPS)); }
+      /* the cycle plays at exactly the speed he travels, so boots stay planted:
+         a slow shuffle is short slow steps, never a stand-still slide */
+      if (m >= 2.4)       { name = 'run';  rate = Math.min(1.5, Math.max(0.7, m / RUN_MPS)); }
+      else if (m >= 0.15) { name = 'walk'; rate = Math.min(1.4, m / WALK_MPS); }
       if (look.back) rate = -rate;                     // backpedalling plays the cycle in reverse
       const clip = TEMPLATE.clips[name];
       const channels = clip.tracks.map(tr => {
@@ -1402,7 +1404,7 @@ function place(kind, ox, oz, s, moveOx, moveOz, tag, opt){
     : toRec;
   /* A backpedalling defender travels one way and faces another: chest stays
      on the ball while his feet carry him back. */
-  const faceYaw = opt.backpedal ? toRec : moveYaw;
+  const faceYaw = opt.backpedal ? moveYaw + Math.PI : moveYaw;
   p.rotation.y = faceYaw;
 
   if (opt.watch){
@@ -1413,7 +1415,7 @@ function place(kind, ox, oz, s, moveOx, moveOz, tag, opt){
   }
 
   /* rewind him to where he was when the look began */
-  const run = mps * (CFG.flashMs/1000);
+  const run = mps < 0.15 ? 0 : mps * (CFG.flashMs/1000);
   const sx = x - Math.sin(moveYaw)*run, sz = z - Math.cos(moveYaw)*run;
   p.position.set(sx, 0, sz);
 

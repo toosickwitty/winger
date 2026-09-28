@@ -330,7 +330,7 @@ function distToLane(q, a, b){
 }
 
 const LOOK_DEG = 216, ARC_SAFE = 47;
-const GLANCE_DEG = 330;                          // the check outside, for the overlap
+const GLANCE_DEG = 340;                          // the check outside, for the overlap
 const CARRY = 9.5;                               // metres he carries it in, at 45 degrees
 function polar(offDeg, dist){
   const b = (LOOK_DEG + offDeg) * Math.PI/180;
@@ -401,9 +401,9 @@ function buildCandidate(side, answer){
   const O = p => [p[0] - W, p[1] - zB];
   /* where he takes the pass: out in the channel, a 45-degree carry back from W */
   const R = [W + CARRY/Math.SQRT2, zB + CARRY/Math.SQRT2];
-  const passer = [Math.min(R[0] + rand(2, 4), 31), R[1] + rand(6.5, 8.5)];
+  const passer = [Math.min(R[0] + rand(2, 4), 31), R[1] + rand(5.5, 7)];
   /* ...who then overlaps: level with him, out in the channel, by the time he looks up */
-  const fb = [rand(25.5, 29), zB - rand(3, 5)];
+  const fb = [rand(25.5, 29), zB - rand(0.5, 2)];
   const ball = [W, zB];
   const taken = [ball];
 
@@ -1010,8 +1010,10 @@ const LOOK = (() => {
        bone from the clip each time makes the pose a pure function of time. */
     function clipFor(m){
       let name = 'idle', rate = 1;
-      if (m >= 2.4)       { name = 'run';  rate = Math.min(1.35, Math.max(0.7, m / RUN_MPS)); }
-      else if (m >= 0.35) { name = 'walk'; rate = Math.min(1.4, Math.max(0.45, m / WALK_MPS)); }
+      /* the cycle plays at exactly the speed he travels, so boots stay planted:
+         a slow shuffle is short slow steps, never a stand-still slide */
+      if (m >= 2.4)       { name = 'run';  rate = Math.min(1.5, Math.max(0.7, m / RUN_MPS)); }
+      else if (m >= 0.15) { name = 'walk'; rate = Math.min(1.4, m / WALK_MPS); }
       if (look.back) rate = -rate;                     // backpedalling plays the cycle in reverse
       const clip = TEMPLATE.clips[name];
       const channels = clip.tracks.map(tr => {
@@ -1423,7 +1425,7 @@ function place(kind, ox, oz, s, moveOx, moveOz, tag, opt){
     : toRec;
   /* A backpedalling defender travels one way and faces another: chest stays
      on the ball while his feet carry him back. */
-  const faceYaw = opt.backpedal ? toRec : moveYaw;
+  const faceYaw = opt.backpedal ? moveYaw + Math.PI : moveYaw;
   p.rotation.y = faceYaw;
 
   if (opt.watch){
@@ -1434,7 +1436,7 @@ function place(kind, ox, oz, s, moveOx, moveOz, tag, opt){
   }
 
   /* rewind him to where he was when the look began */
-  const run = mps * (CFG.flashMs/1000);
+  const run = mps < 0.15 ? 0 : mps * (CFG.flashMs/1000);
   const sx = x - Math.sin(moveYaw)*run, sz = z - Math.cos(moveYaw)*run;
   p.position.set(sx, 0, sz);
 
@@ -1519,8 +1521,9 @@ function buildScene(s){
 
   /* his full-back: plays him in from behind down the line, then overlaps.
      His run is driven by the build-up clock, not by setPhase. */
+  const fbRun = Math.hypot(s.fb[0] - s.passerAt[0], s.fb[1] - s.passerAt[1]) / ((CFG.travelMs + CFG.flashMs)/1000);
   place('own', s.fb[0], s.fb[1], s, s.fb[0], s.fb[1] - 6, 'your full-back · overlapping',
-    { speed:0.9, mps:5.4, pre:0 });
+    { speed:0.9, mps:fbRun, pre:0 });
   const fbo = placed[placed.length - 1]; fbo.custom = true;
   passerRig = fbo.mesh;
   const bl = new THREE.Mesh(new THREE.SphereGeometry(0.115, 24, 16), LOOK.ballMaterial());
