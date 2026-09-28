@@ -515,6 +515,533 @@ function scoreScene(s){
   return list;
 }
 
+/* ================= LOOK: players, pitch, stadium, light =================
+   Everything visual lives here so the drills only ever call four things:
+   LOOK.setupWorld(renderer, scene)  -> returns the sun
+   LOOK.makePlayer(color, mps, look) -> a jointed footballer
+   LOOK.ballMaterial()               -> a panelled match ball
+   LOOK.frame(actors)                -> keeps the shadows on the action
+   The rig keeps the old handles (userData.head / upper / legs / pose), so
+   every drill animates it exactly as before. Front of a player is +Z.       */
+const LOOK = (() => {
+
+  /* Author colours as ordinary hex and let three convert them, so what is
+     written in the code is what shows on screen under sRGB output. */
+  const _setHex = THREE.Color.prototype.setHex;
+  THREE.Color.prototype.setHex = function(hex){
+    _setHex.call(this, hex); return this.convertSRGBToLinear();
+  };
+
+  const TAU = Math.PI * 2;
+  const V2 = (x, y) => new THREE.Vector2(x, y);
+  const rnd = (a, b) => a + Math.random() * (b - a);
+  const pickOne = a => a[Math.floor(Math.random() * a.length)];
+
+  function canvasTex(w, h, draw, srgb){
+    const c = document.createElement('canvas'); c.width = w; c.height = h;
+    draw(c.getContext('2d'), w, h);
+    const t = new THREE.CanvasTexture(c);
+    if (srgb !== false) t.encoding = THREE.sRGBEncoding;
+    return t;
+  }
+
+  /* the head, bottom to top: chin, jaw, cheekbones, crown */
+  const SKULL = [[0.001,-0.125],[0.024,-0.122],[0.048,-0.112],[0.07,-0.092],[0.086,-0.065],
+                 [0.097,-0.035],[0.104,0.0],[0.106,0.035],[0.098,0.07],[0.078,0.1],
+                 [0.045,0.118],[0.001,0.125]];
+  function skullR(y){
+    for (let i = 1; i < SKULL.length; i++){
+      const [r0, y0] = SKULL[i-1], [r1, y1] = SKULL[i];
+      if (y <= y1) return r0 + (r1 - r0) * (y - y0) / (y1 - y0);
+    }
+    return 0.001;
+  }
+  function skullSlice(yLo, yHi, phiStart, phiLen){
+    const pts = [[skullR(yLo), yLo]];
+    SKULL.forEach(p => { if (p[1] > yLo && p[1] < yHi) pts.push(p); });
+    pts.push([yHi >= 0.125 ? 0.001 : skullR(yHi), yHi]);
+    return new THREE.LatheGeometry(pts.map(p => V2(p[0], p[1])), 26, phiStart, phiLen);
+  }
+
+  /* ---------------- shared geometry, built once ---------------- */
+  let G = null;
+  function geo(){
+    if (G) return G;
+    /* LatheGeometry wants its outline bottom-to-top; sort so a profile can never
+       be written upside down and come out inside-out. */
+    const lathe = (pts, seg) => new THREE.LatheGeometry(
+      pts.slice().sort((a, b) => a[1] - b[1]).map(p => V2(p[0], p[1])), seg || 20);
+    G = {
+      torso: lathe([[0.001,-0.03],[0.146,-0.03],[0.150,0.06],[0.146,0.16],[0.157,0.26],
+                    [0.173,0.36],[0.181,0.45],[0.178,0.52],[0.155,0.56],[0.112,0.595],[0.074,0.625],[0.001,0.632]], 22),
+      pelvis:  new THREE.CylinderGeometry(0.146, 0.156, 0.22, 20),
+      shoulder:new THREE.SphereGeometry(0.064, 14, 10),
+      collar:  new THREE.TorusGeometry(0.053, 0.014, 8, 20),
+      vbar:    new THREE.BoxGeometry(0.012, 0.075, 0.012),
+      crest:   new THREE.CircleGeometry(0.024, 16),
+      number:  new THREE.PlaneGeometry(0.17, 0.20),
+      neck:    new THREE.CylinderGeometry(0.05, 0.057, 0.12, 12),
+      sleeve:  new THREE.CylinderGeometry(0.062, 0.055, 0.17, 12),
+      upArm:   new THREE.CylinderGeometry(0.054, 0.045, 0.29, 10),
+      foreArm: new THREE.CylinderGeometry(0.045, 0.035, 0.25, 10),
+      hand:    new THREE.SphereGeometry(0.04, 10, 8),
+      shortLeg:new THREE.CylinderGeometry(0.09, 0.095, 0.26, 14),
+      thigh:   new THREE.CylinderGeometry(0.084, 0.062, 0.40, 12),
+      kneeCap: new THREE.SphereGeometry(0.058, 12, 8),
+      calf:    lathe([[0.053,-0.02],[0.06,-0.08],[0.065,-0.14],[0.059,-0.22],[0.045,-0.31],[0.04,-0.39],[0.001,-0.39]], 14),
+      sockTop: new THREE.CylinderGeometry(0.057, 0.057, 0.035, 14),
+      boot:    new THREE.SphereGeometry(0.06, 14, 10),
+      bootCuff:new THREE.CylinderGeometry(0.044, 0.05, 0.06, 12),
+      sole:    new THREE.BoxGeometry(0.088, 0.014, 0.245),
+      skull:   lathe(SKULL, 26),
+      jaw:     new THREE.SphereGeometry(0.07, 18, 12),   // the point of the chin
+      eyeW:    new THREE.SphereGeometry(0.019, 10, 8),
+      iris:    new THREE.SphereGeometry(0.0115, 8, 6),
+      brow:    new THREE.BoxGeometry(0.04, 0.009, 0.012),
+      nose:    new THREE.SphereGeometry(1, 10, 8),
+      mouth:   new THREE.BoxGeometry(0.038, 0.007, 0.01),
+      ear:     new THREE.SphereGeometry(0.028, 10, 8),
+      /* Hair is cut from the SAME egg as the skull and scaled a few percent
+         larger, so it can never intersect it. A crown over the top, and a
+         back-and-sides piece that stops short of the ears and the face. */
+      crown:   skullSlice(0.052, 0.125, 0, TAU),
+      nape:    skullSlice(-0.072, 0.058, Math.PI - 1.3, 2.6),
+      fringe:  skullSlice(0.026, 0.058, -0.85, 1.7),
+      shadow:  new THREE.CircleGeometry(0.34, 22)
+    };
+    ['collar','vbar','crest','number','eyeW','iris','brow','nose','mouth','ear','jaw',
+     'sockTop','sole','hand','fringe'].forEach(k => SMALL.add(G[k]));
+    return G;
+  }
+
+  /* ---------------- materials, cached ---------------- */
+  const MATS = new Map();
+  function mat(key, make){
+    if (!MATS.has(key)) MATS.set(key, make());
+    return MATS.get(key);
+  }
+  const std = (hex, rough, metal) => mat('s' + hex + ':' + rough, () =>
+    new THREE.MeshStandardMaterial({ color: hex, roughness: rough, metalness: metal || 0 }));
+  const hairMat = hex => mat('h' + hex, () =>
+    new THREE.MeshStandardMaterial({ color: hex, roughness: 0.9, side: THREE.DoubleSide }));
+
+  /* Kits: the shirt colour is what the drill passes in; shorts, socks and trim
+     follow from it. Generic club colours, no badges or sponsors. */
+  function kitFor(color, isGK){
+    if (isGK) return { shorts: 0x1b1d22, socks: color, trim: 0x16181c, num: 0x16181c };
+    const table = {
+      0x5b9dff: { shorts: 0xf3f5f7, socks: 0x3f7fe6, trim: 0xffffff, num: 0xffffff },
+      0xff5c44: { shorts: 0x1c2233, socks: 0xe2452f, trim: 0xffffff, num: 0xffffff }
+    };
+    return table[color] || { shorts: 0x20242c, socks: color, trim: 0xffffff, num: 0xffffff };
+  }
+
+  function numberMat(n, hex){
+    return mat('num' + n + ':' + hex, () => {
+      const col = '#' + ('000000' + hex.toString(16)).slice(-6);
+      const t = canvasTex(128, 150, (g, w, h) => {
+        g.clearRect(0, 0, w, h);
+        g.fillStyle = col;
+        g.font = '900 132px "Arial Black", Impact, sans-serif';
+        g.textAlign = 'center'; g.textBaseline = 'middle';
+        g.fillText(String(n), w/2, h/2 + 6);
+      });
+      return new THREE.MeshStandardMaterial({ map: t, transparent: true, alphaTest: 0.35,
+                                              roughness: 0.7, depthWrite: false });
+    });
+  }
+
+  const SKINS = [0xe8c09c, 0xd9aa82, 0xbf885a, 0x9b633c, 0x6a4128, 0x4a2c1c];
+  /* kept dark on purpose: hair against skin is what tells you which way a head faces */
+  const HAIRS = [0x2a1d16, 0x120e0b, 0x4a2f1c, 0x6b4526, 0x1a1a1a, 0x3b2a1e];
+  const BOOTS = [0xf2f5ef, 0xf5d33a, 0xff4f9d, 0x2ee6a8, 0x1a1a1a, 0xff8a2b, 0x3aa0ff];
+  const STYLES = ['crop', 'crop', 'buzz', 'curl', 'fringe'];
+
+  /* Only the big masses cast shadows. An eyebrow's shadow is invisible at
+     this range and would cost a whole extra draw in the shadow pass. */
+  const SMALL = new Set();
+  function add(parent, geom, material, x, y, z){
+    const m = new THREE.Mesh(geom, material);
+    m.position.set(x || 0, y || 0, z || 0);
+    m.castShadow = !SMALL.has(geom);
+    parent.add(m);
+    return m;
+  }
+
+  /* ---------------- the head: face forward, hair behind ----------------
+     Reading which way someone is looking is the whole cue, so the face is a
+     clear skin window framed by hair that wraps the back of the skull, with
+     ears marking the sides and a nose that breaks the silhouette.          */
+  function makeHead(look){
+    const g = geo();
+    const head = new THREE.Group();
+    const skinHex = look.skin || 0xe3bd95;
+    const skinM  = std(skinHex, 0.62);
+    const hairM  = hairMat(look.hair || 0x2a1d16);
+    const lipM   = mat('lip' + skinHex, () => {
+      const c = new THREE.Color(skinHex); c.multiplyScalar(0.62);
+      return new THREE.MeshStandardMaterial({ color: c, roughness: 0.6 });
+    });
+    const whiteM = std(0xf4efe6, 0.35);
+    const irisM  = std(0x241812, 0.3);
+
+    /* lathe seams sit at +Z, so turn them to the back of the head, under the hair */
+    const skull = add(head, g.skull, skinM); skull.scale.set(0.95, 1.0, 1.06);
+    skull.rotation.y = Math.PI;
+    const chin = add(head, g.jaw, skinM, 0, -0.07, 0.03); chin.scale.set(0.6, 0.48, 0.58);
+
+    [-1, 1].forEach(s => {
+      const e = add(head, g.eyeW, whiteM, s*0.036, 0.012, 0.096);
+      e.scale.set(1.0, 0.6, 0.55);
+      const ir = add(head, g.iris, irisM, s*0.036, 0.012, 0.1045);
+      ir.scale.set(1.0, 1.0, 0.45);
+      const b = add(head, g.brow, hairM, s*0.037, 0.036, 0.1025);
+      b.scale.set(1.05, 1.25, 1); b.rotation.z = s*0.07;
+      const ear = add(head, g.ear, skinM, s*0.101, 0.0, -0.006);
+      ear.scale.set(0.45, 0.9, 0.65);
+    });
+    const nose = add(head, g.nose, skinM, 0, -0.014, 0.108);
+    nose.scale.set(0.016, 0.028, 0.021);
+    add(head, g.mouth, lipM, 0, -0.054, 0.0975);
+
+    const style = look.style || pickOne(STYLES);
+    const piece = (geom, k, dy) => {
+      const h = new THREE.Mesh(geom, hairM);
+      h.scale.set(0.95*k, 1.0*k, 1.06*k); h.position.y = dy || 0;
+      h.castShadow = true; head.add(h); return h;
+    };
+    if (style === 'curl'){                    // volume: sits well off the skull
+      piece(g.crown, 1.15, 0.006); piece(g.nape, 1.1, 0.002);
+    } else if (style === 'buzz'){             // close to the head
+      piece(g.crown, 1.028); piece(g.nape, 1.024);
+    } else {
+      piece(g.crown, 1.05); piece(g.nape, 1.045);
+      if (style === 'fringe') piece(g.fringe, 1.06);
+    }
+    return head;
+  }
+
+  /* ---------------- the player ---------------- */
+  function makePlayer(color, mps, look){
+    look = look || {};
+    const g = geo();
+    const run = mps > 0.5;
+    const HIP = 0.86;
+    const isGK = (typeof CFG !== 'undefined' && CFG.colors && CFG.colors.gk !== undefined
+                  && color === CFG.colors.gk);
+    const kit = kitFor(color, isGK);
+
+    const shirtM = std(color, 0.78);
+    const shortM = std(kit.shorts, 0.8);
+    const sockM  = std(kit.socks, 0.85);
+    const trimM  = std(kit.trim, 0.7);
+    const skinM  = std(look.skin || 0xe3bd95, 0.62);
+    const bootM  = std(look.boot || 0xf2f5ef, 0.35, 0.1);
+    const soleM  = std(0x1a1c1e, 0.6);
+    const gloveM = std(0xeef3ea, 0.55);
+
+    /* Cadence and stride come from how fast he is actually travelling, so the
+       legs and the ground agree. */
+    const freq = run ? 1.55 + 0.32*mps : 0.9;
+    const amp  = run ? Math.min(0.95, 0.22 + 0.145*mps) : 0.10;
+    const lean = 0.03 + 0.036*mps;
+
+    const P = new THREE.Group();
+    const legs = [], arms = [];
+
+    /* hips: the travel direction */
+    const hips = new THREE.Group(); hips.position.y = HIP; P.add(hips);
+    const pelvis = add(hips, g.pelvis, shortM, 0, 0.02, 0); pelvis.scale.z = 0.72;
+
+    [[-0.088, 1], [0.088, -1]].forEach(([lx, sgn]) => {
+      const leg = new THREE.Group(); leg.position.x = lx;
+      add(leg, g.shortLeg, shortM, 0, -0.10, 0);
+      add(leg, g.thigh, skinM, 0, -0.21, 0);
+      const knee = new THREE.Group(); knee.position.y = -0.42;
+      add(knee, g.calf, sockM, 0, -0.01, 0);
+      add(knee, g.sockTop, trimM, 0, -0.045, 0);
+      const ankle = new THREE.Group(); ankle.position.y = -0.40;
+      const b = add(ankle, g.boot, bootM, 0, -0.034, 0.045); b.scale.set(0.95, 0.62, 1.95);
+      add(ankle, g.sole, soleM, 0, -0.068, 0.047);
+      knee.add(ankle); leg.add(knee); hips.add(leg);
+      legs.push({ leg, knee, ankle, sgn });
+    });
+
+    /* upper body: can twist against the hips */
+    const upper = new THREE.Group();
+    upper.position.y = HIP; upper.rotation.x = lean; P.add(upper);
+    const torso = add(upper, g.torso, shirtM); torso.scale.set(1.12, 1, 0.66);
+    torso.rotation.y = Math.PI;
+    [-1, 1].forEach(s => add(upper, g.shoulder, shirtM, s*0.182, 0.5, 0));
+    const col = add(upper, g.collar, trimM, 0, 0.612, 0.004);
+    col.rotation.x = Math.PI/2; col.scale.set(1, 0.85, 1);
+    [-1, 1].forEach(s => {                            // a V-neck: the front of the shirt
+      const v = add(upper, g.vbar, trimM, s*0.017, 0.57, 0.093);
+      v.rotation.z = s*0.42; v.rotation.x = -0.25;
+    });
+    const crest = add(upper, g.crest, trimM, -0.075, 0.42, 0.119);
+    crest.rotation.x = -0.12;
+    const number = look.number || Math.floor(rnd(2, 24));
+    const num = new THREE.Mesh(g.number, numberMat(number, kit.num));
+    num.position.set(0, 0.31, -0.114); num.rotation.y = Math.PI; upper.add(num);
+    add(upper, g.neck, skinM, 0, 0.67, 0.008);
+
+    [[-0.205, -1], [0.205, 1]].forEach(([ax, sgn]) => {
+      const arm = new THREE.Group();
+      arm.position.set(ax, 0.5, 0); arm.rotation.z = sgn * 0.1;
+      add(arm, g.sleeve, shirtM, 0, -0.06, 0);
+      add(arm, g.upArm, isGK ? shirtM : skinM, 0, -0.16, 0);
+      const elbow = new THREE.Group(); elbow.position.y = -0.31;
+      add(elbow, g.foreArm, isGK ? shirtM : skinM, 0, -0.125, 0);
+      const hnd = add(elbow, g.hand, isGK ? gloveM : skinM, 0, -0.285, 0.004);
+      hnd.scale.set(isGK ? 1.25 : 0.82, isGK ? 1.35 : 1.12, isGK ? 0.9 : 0.62);
+      arm.add(elbow); upper.add(arm);
+      arms.push({ arm, elbow, sgn });
+    });
+
+    const head = makeHead(look);
+    head.position.y = 0.775; head.rotation.x = -lean; upper.add(head);
+
+    /* a soft contact shadow under the real one, so feet never float */
+    const shadow = new THREE.Mesh(g.shadow, mat('contact', () =>
+      new THREE.MeshBasicMaterial({ color: 0x000000, transparent: true, opacity: 0.22,
+                                    depthWrite: false })));
+    shadow.rotation.x = -Math.PI/2; shadow.position.y = 0.025; shadow.scale.y = 0.7;
+    P.add(shadow);
+
+    const phase0 = Math.random() * TAU;
+    P.userData.head  = head;
+    P.userData.upper = upper;
+    P.userData.legs  = legs;
+    P.userData.pose = tSec => {
+      const w = phase0 + tSec * freq * TAU;
+      legs.forEach(({ leg, knee, ankle, sgn }) => {
+        const u = Math.sin(w) * sgn * amp;
+        const flex = run ? 0.28 + 1.60*Math.max(0, u) : 0.10;
+        leg.rotation.x   = u * 0.80;
+        knee.rotation.x  = flex;
+        ankle.rotation.x = -0.55*flex + 0.12;
+      });
+      arms.forEach(({ arm, elbow, sgn }) => {
+        arm.rotation.x   = Math.sin(w) * sgn * amp * (run ? 0.85 : 0.15);
+        elbow.rotation.x = run ? -0.55 - 0.15*mps : -0.28;
+      });
+      hips.position.y = HIP + (run ? Math.abs(Math.cos(w)) * 0.025 * amp : 0);
+      upper.position.y = hips.position.y;
+    };
+    P.userData.pose(0);
+    return P;
+  }
+
+  /* ---------------- the pitch ---------------- */
+  function turf(){
+    const t = canvasTex(512, 512, (g, w, h) => {
+      g.fillStyle = '#3f8f3a'; g.fillRect(0, 0, w, h/2);   // one light and one dark mowing band
+      g.fillStyle = '#35803a'; g.fillRect(0, h/2, w, h/2);
+      const img = g.getImageData(0, 0, w, h), d = img.data;
+      for (let i = 0; i < d.length; i += 4){
+        const n = (Math.random() - 0.5) * 26;
+        d[i] += n*0.5; d[i+1] += n; d[i+2] += n*0.4;
+      }
+      g.putImageData(img, 0, 0);
+      g.globalAlpha = 0.05;                                // faint blade streaks
+      for (let i = 0; i < 1400; i++){
+        g.strokeStyle = Math.random() < 0.5 ? '#bfe8a0' : '#123c14';
+        const x = Math.random()*w, y = Math.random()*h;
+        g.beginPath(); g.moveTo(x, y); g.lineTo(x + rnd(-2,2), y + rnd(3,7)); g.stroke();
+      }
+    });
+    t.wrapS = t.wrapT = THREE.RepeatWrapping;
+    return t;
+  }
+
+  function quad(a, b, c, d, material){
+    const geom = new THREE.BufferGeometry();
+    geom.setAttribute('position', new THREE.Float32BufferAttribute([...a, ...b, ...c, ...d], 3));
+    geom.setAttribute('uv', new THREE.Float32BufferAttribute([0,0, 1,0, 1,1, 0,1], 2));
+    geom.setIndex([0, 1, 2, 0, 2, 3]);
+    geom.computeVertexNormals();
+    const m = new THREE.Mesh(geom, material);
+    m.material.side = THREE.DoubleSide;
+    return m;
+  }
+
+  /* The crowd is deliberately soft and mid-toned: at eye level it sits right
+     behind players' heads, and a busy dark background makes it harder to see
+     which way a head is turned. Think out-of-focus, not photographic. */
+  function crowdTex(){
+    const tones = ['#c9a98c','#b08868','#8a664c','#6e5040'];
+    const shirts = ['#6f86a8','#9aa3ad','#a4706a','#8d8a78','#7c8796','#b3b8be','#6f7884','#8f98a3'];
+    const t = canvasTex(256, 128, (g, w, h) => {
+      g.fillStyle = '#7d8591'; g.fillRect(0, 0, w, h);
+      const rows = 10, rh = h / rows;
+      for (let r = 0; r < rows; r++){
+        g.fillStyle = r % 2 ? '#7a828e' : '#737b87';
+        g.fillRect(0, r*rh, w, rh);
+        for (let x = 3; x < w; x += rnd(6, 9)){
+          if (Math.random() < 0.15) continue;
+          const y = r*rh + rh*0.5;
+          g.fillStyle = pickOne(shirts); g.fillRect(x - 3, y, 6, rh*0.48);
+          g.fillStyle = pickOne(tones);
+          g.beginPath(); g.arc(x, y - 1.5, 2.6, 0, TAU); g.fill();
+        }
+      }
+      if ('filter' in g){                             // a touch of depth-of-field
+        const c2 = document.createElement('canvas'); c2.width = w; c2.height = h;
+        c2.getContext('2d').drawImage(g.canvas, 0, 0);
+        g.filter = 'blur(1.2px)'; g.drawImage(c2, 0, 0); g.filter = 'none';
+      }
+    });
+    t.wrapS = t.wrapT = THREE.RepeatWrapping;
+    return t;
+  }
+
+  /* Generic perimeter boards: no brands, just the kind of glow a stadium has. */
+  function boardTex(){
+    const words = ['WINGER LAB', 'SCAN EARLY', 'CHECK YOUR SHOULDER', 'FIRST TOUCH', 'PLAY FORWARD'];
+    const fills = ['#2d4f7c', '#3a4150', '#2f5e52', '#6e3a36', '#3b3f58'];
+    const t = canvasTex(2048, 64, (g, w, h) => {
+      let x = 0, i = 0;
+      while (x < w){
+        const bw = 400;
+        g.fillStyle = fills[i % fills.length]; g.fillRect(x, 0, bw, h);
+        g.fillStyle = 'rgba(235,240,245,0.85)'; g.font = '600 26px Arial, sans-serif';
+        g.textAlign = 'center'; g.textBaseline = 'middle';
+        g.fillText(words[i % words.length], x + bw/2, h/2 + 1);
+        x += bw; i++;
+      }
+    });
+    t.wrapS = THREE.RepeatWrapping;
+    return t;
+  }
+
+  function stadium(scene){
+    const crowd = crowdTex();
+    const stand = (a, b, c, d, lenM, rise) => {
+      const tex = crowd.clone(); tex.needsUpdate = true;
+      tex.repeat.set(lenM / 30, rise / 11);
+      const m = quad(a, b, c, d, new THREE.MeshStandardMaterial({ map: tex, roughness: 1 }));
+      scene.add(m);
+    };
+    const wallM = new THREE.MeshStandardMaterial({ color: 0x8b9098, roughness: 0.95 });
+
+    // long sides
+    [-1, 1].forEach(s => {
+      const x0 = s*47, x1 = s*80;
+      stand([x0, 1.4, 70], [x0, 1.4, -70], [x1, 17, -70], [x1, 17, 70], 140, 36);
+      scene.add(quad([x0, 0, 70], [x0, 0, -70], [x0, 1.4, -70], [x0, 1.4, 70], wallM));
+    });
+    // ends
+    [-1, 1].forEach(s => {
+      const z0 = s*66, z1 = s*96;
+      stand([-47, 1.4, z0], [47, 1.4, z0], [47, 16, z1], [-47, 16, z1], 94, 33);
+      scene.add(quad([-47, 0, z0], [47, 0, z0], [47, 1.4, z0], [-47, 1.4, z0], wallM));
+    });
+
+    // perimeter boards
+    const bt = boardTex();
+    const boardM = (len) => {
+      const t = bt.clone(); t.needsUpdate = true; t.repeat.set(len / 40, 1);
+      return new THREE.MeshBasicMaterial({ map: t });
+    };
+    [-1, 1].forEach(s => {
+      const bx = s*37.5;
+      const bm = new THREE.Mesh(new THREE.PlaneGeometry(100, 0.9), boardM(100));
+      bm.position.set(bx, 0.45, 0); bm.rotation.y = -s*Math.PI/2; scene.add(bm);
+      const bz = s*57;
+      const em = new THREE.Mesh(new THREE.PlaneGeometry(60, 0.9), boardM(60));
+      em.position.set(0, 0.45, bz); em.rotation.y = s > 0 ? Math.PI : 0; scene.add(em);
+    });
+  }
+
+  function skyTex(){
+    return canvasTex(8, 256, (g, w, h) => {
+      const gr = g.createLinearGradient(0, 0, 0, h);
+      gr.addColorStop(0.00, '#3f78bf');
+      gr.addColorStop(0.45, '#8db8e2');
+      gr.addColorStop(0.62, '#cfe0ec');
+      gr.addColorStop(1.00, '#d8e2e6');
+      g.fillStyle = gr; g.fillRect(0, 0, w, h);
+    });
+  }
+
+  /* ---------------- world setup ---------------- */
+  let sun = null;
+  function setupWorld(renderer, scene){
+    renderer.outputEncoding = THREE.sRGBEncoding;
+    renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    renderer.toneMappingExposure = 1.05;
+    renderer.shadowMap.enabled = true;
+    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+
+    scene.background = skyTex();
+    scene.fog = new THREE.Fog(0xc4d0d8, 70, 240);
+
+    scene.add(new THREE.HemisphereLight(0xdfeaff, 0x40653a, 0.72));
+    sun = new THREE.DirectionalLight(0xfff0dc, 1.55);
+    sun.position.set(-24, 40, 20);
+    sun.castShadow = true;
+    sun.shadow.mapSize.set(2048, 2048);
+    const sc = sun.shadow.camera;
+    sc.left = -34; sc.right = 34; sc.top = 34; sc.bottom = -34; sc.near = 1; sc.far = 140;
+    sun.shadow.bias = -0.0006;
+    sun.shadow.normalBias = 0.02;
+    scene.add(sun); scene.add(sun.target);
+
+    // the ground outside the pitch, then the pitch itself
+    const surround = new THREE.Mesh(new THREE.PlaneGeometry(240, 260),
+      new THREE.MeshStandardMaterial({ color: 0x2f6a2e, roughness: 1 }));
+    surround.rotation.x = -Math.PI/2; surround.position.y = -0.01;
+    surround.receiveShadow = true; scene.add(surround);
+
+    const tt = turf();
+    const PW = 76, PL = 115;                            // pitch plus a little run-off
+    tt.repeat.set(PW / 10, PL / 10);                    // a 5 m mowing band, noise every 10 m
+    tt.anisotropy = renderer.capabilities.getMaxAnisotropy();
+    const pitch = new THREE.Mesh(new THREE.PlaneGeometry(PW, PL),
+      new THREE.MeshStandardMaterial({ map: tt, roughness: 0.96 }));
+    pitch.rotation.x = -Math.PI/2; pitch.position.y = 0.0;
+    pitch.receiveShadow = true; scene.add(pitch);
+
+    stadium(scene);
+    return sun;
+  }
+
+  /* Shadows are sharp only near the action, so the shadow camera follows it. */
+  function frame(actors){
+    if (!sun || !actors) return;
+    let n = 0, x = 0, z = 0;
+    actors.children.forEach(c => { x += c.position.x; z += c.position.z; n++; });
+    if (!n) return;
+    x /= n; z /= n;
+    sun.target.position.set(x, 0, z);
+    sun.position.set(x - 24, 40, z + 20);
+    sun.target.updateMatrixWorld();
+  }
+
+  function ballMaterial(){
+    return mat('ball', () => {
+      const t = canvasTex(512, 256, (g, w, h) => {
+        g.fillStyle = '#f7f7f2'; g.fillRect(0, 0, w, h);
+        g.fillStyle = '#1b1d22';
+        const spots = [[0.5,0.5],[0,0.5],[1,0.5],[0.25,0.22],[0.75,0.22],[0.25,0.78],[0.75,0.78],
+                       [0.5,0.02],[0.5,0.98],[0,0.02],[1,0.98]];
+        spots.forEach(([u, v]) => {
+          g.beginPath();
+          for (let k = 0; k < 5; k++){
+            const a = k/5 * TAU - Math.PI/2;
+            g.lineTo(u*w + Math.cos(a)*26, v*h + Math.sin(a)*20);
+          }
+          g.closePath(); g.fill();
+        });
+      });
+      return new THREE.MeshStandardMaterial({ map: t, roughness: 0.45 });
+    });
+  }
+
+  return { setupWorld, makePlayer, ballMaterial, frame, SKINS, HAIRS, BOOTS };
+})();
+
 /* ---------------- 3D ---------------- */
 const stage = document.getElementById('stage');
 const renderer = new THREE.WebGLRenderer({ antialias:true });
@@ -522,11 +1049,7 @@ renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
 stage.insertBefore(renderer.domElement, stage.firstChild);
 
 const scene = new THREE.Scene();
-scene.background = new THREE.Color(0x0a1410);
-scene.fog = new THREE.Fog(0x0a1410, 60, 130);
-scene.add(new THREE.HemisphereLight(0xd6e8ff, 0x24422d, 0.95));
-const sun = new THREE.DirectionalLight(0xffffff, 0.85);
-sun.position.set(-25, 40, 25); scene.add(sun);
+const sun = LOOK.setupWorld(renderer, scene);   // sky, stadium, pitch, light and shadow
 
 const camera = new THREE.PerspectiveCamera(50, 1, 0.1, 300);
 
@@ -537,18 +1060,8 @@ function setFov(){
   camera.updateProjectionMatrix();
 }
 
-function turfTexture(){
-  const c = document.createElement('canvas'); c.width = c.height = 256;
-  const g = c.getContext('2d');
-  for (let i = 0; i < 8; i++){ g.fillStyle = i % 2 ? '#31803f' : '#256030'; g.fillRect(0, i*32, 256, 32); }
-  const t = new THREE.CanvasTexture(c);
-  t.wrapS = t.wrapT = THREE.RepeatWrapping;
-  t.repeat.set(1, 4);   // 160 m over 32 bands = one mowing stripe every 5 m
-  return t;
-}
-const ground = new THREE.Mesh(new THREE.PlaneGeometry(150,160),
-  new THREE.MeshLambertMaterial({ map: turfTexture() }));
-ground.rotation.x = -Math.PI/2; scene.add(ground);
+
+
 
 const lineMat = new THREE.MeshBasicMaterial({ color: 0xdfe8e0 });
 function stripe(x,z,w,d){ const m = new THREE.Mesh(new THREE.BoxGeometry(w,0.02,d), lineMat);
@@ -604,107 +1117,9 @@ const actors = new THREE.Group(); scene.add(actors);
 /* A jointed figure. Body direction comes from the stride and shoulders,
    head direction from the face — and the two can disagree, which is
    exactly the cue a winger has to pick up. */
-const SKINS = [0xf2d8b8, 0xe8c9a0, 0xc9985f, 0x9a6238, 0x6b4126];
-const HAIRS = [0x2a1d16, 0x14100c, 0x5a3a20, 0x8f7040, 0x1c1c1c];
-const BOOTS = [0xf2f5ef, 0xf5d33a, 0xff4f9d, 0x2ee6a8, 0x1a1a1a, 0xff8a2b];
+const SKINS = LOOK.SKINS, HAIRS = LOOK.HAIRS, BOOTS = LOOK.BOOTS;
 
-function makePlayer(color, mps, look){
-  const run = mps > 0.5;
-  look = look || {};
-  const HIP = 0.86;
-  const g = new THREE.Group();
-  const kit   = new THREE.MeshLambertMaterial({ color });
-  const skin  = new THREE.MeshLambertMaterial({ color: look.skin || CFG.colors.skin });
-  const hairM = new THREE.MeshLambertMaterial({ color: look.hair || 0x2a1d16 });
-  const shortM= new THREE.MeshLambertMaterial({ color: 0x16221a });
-  const bootM = new THREE.MeshLambertMaterial({ color: look.boot || 0xf2f5ef });
-
-  /* Cadence and stride length come from how fast he is ACTUALLY travelling, so
-     the legs and the ground agree instead of the figure appearing to skate.
-     A 12-year-old at 4.4 m/s takes about three strides a second \u2014 roughly a
-     1.5 m stride \u2014 and far shorter, slower ones at a jockeying pace. */
-  const freq = run ? 1.55 + 0.32*mps : 0.9;          // strides per second
-  const amp  = run ? Math.min(0.95, 0.22 + 0.145*mps) : 0.10;
-  const lean = 0.03 + 0.036*mps;
-  const legs = [], arms = [];
-
-  /* Positive rotation.x swings a limb BACKWARD. Hip flexion is negative,
-     knee flexion positive and never below zero. */
-  const hips = new THREE.Group(); hips.position.y = HIP; g.add(hips);
-  [[-0.115, 1], [0.115, -1]].forEach(([lx, sgn]) => {
-    const leg = new THREE.Group(); leg.position.x = lx;
-    const thigh = new THREE.Mesh(new THREE.CylinderGeometry(0.088,0.075,0.42,8), shortM);
-    thigh.position.y = -0.21; leg.add(thigh);
-    const knee = new THREE.Group(); knee.position.y = -0.42;
-    const shin = new THREE.Mesh(new THREE.CylinderGeometry(0.072,0.055,0.40,8), skin);
-    shin.position.y = -0.20; knee.add(shin);
-    const ankle = new THREE.Group(); ankle.position.y = -0.40;
-    const boot = new THREE.Mesh(new THREE.BoxGeometry(0.115,0.075,0.24), bootM);
-    boot.position.set(0,-0.04,0.06); ankle.add(boot);
-    knee.add(ankle); leg.add(knee); hips.add(leg);
-    legs.push({ leg, knee, ankle, sgn });
-  });
-
-  const upper = new THREE.Group();
-  upper.position.y = HIP; upper.rotation.x = lean; g.add(upper);
-  const torso = new THREE.Mesh(new THREE.BoxGeometry(0.50,0.60,0.27), kit);
-  torso.position.y = 0.30; upper.add(torso);
-  const shoulders = new THREE.Mesh(new THREE.BoxGeometry(0.58,0.15,0.28), kit);
-  shoulders.position.y = 0.55; upper.add(shoulders);
-
-  [[-0.32, -1], [0.32, 1]].forEach(([ax, sgn]) => {
-    const arm = new THREE.Group();
-    arm.position.set(ax, 0.52, 0); arm.rotation.z = sgn * 0.12;
-    const up = new THREE.Mesh(new THREE.CylinderGeometry(0.055,0.05,0.34,7), kit);
-    up.position.y = -0.17; arm.add(up);
-    const elbow = new THREE.Group(); elbow.position.y = -0.34;
-    const fore = new THREE.Mesh(new THREE.CylinderGeometry(0.048,0.042,0.32,7), skin);
-    fore.position.y = -0.16; elbow.add(fore);
-    arm.add(elbow); upper.add(arm);
-    arms.push({ arm, elbow, sgn });
-  });
-
-  const head = new THREE.Group();
-  head.position.y = 0.83; head.rotation.x = -lean; upper.add(head);
-  head.add(new THREE.Mesh(new THREE.SphereGeometry(0.135,16,12), skin));
-  const hair = new THREE.Mesh(
-    new THREE.SphereGeometry(0.143,16,12, 0, Math.PI*2, 0, Math.PI*0.62), hairM);
-  hair.position.z = -0.03; head.add(hair);
-  const eyeM = new THREE.MeshBasicMaterial({ color: 0x0d0d0d });
-  [-0.052, 0.052].forEach(ex => {
-    const e = new THREE.Mesh(new THREE.SphereGeometry(0.028,8,6), eyeM);
-    e.position.set(ex, 0.018, 0.118); head.add(e);
-  });
-  const nose = new THREE.Mesh(new THREE.ConeGeometry(0.028,0.07,6), skin);
-  nose.rotation.x = Math.PI/2; nose.position.set(0,-0.02,0.135); head.add(nose);
-
-  const shadow = new THREE.Mesh(new THREE.CircleGeometry(0.36, 20),
-    new THREE.MeshBasicMaterial({ color:0x000000, transparent:true,
-                                  opacity:0.30, depthWrite:false }));
-  shadow.rotation.x = -Math.PI/2; shadow.position.y = 0.03;
-  shadow.scale.z = 0.7; g.add(shadow);
-
-  const phase0 = Math.random() * Math.PI * 2;
-  g.userData.head  = head;
-  g.userData.upper = upper;
-  g.userData.legs  = legs;
-  g.userData.pose = tSec => {
-    const w = phase0 + tSec * freq * Math.PI * 2;
-    legs.forEach(({leg, knee, ankle, sgn}) => {
-      const u = Math.sin(w) * sgn * amp;
-      const flex = run ? 0.28 + 1.60*Math.max(0, u) : 0.10;
-      leg.rotation.x   = u * 0.80;
-      knee.rotation.x  = flex;
-      ankle.rotation.x = -0.55*flex + 0.12;
-    });
-    arms.forEach(({arm, elbow, sgn}) => {
-      arm.rotation.x   = Math.sin(w) * sgn * amp * (run ? 0.85 : 0.15);
-      elbow.rotation.x = run ? -0.50 - 0.15*mps : -0.25;
-    });
-  };
-  g.userData.pose(0);
-  return g;
-}
+const makePlayer = LOOK.makePlayer;   // the footballer lives in LOOK above
 
 let placed = [];
 const clamp = (v,a,b) => Math.max(a, Math.min(b, v));
@@ -847,8 +1262,8 @@ function buildScene(s){
   place('own', s.passerAt[0], s.passerAt[1], s, s.passerAt[0], s.passerAt[1],
     'the ball', { watch:true, speed:0, mps:0 });
   passerRig = placed[placed.length - 1].mesh;
-  const bl = new THREE.Mesh(new THREE.SphereGeometry(0.115, 10, 8),
-    new THREE.MeshLambertMaterial({ color: 0xf7f7f2 }));
+  const bl = new THREE.Mesh(new THREE.SphereGeometry(0.115, 24, 16), LOOK.ballMaterial());
+  bl.castShadow = true;
   bl.position.set(s.side*(s.wingX + s.passerAt[0]) + s.side*0.45, 0.115,
                   s.zBase + s.passerAt[1] - 0.15);
   actors.add(bl);
@@ -906,7 +1321,7 @@ function resize(){
   }
 }
 addEventListener('resize', resize);
-function loop(){ renderer.render(scene,camera); requestAnimationFrame(loop); }
+function loop(){ LOOK.frame(actors); renderer.render(scene,camera); requestAnimationFrame(loop); }
 
 function drawMask(){
   const c = document.getElementById('mask'), g = c.getContext('2d');
