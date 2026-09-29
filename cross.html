@@ -1389,7 +1389,17 @@ stripe(0,-36,40.3,0.2);                                          // 18-yard fron
 stripe(-20.15,-44.25,0.2,16.5); stripe(20.15,-44.25,0.2,16.5);   // 18-yard sides
 stripe(0,-47,18.32,0.2);                                         // 6-yard front
 stripe(-9.16,-49.75,0.2,5.5); stripe(9.16,-49.75,0.2,5.5);       // 6-yard sides
-stripe(0,-41.5,0.35,0.35);                                       // penalty spot
+stripe(0,-41.5,0.35,0.35);
+(function arcs(){                                                  // 9.15 m from the spot, outside the box only
+  const seg = (x0, z0, x1, z1) => { const L = Math.hypot(x1-x0, z1-z0), m = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.02, L), lineMat);
+    m.position.set((x0+x1)/2, 0.011, (z0+z1)/2); m.rotation.y = Math.atan2(x1-x0, z1-z0); scene.add(m); };
+  const lim = Math.acos(5.5/9.15);
+  for (let i = 0; i < 16; i++){ const a0 = -lim + 2*lim*i/16, a1 = -lim + 2*lim*(i+1)/16;
+    seg(9.15*Math.sin(a0), -41.5 + 9.15*Math.cos(a0), 9.15*Math.sin(a1), -41.5 + 9.15*Math.cos(a1)); }
+  for (let i = 0; i < 48; i++){ const a0 = 2*Math.PI*i/48, a1 = 2*Math.PI*(i+1)/48;
+    seg(9.15*Math.sin(a0), 9.15*Math.cos(a0), 9.15*Math.sin(a1), 9.15*Math.cos(a1)); }
+  stripe(0, 0, 0.3, 0.3);                                        // centre spot
+})();                                       // penalty spot
 
 /* The goal itself — the single best reference he has for judging
    how far up the pitch everything is. */

@@ -123,6 +123,13 @@ footer{flex:0 0 auto;border-top:1px solid var(--line);background:var(--turf);col
 #rotate span{color:var(--dim);font-size:14px;max-width:280px;line-height:1.45}
 @keyframes tilt{0%,30%{transform:rotate(0)}60%,100%{transform:rotate(-90deg)}}
 @media (orientation:portrait) and (max-width:760px){ #rotate{display:flex} }
+#stage{touch-action:manipulation;-webkit-user-select:none}
+#glanceHint{position:absolute;left:50%;bottom:14px;transform:translateX(-50%);z-index:4;pointer-events:none;
+  display:none;padding:6px 14px;border-radius:999px;background:rgba(10,20,14,.55);border:1px solid rgba(255,255,255,.25);
+  color:#fff;font-family:'Barlow Condensed',sans-serif;font-size:15px;letter-spacing:.1em;text-transform:uppercase;opacity:.75}
+body.carrying #glanceHint{display:block}
+#glanceHint.hit{animation:ghit .5s ease-out}
+@keyframes ghit{0%{background:rgba(198,239,47,.8);color:#0d1b12}100%{background:rgba(10,20,14,.55);color:#fff}}
 
 @media (orientation:landscape) and (max-height:500px){
   /* a phone on its side: every pixel of height goes to the pitch */
@@ -172,6 +179,7 @@ footer{flex:0 0 auto;border-top:1px solid var(--line);background:var(--turf);col
 </div>
 
 <div id="stage">
+  <div id="glanceHint">Tap to check your shoulder</div>
   <div id="timer"></div>
   <canvas id="mask"></canvas>
   <div id="labels"></div>
@@ -191,7 +199,7 @@ footer{flex:0 0 auto;border-top:1px solid var(--line);background:var(--turf);col
       <button data-side="alt" aria-pressed="false">Both</button>
     </div>
     <button class="cta" id="start">Start session</button>
-    <p class="note">16 reps, about six minutes. Your full-back plays you in out in the channel. Check inside as he strikes it, take it, and carry it 45&deg; into the half-space with your head up while the runs develop, with a check outside for your overlapping full-back. One of four passes is on: in behind for the 9, in behind for the far winger, into the 10&rsquo;s feet, or down the line for the overlap. A defender always gives it away.</p>
+    <p class="note">16 reps, about six minutes. Your full-back plays you in out in the channel. Check inside as he strikes it, take it, and carry it 45&deg; into the half-space with your head up while the runs develop. Tap the pitch while you carry it for a quick glance over your shoulder, down the touchline: has your full-back gone on the overlap, and has anyone gone with him? He does not always go. One of four passes is on: in behind for the 9, in behind for the far winger, into the 10&rsquo;s feet, or down the line for the overlap. A defender always gives it away.</p>
   </div>
 
   <div id="panelAsk" class="hide">
@@ -402,8 +410,11 @@ function buildCandidate(side, answer){
   /* where he takes the pass: out in the channel, a 45-degree carry back from W */
   const R = [W + CARRY/Math.SQRT2, zB + CARRY/Math.SQRT2];
   const passer = [Math.min(R[0] + rand(2, 4), 31), R[1] + rand(5.5, 7)];
-  /* ...who then overlaps: level with him, out in the channel, by the time he looks up */
-  const fb = [rand(25.5, 29), zB - rand(0.5, 2)];
+  /* ...who then overlaps: level with him, out in the channel, by the time he looks up.
+     Not every time. Some reps he stays back, so the only way to know is to look. */
+  const fbGoes = on === 'overlap' || Math.random() < 0.5;
+  const fbRun = [rand(25.5, 29), zB - rand(0.5, 2)];
+  const fb = fbGoes ? fbRun : [passer[0] - rand(0, 1.5), passer[1] - rand(2, 3.5)];
   const ball = [W, zB];
   const taken = [ball];
 
@@ -416,7 +427,7 @@ function buildCandidate(side, answer){
     nine: [nine[0] + rand(-1, 1.5), lineZ - rand(6.5, 8.5)],
     wide: [wide[0] + rand(1.5, 3),  lineZ - rand(6.5, 8.5)],
     ten:  ten.slice(),
-    overlap: [Math.min(fb[0] + rand(-1, 1.5), 31.5), fb[1] - rand(9, 12)]
+    overlap: [Math.min(fbRun[0] + rand(-1, 1.5), 31.5), fbRun[1] - rand(9, 12)]
   };
   const onLine = () => lineZ + rand(-0.4, 0.3);
   /* the pass that is on needs a gap: nobody else may stand in its lane */
@@ -425,7 +436,7 @@ function buildCandidate(side, answer){
 
   /* their back four, right to left as he looks at them */
   /* their full-back on his side: tucked in with the carry, or gone with the overlap */
-  const coverOverlap = on !== 'overlap';
+  const coverOverlap = fbGoes && on !== 'overlap';
   const lb = coverOverlap
     ? drop(taken, () => { const k = rand(0.35, 0.5);
         return [fb[0] + (T.overlap[0]-fb[0])*k + rand(-0.6, 0.6), fb[1] + (T.overlap[1]-fb[1])*k]; }, 1.6)
@@ -462,7 +473,7 @@ function buildCandidate(side, answer){
     nine: O(nine), wide: O(wide), ten: O(ten), fb: O(fb),
     target: { nine: O(T.nine), wide: O(T.wide), ten: O(T.ten), overlap: O(T.overlap) },
     opp: Object.fromEntries(Object.entries(opp).map(([k, p]) => [k, O(p)])),
-    cover: { nine: coverNine, wide: coverWide, ten: coverTen, overlap: coverOverlap },
+    cover: { nine: coverNine, wide: coverWide, ten: coverTen, overlap: coverOverlap }, fbGoes,
     intended: answer
   };
 }
@@ -489,7 +500,7 @@ function sceneOK(s){
     const st = passState(s, k);
     if (s.on === k){
       if (st.lane < 2.0 || st.near < (k === 'ten' ? 6 : 5) || st.keeper < 4.5) return false;
-    } else if (st.cover > 1.8) return false;
+    } else if (st.cover > 1.8 && !(k === 'overlap' && !s.fbGoes)) return false;
   }
   return true;
 }
@@ -500,7 +511,7 @@ function onside(s){
 const inArc = (p, deg, arc) => Math.abs(((Math.atan2(p[1], p[0]) * 180/Math.PI - deg + 540) % 360) - 180) <= arc;
 function inPlay(s){
   /* the check outside has to show the overlap: him, the grass ahead of him, and anyone sitting in it */
-  const out = [s.fb, s.target.overlap].concat(s.cover.overlap ? [s.opp.lb] : []);
+  const out = (s.fbGoes ? [s.fb, s.target.overlap] : [s.target.overlap]).concat(s.cover.overlap ? [s.opp.lb] : []);
   if (!out.every(p => inArc(p, GLANCE_DEG, 40) && Math.abs(s.wingX + p[0]) < 33)) return false;
   const pts = [s.nine, s.wide, s.ten, ...Object.entries(s.opp).filter(([k]) => !(k === 'lb' && s.cover.overlap)).map(([, p]) => p)];
   return pts.every(p => {
@@ -542,7 +553,8 @@ function scoreScene(s){
     nine: 'a centre-back has dropped goal-side of your 9 — that ball runs straight to him',
     wide: 'their ' + f.far + ' is goal-side of your far winger — he gets there first',
     ten:  'their 6 is tight on your 10’s back — he cannot turn, and a pass in gets nicked',
-    overlap: 'their ' + f.near + ' has gone with your full-back — he is sitting in the channel'
+    overlap: s.fbGoes ? 'their ' + f.near + ' has gone with your full-back — he is sitting in the channel'
+                      : 'your full-back never went — he stayed back, there is nobody down the line to slip'
   };
   const key = s.on;
   const list = OPTIONS.map(o => {
@@ -1351,7 +1363,17 @@ stripe(0,-36,40.3,0.2);                                          // 18-yard fron
 stripe(-20.15,-44.25,0.2,16.5); stripe(20.15,-44.25,0.2,16.5);   // 18-yard sides
 stripe(0,-47,18.32,0.2);                                         // 6-yard front
 stripe(-9.16,-49.75,0.2,5.5); stripe(9.16,-49.75,0.2,5.5);       // 6-yard sides
-stripe(0,-41.5,0.35,0.35);                                       // penalty spot
+stripe(0,-41.5,0.35,0.35);
+(function arcs(){                                                  // 9.15 m from the spot, outside the box only
+  const seg = (x0, z0, x1, z1) => { const L = Math.hypot(x1-x0, z1-z0), m = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.02, L), lineMat);
+    m.position.set((x0+x1)/2, 0.011, (z0+z1)/2); m.rotation.y = Math.atan2(x1-x0, z1-z0); scene.add(m); };
+  const lim = Math.acos(5.5/9.15);
+  for (let i = 0; i < 16; i++){ const a0 = -lim + 2*lim*i/16, a1 = -lim + 2*lim*(i+1)/16;
+    seg(9.15*Math.sin(a0), -41.5 + 9.15*Math.cos(a0), 9.15*Math.sin(a1), -41.5 + 9.15*Math.cos(a1)); }
+  for (let i = 0; i < 48; i++){ const a0 = 2*Math.PI*i/48, a1 = 2*Math.PI*(i+1)/48;
+    seg(9.15*Math.sin(a0), 9.15*Math.cos(a0), 9.15*Math.sin(a1), 9.15*Math.cos(a1)); }
+  stripe(0, 0, 0.3, 0.3);                                        // centre spot
+})();                                       // penalty spot
 
 /* The goal itself — the single best reference he has for judging
    how far up the pitch everything is. */
@@ -1523,7 +1545,7 @@ function buildScene(s){
   /* his full-back: plays him in from behind down the line, then overlaps.
      His run is driven by the build-up clock, not by setPhase. */
   const fbRun = Math.hypot(s.fb[0] - s.passerAt[0], s.fb[1] - s.passerAt[1]) / ((CFG.travelMs + CFG.flashMs)/1000);
-  place('own', s.fb[0], s.fb[1], s, s.fb[0], s.fb[1] - 6, 'your full-back · overlapping',
+  place('own', s.fb[0], s.fb[1], s, s.fb[0], s.fb[1] - 6, s.fbGoes ? 'your full-back · overlapping' : 'your full-back · stayed back',
     { speed:0.9, mps:fbRun, pre:0 });
   const fbo = placed[placed.length - 1]; fbo.custom = true;
   passerRig = fbo.mesh;
@@ -1545,6 +1567,38 @@ function aimReview(s){
    he has just checked it \u2014 this is that check, and the habit it trains is
    the point of the whole suite. */
 let passerRig = null, ballMesh = null, seqCam = null;
+
+/* ---- the shoulder glance: one tap anywhere on the pitch while he carries it ----
+   His head flicks over the outside shoulder, down the touchline, and comes
+   straight back. It is the only way to see whether his full-back has gone on
+   the overlap, and whether anyone has gone with him. */
+let glances = [], glanceOpen = false, seqT = 0;
+const GLANCE = { up: 170, hold: 430, down: 220 };
+function glanceW(T){
+  let g = null;
+  for (const t of glances) if (t <= T) g = t;
+  if (g === null) return 0;
+  const e = T - g;
+  if (e < GLANCE.up) return ease(e/GLANCE.up);
+  if (e < GLANCE.up + GLANCE.hold) return 1;
+  if (e < GLANCE.up + GLANCE.hold + GLANCE.down) return 1 - ease((e - GLANCE.up - GLANCE.hold)/GLANCE.down);
+  return 0;
+}
+function tapGlance(){
+  if (!glanceOpen) return;
+  const tm = seqTimes();
+  if (seqT < tm.recv + 300) return;                       // once it is at his feet and he is carrying it
+  const last = glances[glances.length - 1];
+  if (last !== undefined && seqT - last < GLANCE.up + GLANCE.hold) return;
+  glances.push(seqT);
+  const h = document.getElementById('glanceHint');
+  if (h){ h.classList.remove('hit'); void h.offsetWidth; h.classList.add('hit'); }
+}
+function checkedOverlap(s){
+  const tm = seqTimes();
+  return (s.glances || []).some(t => t >= tm.recv + 700);
+}
+
 
 /* k runs 0 to 1: he plants, draws the kicking leg back and leans over it */
 function windUp(k){
@@ -1652,19 +1706,19 @@ function seqFrame(s, T){
     const c = T - tm.recv;
     const gb = GLANCE_DEG*Math.PI/180;
     const out = ypTo(px, pz, px + side*26*Math.cos(gb), 1.3, pz + 26*Math.sin(gb));
-    if (c < 450)       yp = mixYP(atBall, scan, ease(c/450));          // touch, then the head comes up
-    else if (c < 1500) yp = scan;                                       // the runs inside
-    else if (c < 1800) yp = mixYP(scan, out, ease((c - 1500)/300));    // check outside: is the overlap on?
-    else if (c < 2150) yp = out;
-    else if (c < 2450) yp = mixYP(out, scan, ease((c - 2150)/300));    // and back inside
-    else yp = scan;
+    yp = c < 450 ? mixYP(atBall, scan, ease(c/450)) : scan;           // touch, then the head comes up
+    const w = glanceW(T);                                               // his own glance, if he tapped
+    if (w > 0) yp = mixYP(yp, out, w);
   }
   camYP(px, pz, yp[0], yp[1]);
 }
 function runSequence(done){
   const t0 = performance.now(), end = seqTimes().end;
   (function step(now){
-    const T = Math.min(end, now - t0);
+    const T = Math.max(0, Math.min(end, now - t0));
+    seqT = T;
+    const tm = seqTimes();
+    document.body.classList.toggle('carrying', glanceOpen && T >= tm.recv + 300);
     seqFrame(current, T);
     if (T < end){ requestAnimationFrame(step); return; }
     setPhase(1, CFG.flashMs/1000);
@@ -1706,6 +1760,8 @@ function resize(){
 }
 addEventListener('resize', resize);
 if (window.ResizeObserver) new ResizeObserver(() => { resize(); const ft = document.querySelector('footer'); if (ft) ft.scrollTop = 0; if (labels.style.display === 'block' && labels.innerHTML){ renderer.render(scene,camera); drawLabels(); } }).observe(stage);
+stage.addEventListener('pointerdown', e => { if (glanceOpen){ tapGlance(); e.preventDefault(); } });
+addEventListener('keydown', e => { if (e.key === ' ' || e.key === 'ArrowRight' || e.key === 'ArrowLeft'){ if (glanceOpen){ tapGlance(); e.preventDefault(); } } });
 function loop(){ LOOK.frame(actors); renderer.render(scene,camera); requestAnimationFrame(loop); }
 
 function drawMask(){
@@ -1727,7 +1783,7 @@ const el = id => document.getElementById(id);
 const veil = el('veil'), maskEl = el('mask'), labels = el('labels'), timer = el('timer');
 const pIdle = el('panelIdle'), pAsk = el('panelAsk'), pFeed = el('panelFeedback'), pSum = el('panelSummary');
 
-let rep = 0, current = null, ranked = null, answerTimer = null, sPts = 0, sMax = 0;
+let rep = 0, current = null, ranked = null, answerTimer = null, sPts = 0, sMax = 0, sLooked = 0;
 let bag = [], sBest = 0;
 let lastSide = Math.random() < 0.5 ? 1 : -1;
 
@@ -1749,7 +1805,7 @@ function paintSides(){
   el('sideR').classList.toggle('weak', l !== null && r !== null && r < l - 0.08);
 }
 
-function startSession(){ rep = 0; sPts = 0; sMax = 0; sBest = 0; bag = newBag(); nextRep(); }
+function startSession(){ rep = 0; sPts = 0; sMax = 0; sBest = 0; sLooked = 0; bag = newBag(); nextRep(); }
 
 function nextRep(){
   replaying = false;
@@ -1764,6 +1820,7 @@ function nextRep(){
   ranked = scoreScene(current);
   buildScene(current);
   clearPath();
+  glances = []; glanceOpen = false;
   seqFrame(current, 0);                         // eyes on his full-back, ball at that man's feet
   labels.style.display = 'none'; labels.innerHTML = '';
   el('leaders').style.display = 'none';
@@ -1772,13 +1829,15 @@ function nextRep(){
   el('askWord').firstChild.textContent = 'Look';
   el('askHint').textContent = 'Take it, carry it inside, head up.';
   el('answers').innerHTML = '';
-  setVeil(true, current.side === 1 ? 'Right wing' : 'Left wing', 'Your full-back has it. Check inside as he strikes it, then carry it in with your head up.');
+  setVeil(true, current.side === 1 ? 'Right wing' : 'Left wing', 'Your full-back has it. Carry it in with your head up &mdash; tap to check your shoulder for the overlap.'.replace('&mdash;','—'));
   setTimeout(flash, CFG.cueMs);
 }
 
 function flash(){
   setVeil(false);
+  current.glances = []; glances = current.glances; glanceOpen = true;
   runSequence(() => {
+    glanceOpen = false; document.body.classList.remove('carrying');
     drawMask(); maskEl.style.display = 'block';
     setTimeout(ask, CFG.maskMs);
   });
@@ -1796,6 +1855,7 @@ function replayLook(){
   const btn = el('replay'); btn.disabled = true; btn.textContent = 'Watching\u2026';
   labels.style.display = 'none'; el('leaders').style.display = 'none';
   clearPath();
+  glances = current.glances || []; glanceOpen = false;
   runSequence(() => {
     drawPath3D(current);
     aimReview(current);
@@ -1832,6 +1892,13 @@ function ask(){
 function answer(choice, btn){
   clearTimeout(answerTimer);
   timer.style.display = 'none';
+  const looked = checkedOverlap(current);
+  if (!looked){
+    const ov = ranked.find(x => x.id === 'overlap');
+    if (ov && ov.tier === 3){ ov.tier = 1; ov.v = 2;
+      ov.why = ['it was on — but you never checked your shoulder, so that was a guess. Glance before you play it']; }
+  }
+  sLooked += looked ? 1 : 0;
   const chosen = choice ? ranked.find(x => x.id === choice) : null;
   const pts = chosen ? chosen.tier : 0;
   const best = ranked[0];
@@ -1855,6 +1922,10 @@ function answer(choice, btn){
   drawLabels();
 
   const box = el('rank'); box.innerHTML = '';
+  { const r = document.createElement('div'); r.className = 'row';
+    r.innerHTML = '<span class="chip ' + (looked ? 't3' : 't0') + '">' + (looked ? 'Checked' : 'No look') + '</span><span class="wy">' +
+      (looked ? 'You glanced down the touchline for the overlap' : 'You never checked your shoulder for the overlap') + '</span>';
+    box.appendChild(r); }
   if (!chosen){
     const w = document.createElement('div');
     w.className = 'row picked';
@@ -1986,6 +2057,7 @@ function endSession(){
       ? 'Both sides read about the same. Next step is a shorter flash, not a new drill.'
       : 'He is '+gap+' points weaker on the '+(l<r?'left':'right')+' wing. The scenes are mirror images, so this is a looking habit, not a foot. Worth extra reps on that side at training.';
   }
+  el('sumNote').textContent += ' He checked his shoulder for the overlap on ' + sLooked + ' of ' + CFG.repsPerSession + ' reps.';
   show(pSum);
 }
 
