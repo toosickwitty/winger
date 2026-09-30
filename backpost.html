@@ -937,7 +937,7 @@ const LOOK = (() => {
       let name = 'idle', rate = 1;
       /* the cycle plays at exactly the speed he travels, so boots stay planted:
          a slow shuffle is short slow steps, never a stand-still slide */
-      if (m >= 2.4)       { name = 'run';  rate = Math.min(1.5, Math.max(0.7, m / RUN_MPS)); }
+      if (m >= 2.4)       { name = 'run';  rate = Math.min(2.0, Math.max(0.7, m / RUN_MPS)); }   // up to ~7 m/s: a real sprint cadence
       else if (m >= 0.15) { name = 'walk'; rate = Math.min(1.4, m / WALK_MPS); }
       if (look.back) rate = -rate;                     // backpedalling plays the cycle in reverse
       const clip = TEMPLATE.clips[name];
