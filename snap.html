@@ -185,7 +185,7 @@ footer{flex:0 0 auto;border-top:1px solid var(--line);background:var(--turf);col
   <svg id="leaders"></svg>
   <div class="veil on" id="veil">
     <div class="big" id="veilBig">Ready</div>
-    <div class="sub" id="veilSub">0.7 of a second, everyone moving. Where does the line-breaking ball go?</div>
+    <div class="sub" id="veilSub">0.7 of a second, everyone moving. Which ball breaks their lines?</div>
   </div>
 </div>
 
@@ -198,7 +198,7 @@ footer{flex:0 0 auto;border-top:1px solid var(--line);background:var(--turf);col
       <button data-side="alt" aria-pressed="false">Both</button>
     </div>
     <button class="cta" id="start">Start session</button>
-    <p class="note">16 reps, about four minutes. 0.7 of a second from the wing or from the 10, with everyone moving &mdash; then it is gone. Somewhere there is one ball that breaks their line: a through ball for a runner going through a gap in their back four, or a ping in behind their far full-back. Every other run is tracked. Tap the map where you would play it: not where the runner was, but the grass in front of him where the ball has to land. The map turns to match the way you were looking.</p>
+    <p class="note">16 reps, about four minutes. 0.7 of a second from the wing or from the 10, everyone moving &mdash; then it is gone. One ball breaks their lines, the way Spanish positional play teaches it: <b>ruptura</b> (a runner through a gap in their back line), <b>a la espalda</b> (in behind a full-back who tucked in), <b>entre l&iacute;neas</b> (your 10 free between their lines), <b>apoyo del 9</b> (your 9 dropping off with nobody following) or <b>cambio de orientaci&oacute;n</b> (their block shifted, your far winger alone). Everything else is shut. Tap the map where the ball has to go &mdash; into space in front of a runner, or into the feet of the free man.</p>
   </div>
 
   <div id="panelAsk" class="hide">
@@ -301,34 +301,49 @@ const pick = a => a[Math.floor(Math.random()*a.length)];
    one is the answer. If all three are occupied, nothing is on and he comes
    back to the ball. No magnitudes to judge, no distances to estimate: a body
    is either there or it is not. */
-/* ===================== SNAP: THE LINE-BREAKING BALL =====================
-   0.7 of a second, from the wing or from the 10, with everybody moving. Then
-   the picture is gone: tap where you would play it.
+/* ===================== SNAP: BREAKING THE LINES =====================
+   0.7 of a second from the wing or from the 10, everyone moving, then the
+   picture is gone: tap where you would play it.
 
-   Short passes and one-twos are easy to see in a game. The ball that is hard
-   to see is the one that breaks their line, so that is the only one here:
+   The patterns are the line-breaking passes of Spanish positional play (juego
+   de posicion). In every rep exactly one is on; everything else is shut.
 
-     through ball  a runner going through a gap in their back line, the
-                   defender nearest him stepping up or flat-footed
-     ping          your far winger running in behind their far full-back,
-                   who has tucked in narrow
+     ruptura       a runner through a gap in their back line  -> into space in behind
+     espalda       your far winger behind their far full-back, who tucked in
+     entrelineas   your 10 free between their midfield and back lines -> to his feet
+     apoyo         your 9 dropping off, nobody following him   -> to his feet as he comes
+     cambio        their block has shifted to the ball; your far winger alone, wide -> switch
 
-   Exactly one is on. Every other runner has a defender goal-side of him,
-   running with him, and the short options have a man on their back.
-   The answer is not where the runner WAS; it is the grass in front of him
-   where the ball has to land.  Right-wing coordinates, mirrored for the left. */
+   Shut means: a defender goal-side of the runner and running with him; a man
+   on the 10's back; a full-back tight on the winger; the short options marked.
+   Right-wing coordinates (x across, z along, their goal at z = -52.5), stored as
+   offsets from where he stands. Mirrored for the left wing.                 */
 const ZONE = { box: 20.15, six: 9.16, goalZ: -52.5 };
-const TEMPLATES = { 'through-wing': [1], 'through-ten': [1], 'ping-wing': [1], 'ping-ten': [1] };
-const ARC_SAFE = 43, FLASH_S = 0.7;
+const TYPES = ['ruptura', 'espalda', 'entrelineas', 'apoyo', 'cambio'];
+const TEMPLATES = {};
+TYPES.forEach(t => { TEMPLATES[t + '-wing'] = [1]; TEMPLATES[t + '-ten'] = [1]; });
+const ARC_SAFE = 45, FLASH_S = 0.7, MIN_PASS = 18;
 const rand = (a,b) => a + Math.random()*(b-a);
+const pickOne = a => a[Math.floor(Math.random()*a.length)];
 function shuffle(a){
   for (let i = a.length-1; i > 0; i--){ const j = Math.floor(Math.random()*(i+1)); [a[i], a[j]] = [a[j], a[i]]; }
   return a;
 }
+/* 16 reps: every pattern at least three times, views alternating, no pattern twice in a row */
 function newBag(){
-  const n = CFG.repsPerSession, ids = Object.keys(TEMPLATES), out = [];
-  for (let i = 0; i < n; i++) out.push(ids[i % ids.length]);
-  return shuffle(out);
+  const n = CFG.repsPerSession, left = {};
+  TYPES.forEach(t => left[t] = Math.floor(n / TYPES.length));
+  shuffle(TYPES.slice()).slice(0, n % TYPES.length).forEach(t => left[t]++);
+  const out = [];
+  for (let i = 0; i < n; i++){
+    const prev = out[i-1];
+    const pool = TYPES.filter(t => left[t] > 0 && t !== prev);
+    const most = Math.max(...pool.map(t => left[t]));
+    const t = pickOne(pool.filter(t => left[t] >= most - 1));
+    out.push(t); left[t]--;
+  }
+  let wing = Math.random() < 0.5;
+  return out.map(t => (wing = !wing, t + (wing ? '-wing' : '-ten')));
 }
 function recvPoint(answer, s){ return s.target; }
 const d2 = (a, b) => Math.hypot(a[0]-b[0], a[1]-b[1]);
@@ -341,117 +356,165 @@ const unit = (x, z) => { const l = Math.hypot(x, z) || 1; return [x/l, z/l]; };
 const inArc = (p, deg, arc) => Math.abs(((Math.atan2(p[1], p[0]) * 180/Math.PI - deg + 540) % 360) - 180) <= arc;
 
 function candidate(side, key){
-  const [kind, view] = key.split('-');
-  const W = view === 'wing' ? [rand(17, 23), rand(-12, -4)] : [rand(-4, 4), rand(-12, -3)];
-  const look = view === 'wing' ? rand(236, 246) : rand(263, 275);
-  const ten = view === 'ten';
-  const lineZ = W[1] - (ten ? rand(22, 25) : rand(17, 21));   // their back line (the 10 sees it from deeper)
-  const midZ  = W[1] - rand(7, 9.5);                         // their midfield line
-  const shift = W[0]*0.35;                                   // everyone shuffled toward the ball side
-  const P = [], add = (team, role, end, vel, tag) => { P.push({ team, role, end, vel, tag }); return P[P.length-1]; };
+  const [type, view] = key.split('-'), ten = view === 'ten';
+  const W = ten ? [rand(-4, 4), rand(-10, 2)] : [rand(17, 23), rand(-12, -2)];
+  const deep = Math.random() < 0.5;                                    // their block: high line, or deep
+  const lineZ = W[1] - (ten ? (deep ? rand(24, 27) : rand(20, 23)) : (deep ? rand(20, 23) : rand(16, 19)));
+  const midZ  = lineZ + rand(9, 12);
+  const shift = W[0] * (type === 'cambio' ? rand(0.55, 0.7) : rand(0.3, 0.4));   // shuffled toward the ball
+  const P = [];
+  const add = (team, role, end, vel, tag) => { const q = { team, role, end, vel: vel || [0, 0], tag: tag || null }; P.push(q); return q; };
 
-  /* their back four, right to left as he looks: near full-back, two centre-backs, far full-back */
-  const back = (ten ? [13, 4.6, -4.6, -13] : [15, 5.2, -5.2, -15]).map((x, i) => [shift + x + rand(-1.2, 1.2), lineZ + rand(-0.7, 0.7)]);
-  /* their midfield three, screening */
-  const mids = (ten ? [8, 0, -8] : [9, 0, -9]).map(x => [shift + x + rand(-1.5, 1.5), midZ + rand(-1, 1)]);
+  /* their shape: a back four and a midfield three, near side first */
+  const bw = ten ? [13, 4.6, -4.6, -13] : [15, 5.2, -5.2, -15];
+  const back = bw.map(x => [shift + x + rand(-1, 1), lineZ + rand(-0.6, 0.6)]);
+  const mids = [9, 0, -9].map(x => [shift + x + rand(-1.5, 1.5), midZ + rand(-1, 1)]);
+  const lineStep = Math.random() < 0.5 ? rand(0.8, 1.4) : -rand(0.8, 1.4);   // +z: stepping up to squeeze
 
-  let run, runDir, runner, gapNote;
-  if (kind === 'through'){
-    /* a gap: pull the two defenders either side of the runner apart */
-    const pairIdx = Math.random() < 0.6 ? 1 : (view === 'wing' ? 0 : 2);  // between the centre-backs, or a full-back and a centre-back
-    const a = back[pairIdx], b = back[pairIdx + 1];
-    const mid = (a[0] + b[0]) / 2, half = rand(5, 6.5);
-    a[0] = mid + half; b[0] = mid - half;
-    runner = [mid + rand(-1, 1), lineZ + rand(0.2, 1.0)];                   // level with their line, onside
-    runDir = unit(rand(-0.35, 0.35) + (W[0] - mid)*-0.01, -1);
-    run = pairIdx === 1 ? 'your 9' : (pairIdx === 0 ? 'your 8, running beyond' : 'your far 8, running beyond');
-    gapNote = pairIdx === 1 ? 'through the gap between their centre-backs' : 'through the gap between their full-back and centre-back';
+  /* your options, before deciding which one is on */
+  const nine = [shift + rand(-2, 2), lineZ + rand(0.4, 1.4)];
+  const farW = [Math.max(-31, shift - (ten ? rand(17, 20) : rand(21, 25))), lineZ + rand(0.5, 2.5)];
+  const tenP = [shift + rand(-5, 5), (lineZ + midZ)/2 + rand(-1, 1)];
+  let chosen, target, title, why, runVel = null, ninePos = nine, farPos = farW, tenPos = tenP;
+  let nineVel = [0, rand(-0.3, 0.3)], farVel = [rand(-0.3, 0.3), -rand(0.2, 0.8)], tenVel = [rand(-1, 1), rand(0.3, 0.9)];
+  let shut = { nine: true, farW: true, ten: true };
+
+  if (type === 'ruptura'){
+    const inside = !ten && Math.random() < 0.45;                    // or your 8 between their full-back and centre-back
+    const idx = inside ? 0 : 1, a = back[idx], b = back[idx + 1];
+    const mid = (a[0] + b[0])/2, half = rand(5.2, 6.5); a[0] = mid + half; b[0] = mid - half;
+    const at = [mid + rand(-1, 1), lineZ + rand(0.2, 1.0)], dir = unit(rand(-0.3, 0.3), -1), sp = rand(4.6, 5.2);
+    runVel = [dir[0]*sp, dir[1]*sp];
+    target = [at[0] + dir[0]*rand(5, 7), at[1] + dir[1]*rand(5, 7)];
+    if (inside){ chosen = add('own', 'chosen', at, runVel, 'your 8 · breaking through the gap');
+      title = 'Ruptura'; why = 'your 8 ran through the gap between their full-back and centre-back — the ball goes into the space in front of him'; }
+    else { ninePos = null; shut.nine = false; chosen = add('own', 'chosen', at, runVel, 'your 9 · splitting the centre-backs');
+      title = 'Ruptura'; why = 'your 9 ran through the gap between their centre-backs — the ball goes into the space in front of him'; }
+  } else if (type === 'espalda'){
+    back[3][0] = shift - rand(9, 11);                               // far full-back tucked in
+    const dir = unit(rand(0.15, 0.4), -1), sp = rand(4.6, 5.2);
+    runVel = [dir[0]*sp, dir[1]*sp];
+    const at = [farW[0], lineZ + rand(0.3, 1.2)];
+    target = [at[0] + dir[0]*rand(5, 7), at[1] + dir[1]*rand(5, 7)];
+    farPos = null; shut.farW = false;
+    chosen = add('own', 'chosen', at, runVel, 'your far winger · attacking the back of the full-back');
+    title = 'A la espalda'; why = 'their far full-back tucked in narrow and your far winger attacked the space behind him — ping it in behind';
+  } else if (type === 'entrelineas'){
+    /* the pocket: their midfield has stepped up to press, their back line held */
+    mids.forEach(m => m[1] += rand(2, 3.5));
+    const at = [shift + rand(-4, 4), (lineZ + midZ)/2 + rand(0, 1.5)];
+    const v = [rand(-1.2, 1.2), rand(0.6, 1.4)];
+    target = [at[0] + v[0]*0.8, at[1] + v[1]*0.8 - 0.8];
+    tenPos = null; shut.ten = false;
+    chosen = add('own', 'chosen', at, v, 'your 10 · free between the lines');
+    title = 'Entre líneas'; why = 'your 10 was free between their midfield and back line — play it into his feet, a touch in front so he can turn';
+  } else if (type === 'apoyo'){
+    /* the 9 drops off; the centre-backs hold the line and nobody follows */
+    const at = [shift + rand(-2.5, 2.5), lineZ + rand(5.5, 7.5)];
+    const dir = unit(W[0] - at[0], W[1] - at[1]), sp = rand(2.8, 3.4);
+    const v = [dir[0]*sp, dir[1]*sp];
+    target = [at[0] + v[0]*0.5, at[1] + v[1]*0.5];
+    ninePos = null; shut.nine = false;
+    chosen = add('own', 'chosen', at, v, 'your 9 · dropping in, nobody following');
+    tenPos = [shift + (Math.random() < 0.5 ? 1 : -1)*rand(8, 11), (lineZ + midZ)/2 + rand(0, 2)];   // your 10 has moved over, marked
+    title = 'Apoyo del 9'; why = 'your 9 dropped off their centre-backs into the space between the lines and nobody followed him — into his feet as he comes';
   } else {
-    /* the far full-back has tucked in; your far winger runs in behind him */
-    back[3][0] = shift - rand(9, 11);
-    runner = [Math.max(-31, shift - (ten ? rand(17, 20) : rand(21, 25))), lineZ + rand(0.3, 1.2)];
-    runDir = unit(rand(0.15, 0.4), -1);
-    run = 'your far winger';
-    gapNote = 'in behind their far full-back, who has tucked in narrow';
+    /* cambio: the whole block has shifted over; the far winger is alone, holding width */
+    back[3][0] = Math.max(back[2][0] - 9, shift - 14);
+    const at = [Math.max(-31.5, back[3][0] - rand(12, 15)), lineZ + rand(2, 5)];
+    const v = [rand(-0.3, 0.2), -rand(1, 2)];
+    target = [at[0] + v[0]*0.8, at[1] + v[1]*0.8 - 1];
+    farPos = null; shut.farW = false;
+    chosen = add('own', 'chosen', at, v, 'your far winger · alone, holding the width');
+    title = 'Cambio de orientación'; why = 'their whole block shifted over to the ball and your far winger was alone, holding the width — switch it';
   }
-  const speed = rand(4.6, 5.2);
-  const target = [runner[0] + runDir[0]*rand(5, 7), runner[1] + runDir[1]*rand(5, 7)];
 
-  /* the back line: stepping up to squeeze, or dropping, together */
-  const step = Math.random() < 0.5 ? rand(0.8, 1.4) : -rand(0.8, 1.4);   // +z = stepping up toward the ball
-  back.forEach((p, i) => add('opp', 'back' + i, p, [0, step]));
+  /* the back line and midfield move as units */
+  back.forEach((p, i) => add('opp', 'back' + i, p, [0, lineStep]));
   mids.forEach((p, i) => add('opp', 'mid' + i, p, [(W[0] > p[0] ? 1 : -1)*rand(0.6, 1.2), rand(0.2, 0.8)]));
-  add('own', 'runner', runner, [runDir[0]*speed, runDir[1]*speed], run + ' · running ' + gapNote);
+  const find = r => P.find(q => q.role === r);
 
-  /* the other runs: each one tracked, a defender goal-side and running with him */
-  const decoys = [];
-  if (kind !== 'through') decoys.push({ at: [shift + rand(-2, 2), lineZ + rand(0.5, 1.5)], who: 'your 9', def: 1 });
-  if (kind !== 'ping')    decoys.push({ at: [Math.max(-31, shift - (ten ? rand(17, 20) : rand(21, 25))), lineZ + rand(0.5, 1.5)], who: 'your far winger', def: 3 });
-  decoys.forEach(d => {
-    const dir = unit(rand(-0.2, 0.2), -1), sp = rand(4.2, 5);
-    const bk = back[d.def]; bk[0] = d.at[0] + rand(-0.5, 0.5); bk[1] = d.at[1] - rand(0.9, 1.4);   // goal-side of him
-    const me = add('own', 'decoy', d.at, [dir[0]*sp, dir[1]*sp], d.who + ' · tracked, a man goal-side');
-    const def = P.find(q => q.role === 'back' + d.def); def.end = bk; def.vel = [dir[0]*sp*0.95, dir[1]*sp*0.95];
-    me.lane = [d.at[0] + dir[0]*6, d.at[1] + dir[1]*6];
-  });
-  /* short options, each with a man on his back */
-  const shorts = view === 'wing'
-    ? [[W[0] - rand(8, 11), W[1] - rand(2, 5)], [W[0] - rand(3, 6), W[1] + rand(4, 7)]]
-    : [[W[0] + rand(7, 10), W[1] - rand(2, 4)], [W[0] - rand(7, 10), W[1] - rand(1, 4)]];
+  /* everything that is not the answer is shut */
+  if (ninePos){                                                     // a centre-back goal-side of your 9, with him
+    const v = [rand(-0.4, 0.4), -rand(3.8, 4.6)];
+    add('own', 'nine', ninePos, v, 'your 9 · a centre-back goal-side of him');
+    const cb = find('back1'); cb.end = [ninePos[0] + rand(-0.5, 0.5), ninePos[1] - rand(0.9, 1.3)]; cb.vel = [v[0], v[1]*0.95];
+  }
+  if (farPos){                                                      // their full-back tight on your far winger
+    const v = [rand(-0.2, 0.2), -rand(3.8, 4.6)];
+    add('own', 'farW', farPos, v, 'your far winger · their full-back tight on him');
+    const fb = find('back3'); fb.end = [farPos[0] + rand(0.3, 0.8), farPos[1] - rand(0.9, 1.3)]; fb.vel = [v[0], v[1]*0.95];
+  }
+  if (tenPos){                                                      // a midfielder on your 10's back
+    add('own', 'ten', tenPos, tenVel, 'your 10 · a man on his back');
+    const g = unit(0 - tenPos[0], ZONE.goalZ - tenPos[1]);
+    const m = find('mid1'); m.end = [tenPos[0] + g[0]*rand(0.9, 1.2), tenPos[1] + g[1]*rand(0.9, 1.2)]; m.vel = tenVel.slice();
+  }
+  /* short options, each with a man on him */
+  const shorts = ten ? [[W[0] + rand(7, 10), W[1] - rand(1, 3)], [W[0] - rand(7, 10), W[1] - rand(1, 3)]]
+                     : [[W[0] - rand(8, 11), W[1] - rand(2, 5)], [W[0] - rand(3, 6), W[1] + rand(4, 7)]];
   shorts.forEach(p => {
-    add('own', 'short', p, [rand(-0.6, 0.6), rand(0.8, 1.6)], null);
+    add('own', 'short', p, [rand(-0.6, 0.6), rand(0.8, 1.6)]);
     const g = unit(0 - p[0], ZONE.goalZ - p[1]);
-    add('opp', 'marker', [p[0] + g[0]*rand(1.0, 1.4), p[1] + g[1]*rand(1.0, 1.4)], [rand(-0.4, 0.4), rand(0.8, 1.6)]);
+    add('opp', 'marker', [p[0] + g[0]*rand(1.0, 1.3), p[1] + g[1]*rand(1.0, 1.3)], [rand(-0.4, 0.4), rand(0.8, 1.6)]);
   });
 
-  /* the gap in their midfield that makes the ball on: whoever screens the lane has shuffled off it */
-  P.filter(q => q.role.startsWith('mid')).forEach(q => {
+  /* the gap in their midfield along the pass (a lofted switch goes over it) */
+  if (type !== 'cambio') P.filter(q => q.role.startsWith('mid') && q.role !== 'mid1' || (q.role === 'mid1' && !tenPos)).forEach(q => {
     const dx = target[0] - W[0], dz = target[1] - W[1], L = Math.hypot(dx, dz), nx = -dz/L, nz = dx/L;
     const rel = [q.end[0] - W[0], q.end[1] - W[1]], along = (rel[0]*dx + rel[1]*dz)/L, off = rel[0]*nx + rel[1]*nz;
     if (along > 0 && along < L && Math.abs(off) < 3.2){ const push = (off >= 0 ? 1 : -1)*(3.2 + rand(0.3, 1.5)) - off;
       q.end = [q.end[0] + nx*push, q.end[1] + nz*push]; }
   });
-  /* he looks at the whole picture: centre his eyes between its two edges */
+
+  /* his eyes: centred on the options and the men deciding them */
   const bear = p => Math.atan2(p[1] - W[1], p[0] - W[0]) * 180/Math.PI;
-  const edges = [runner, target, ...P.filter(q => q.role !== 'short' && q.role !== 'marker').map(q => q.end)].map(bear);
-  const ref = edges[0], rel = edges.map(b => ((b - ref + 540) % 360) - 180);
-  const lookC = ref + (Math.max(...rel) + Math.min(...rel))/2;
+  const keyPts = [target, ...P.filter(q => q.team === 'own' && q.role !== 'short').map(q => q.end)];
+  const edges = keyPts.map(bear), ref = edges[0], rel = edges.map(b => ((b - ref + 540) % 360) - 180);
+  const look = ref + (Math.max(...rel) + Math.min(...rel))/2;
+
   const O = p => [p[0] - W[0], p[1] - W[1]];
-  const s = { side, view, kind, key, wingX: W[0], zBase: W[1], lookDeg: (lookC + 360) % 360, lineZ,
-              players: P.map(q => ({ team: q.team, role: q.role, end: O(q.end), vel: q.vel, tag: q.tag, lane: q.lane ? O(q.lane) : null })),
-              target: O(target), runnerAt: O(runner), gapNote, run,
-              recv: [0, 0], passerAt: [0, 0], intended: key };
-  return s;
+  return { side, view, type, key, wingX: W[0], zBase: W[1], lookDeg: (look + 360) % 360, lineZ, midZ, deep,
+           players: P.map(q => ({ team: q.team, role: q.role, end: O(q.end), vel: q.vel, tag: q.tag })),
+           target: O(target), runnerAt: O(chosen.end), title, why,
+           recv: [0, 0], passerAt: [0, 0], intended: key };
 }
+
 function sceneOK(s){
   const opp = s.players.filter(p => p.team === 'opp').map(p => p.end);
   const own = s.players.filter(p => p.team === 'own');
-  const tgt = s.target;
-  /* line-breaking: it lands beyond their back line */
+  const tgt = s.target, rcv = s.runnerAt;
+  /* no short combinations: every answer is a proper ball through the lines */
+  if (Math.hypot(tgt[0], tgt[1]) < MIN_PASS) return false;
   const deepest = Math.min(...opp.map(q => q[1]));
-  if (tgt[1] > deepest - 2) return false;
-  /* the ball has a lane, and the grass it lands on is empty */
-  if (Math.min(...opp.map(q => distToLane(q, [0,0], tgt))) < 2.5) return false;
-  if (Math.min(...opp.map(q => d2(q, tgt))) < 5.5) return false;
+  const midLine = s.midZ - s.zBase - 1;                           // their midfield line, as it was set
+  const toFeet = s.type === 'entrelineas' || s.type === 'apoyo' || s.type === 'cambio';
+  /* it breaks a line: into space beyond their back line, or into feet beyond their midfield */
+  if (!toFeet && tgt[1] > deepest - 2) return false;
+  if (toFeet && tgt[1] > midLine - 1.5) return false;
+  /* the ball has a lane (a lofted switch goes over it) and the receiver has room */
+  if (s.type !== 'cambio' && Math.min(...opp.map(q => distToLane(q, [0,0], tgt))) < 2.4) return false;
+  const room = Math.min(...opp.map(q => d2(q, tgt)));
+  if (room < (s.type === 'cambio' ? 8 : toFeet ? 4.5 : 5.5)) return false;
+  if (Math.min(...opp.map(q => d2(q, rcv))) < (toFeet ? 4.5 : 1.5)) return false;
   /* inside the pitch */
   const X = s.wingX + tgt[0], Z = s.zBase + tgt[1];
   if (Math.abs(X) > 31.5 || Z < -50) return false;
-  /* onside: every runner level with or behind the deepest defender */
+  /* onside */
   if (own.some(p => p.end[1] < deepest - 0.05)) return false;
-  /* nothing else is on: every other run has a defender on its lane */
-  for (const p of own.filter(p => p.role === 'decoy'))
-    if (Math.min(...opp.map(q => distToLane(q, p.end, p.lane))) > 1.6) return false;
+  /* everything else really is shut */
+  for (const p of own.filter(p => ['nine','farW','ten','short'].includes(p.role)))
+    if (Math.min(...opp.map(q => d2(q, p.end))) > 1.7) return false;
   /* nobody standing on anyone else */
   const all = s.players.map(p => p.end);
-  for (let i = 0; i < all.length; i++) for (let j = i+1; j < all.length; j++)
-    if (d2(all[i], all[j]) < 0.9) return false;
-  /* he can see it: the runner, the landing grass, and the men around it */
-  return [s.runnerAt, tgt, ...s.players.filter(p => p.role !== 'short' && p.role !== 'marker').map(p => p.end)]
-    .every(p => inArc(p, s.lookDeg, ARC_SAFE) && Math.abs(s.wingX + p[0]) < 33.5);
+  for (let i = 0; i < all.length; i++) for (let j = i+1; j < all.length; j++) if (d2(all[i], all[j]) < 0.9) return false;
+  /* he can see it all in one look */
+  const must = [tgt, ...own.filter(p => p.role !== 'short').map(p => p.end)];
+  return must.every(p => inArc(p, s.lookDeg, ARC_SAFE) && Math.abs(s.wingX + p[0]) < 33.5);
 }
-function makeScene(side, kind){
+function makeScene(side, key){
   let last = null;
-  for (let i = 0; i < 800; i++){ const s = candidate(side, kind); if (sceneOK(s)) return s; last = s; }
+  for (let i = 0; i < 1500; i++){ const s = candidate(side, key); if (sceneOK(s)) return s; last = s; }
   return last;
 }
 const OPTIONS = [];
@@ -1407,7 +1470,7 @@ function buildScene(s){
     const v = Math.hypot(p.vel[0], p.vel[1]);
     const from = [p.end[0] - s.side*0 - p.vel[0]*T, p.end[1] - p.vel[1]*T];
     if (v < 0.15) place(p.team, p.end[0], p.end[1], s, p.end[0], p.end[1], p.tag, Object.assign({ speed:0, mps:0 }, eye));
-    else mover(p.team, p.end, from, p.tag, p.role === 'runner' || p.role === 'decoy' ? {} : eye);
+    else mover(p.team, p.end, from, p.tag, ['chosen','nine','farW'].includes(p.role) ? {} : eye);
   });
   const bl = new THREE.Mesh(new THREE.SphereGeometry(0.115, 24, 16), LOOK.ballMaterial());
   bl.castShadow = true; actors.add(bl); ballMesh = bl;
@@ -1603,7 +1666,7 @@ function drawMap(s, reveal, tap){
       const ux = vx/v, uz = vz/v;
       L('path', { d: 'M ' + (tx + ux*1.1) + ' ' + (tz + uz*1.1) + ' L ' + (tx - uz*.7) + ' ' + (tz + ux*.7) + ' L ' + (tx + uz*.7) + ' ' + (tz - ux*.7) + ' Z', fill: col });
     }
-    L('circle', { cx: e[0], cy: e[1], r: 1.0, fill: col, stroke: p.role === 'runner' ? '#c6ef2f' : (p.team === 'own' ? '#fff' : '#200'), 'stroke-width': p.role === 'runner' ? .5 : .2 });
+    L('circle', { cx: e[0], cy: e[1], r: 1.0, fill: col, stroke: p.role === 'chosen' ? '#c6ef2f' : (p.team === 'own' ? '#fff' : '#200'), 'stroke-width': p.role === 'chosen' ? .5 : .2 });
   });
   if (tap){
     L('line', { x1: tap[0], y1: tap[1], x2: f[0], y2: f[1], stroke: '#fff', 'stroke-width': .25, 'stroke-dasharray': '.8 .6' });
@@ -1706,7 +1769,7 @@ function replayLook(){
 function ask(){
   maskEl.style.display = 'none';
   el('askWord').firstChild.textContent = 'Where does it go?';
-  el('askHint').textContent = 'Tap where the line-breaking ball lands.';
+  el('askHint').textContent = 'Tap where the ball breaks their lines.';
   el('answers').innerHTML = '';
   drawMap(current, false, null);
   document.getElementById('mapwrap').style.display = 'flex';
@@ -1740,8 +1803,8 @@ function answerMap(tap){
   else row(TIER_NAME[pts], 't' + pts, 'You were <b>' + d.toFixed(1) + ' m</b> from where the ball had to land.' +
     (pts === 3 ? ' Into his stride.' : pts === 1 ? ' Right run — play it further in front of him.' : ' Wrong run, or played to where he was. Every other run was tracked.'));
   const r2 = document.createElement('div'); r2.className = 'row';
-  r2.innerHTML = '<span class="wy"><b>' + (current.kind === 'ping' ? 'The ping' : 'The through ball') + '</b> — ' +
-    current.run + ' was running ' + current.gapNote + '. Every other run had a defender goal-side of it.</span>';
+  r2.innerHTML = '<span class="wy"><b>' + current.title + '</b> — ' + current.why +
+    '. Everything else was shut: runners tracked, a man on every other option.</span>';
   box.appendChild(r2);
   setTimeout(() => show(pFeed), 300);
 }
@@ -1931,7 +1994,7 @@ el('hmeta').textContent = 'Rep 0 / ' + CFG.repsPerSession;
 resize();
 loop();
 try {
-  const seed = makeScene(1, 'through-wing'); buildScene(seed); seqFrame(seed, seqTimes().end); aimCamera(seed);
+  const seed = makeScene(1, 'entrelineas-ten'); buildScene(seed); seqFrame(seed, seqTimes().end); aimCamera(seed);
 } catch (e) { console.error('seed scene failed', e); }
 loadStats();
 </script>
