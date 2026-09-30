@@ -1006,8 +1006,12 @@ const LOOK = (() => {
        so a runner can stroll into position and only then go */
     const pre = look.pre === undefined ? main : clipFor(look.pre);
     const clipName = main.name, ts = main.rate;
+    /* a player whose speed changes (standing, jogging, sprinting) can switch gait:
+       each at its own natural tempo, never a run played in slow motion */
+    const gaits = {}; let gaitNow = null;
+    const gaitClip = n => gaits[n] || (gaits[n] = clipFor(n === 'run' ? RUN_MPS : n === 'walk' ? WALK_MPS : 0));
     function sample(t){
-      const c0 = t < 0 ? pre : main, D = c0.clip.duration;
+      const c0 = gaitNow || (t < 0 ? pre : main), D = c0.clip.duration;
       const time = (((c0.phase0 + t * c0.rate) % D) + D) % D;
       for (const c of c0.channels){
         const v = c.interp.evaluate(time);
@@ -1038,7 +1042,8 @@ const LOOK = (() => {
     P.userData.head  = headCtl;
     P.userData.upper = upperCtl;
     P.userData.legs  = legs;
-    P.userData.pose  = t => { tNow = t; apply(); };
+    P.userData.pose  = t => { gaitNow = null; tNow = t; apply(); };
+    P.userData.poseGait = (name, t) => { gaitNow = gaitClip(name); tNow = t; apply(); };
     P.userData.rig   = { apply, skeleton: null, clip: clipName, rate: ts };
     LIVE.add(P);
     apply();
@@ -1402,8 +1407,9 @@ function place(kind, ox, oz, s, moveOx, moveOz, tag, opt){
   const speed = opt.speed || 0;
   const W = s.wingX || CFG.wingX;
   const x = s.side*(W + ox), z = s.zBase + oz;      // where he ENDS the look
-  const mps = opt.mps === undefined ? speed * CFG.mps.sprint : opt.mps;
-  if (opt.pre === undefined) opt.pre = mps >= 2.4 ? 1.4 : (mps >= 0.35 ? Math.min(mps, 1.0) : 0);
+  let mps = opt.mps === undefined ? speed * CFG.mps.sprint : opt.mps;
+  if (mps < 1.2) mps = 0;                                  // slower than a walk: he holds his position
+  if (opt.pre === undefined) opt.pre = mps >= 2.4 ? 1.4 : (mps >= 1.2 ? 1.3 : 0);
   const p = makePlayer(kind === 'own' ? CFG.colors.own : CFG.colors.opp, mps,
     { skin: pick(SKINS), hair: pick(HAIRS), boot: pick(BOOTS), back: !!opt.backpedal, pre: opt.pre });
 
