@@ -2236,10 +2236,10 @@ function frameAt(s, P, T){
   const home = mixYP(lookYP(s.lookDeg0), lookYP(s.lookDeg), ease(sw));
   let yp = home;
   if (s.tap && T > s.tap.t){
-    /* running into the space, eyes on the second man until the ball reaches him */
-    const Bm = wx(trackAt(P.tr.B, T).p);
-    const onB = ypTo(me[0], me[1], Bm[0], 1.0, Bm[1]);
-    yp = mixYP(home, onB, ease(Math.min(1, (T - s.tap.t)/350)));
+    /* the moment he goes, his head swivels back onto the ball and tracks it: into the
+       second man, then the lay-off coming to him */
+    const onBall = ypTo(me[0], me[1], B[0], 0.5, B[1]); onBall[1] = Math.max(onBall[1], -0.6);
+    yp = mixYP(home, onBall, ease(Math.min(1, (T - s.tap.t)/300)));
     if (s._meet && P.result === 'in stride'){
       const tm = s._meet.tMeet;
       /* the first touch: eyes down onto it as it arrives */
