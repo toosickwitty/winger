@@ -194,7 +194,7 @@ a.iconbtn{text-decoration:none;display:inline-flex;align-items:center;white-spac
       <button data-side="alt" aria-pressed="false">Both</button>
     </div>
     <button class="cta" id="start">Start session</button>
-    <p class="note">16 reps, about six minutes. You have cut inside and are carrying it across the edge of the box. Head up and ask two questions: is anyone blocking my shot &mdash; and if not, which post has the keeper left me? If a defender has stepped out to block you, he has left someone: your 9 in the middle, or your runner down the side of the box.</p>
+    <p class="note">16 reps, about six minutes. You have cut inside and are carrying it across the edge of the box. Head up and ask two questions: is anyone blocking my shot &mdash; and if not, which post has the keeper left me? If a defender has stepped out to block you, he has left someone: your 9 in the middle, or your runner down the side of the box. Nobody is ever free in there: someone is sprinting at you and you have about a second. When the shot is on, one shift past his lunge and hit it.</p>
   </div>
 
   <div id="panelAsk" class="hide">
@@ -232,7 +232,7 @@ a.iconbtn{text-decoration:none;display:inline-flex;align-items:center;white-spac
 /* ---------------- tunables — everything worth changing is here ---------------- */
 const CFG = {
   cueMs: 800,
-  flashMs: 2200,       // the carry across the edge of the box, head up
+  flashMs: 1300,       // the edge of the box: a second and a bit before they are on you
   checkMs: 500,        // (unused here)
   windMs: 800,         // his full-back shapes up and strikes it
   travelMs: 800,       // the pass rolling to him
@@ -245,7 +245,7 @@ const CFG = {
      rarely reach top speed over these distances, and defenders move a lot
      slower than people remember. */
   mps: { sprint:4.6, press:3.4, jockey:1.9, shuffle:1.1 },
-  answerMs: 5000,
+  answerMs: 3000,     // in the box there is no time to think it over
   repsPerSession: 16,
   eyeHeight: 1.55,
   wingX: 28,                        // where he is standing, off the touchline
@@ -432,13 +432,21 @@ function buildCandidate(side, answer){
   /* the rest of their shape */
   const cbB = drop(taken, gap(() => [rand(-5.5, -3), rand(-48, -46)]), 2.4);
   const rb  = drop(taken, () => [farW[0] + rand(0.3, 0.9), farW[1] - rand(0.8, 1.4)], 0.6);
-  /* someone closing him down: in time to block (above), or too late */
-  const presser = drop(taken, gap(() => { const d = rand(5, 6.5), a = (Math.random() < 0.5 ? 1 : -1) * rand(0.9, 1.3);
-    const c = Math.cos(a), sn = Math.sin(a);
-    return [W[0] + (u[0]*c - u[1]*sn)*d, W[1] + (u[0]*sn + u[1]*c)*d]; }), 2.4);
-  const cm  = drop(taken, gap(() => [rand(-7, -3), rand(-37, -33.5)]), 2.4);
+  /* nobody is ever free on the edge of the box: someone is scrambling at him at full speed.
+     When the shot is on, he arrives tight (about 2 m) but off the line of it, lunging — one
+     shift past him and the shot is there. When someone has stepped out to block, this man
+     is a stride behind him. */
+  const sgn = Math.random() < 0.5 ? 1 : -1;
+  const pd = shotOn ? rand(1.7, 2.3) : rand(3.2, 4.2), pa = sgn * (shotOn ? (sgn > 0 ? rand(0.6, 0.95) : rand(0.6, 0.72)) : (sgn > 0 ? rand(0.5, 0.95) : rand(0.5, 0.7)));
+  const rot = (d, a) => [W[0] + (u[0]*Math.cos(a) - u[1]*Math.sin(a))*d, W[1] + (u[0]*Math.sin(a) + u[1]*Math.cos(a))*d];
+  const presser = rot(pd, pa); taken.push(presser);
+  const presserFrom = rot(pd + rand(7, 8.5), pa + sgn*rand(0.1, 0.3));     // sprinting in from 7-8 m further out
+  /* their midfielder, recovering behind him at a sprint */
+  const cm  = drop(taken, gap(() => [W[0] - rand(3.5, 5.5), W[1] + rand(1.5, 3.5)]), 2.4);
+  const cmFrom = [cm[0] - rand(1, 2), cm[1] + rand(6.5, 8)];
 
   const opp = { cbA, lb, cbB, rb, presser, cm, keeper };
+  const from = { presser: presserFrom, cm: cmFrom };
   return {
     side, wingX: W[0], zBase: W[1], on,
     recv: O(R), passerAt: O(R),
@@ -446,6 +454,7 @@ function buildCandidate(side, answer){
     target: { far: O(T.far), near: O(T.near), square: O(T.square), reverse: O(T.reverse) },
     opp: Object.fromEntries(Object.entries(opp).map(([k, p]) => [k, O(p)])),
     blocker: on === 'square' ? 'cbA' : on === 'reverse' ? 'lb' : null,
+    from: Object.fromEntries(Object.entries(from).map(([k, p]) => [k, O(p)])), sgn,
     intended: answer
   };
 }
@@ -453,6 +462,14 @@ function buildCandidate(side, answer){
 const field = s => Object.entries(s.opp).filter(([k]) => k !== 'keeper').map(([, p]) => p);
 /* Everything below works in offsets from his feet, which sit at [0,0]. */
 function shotState(s){
+  const rest = field(s).filter(q => q !== s.opp.presser);
+  const lanes = ['far', 'near'].map(k => Math.min(...rest.map(q => distToLane(q, [0,0], s.target[k]))));
+  const closer = Math.min(...['far', 'near'].map(k => distToLane(s.opp.presser, [0,0], s.target[k])));
+  const g = gaps(s);
+  return { farLane: lanes[0], nearLane: lanes[1], farGap: g.far, nearGap: g.near, closer,
+           closerD: Math.hypot(s.opp.presser[0], s.opp.presser[1]) };
+}
+function shotStateAll(s){
   const lanes = ['far', 'near'].map(k => Math.min(...field(s).map(q => distToLane(q, [0,0], s.target[k]))));
   const g = gaps(s);
   return { farLane: lanes[0], nearLane: lanes[1], farGap: g.far, nearGap: g.near };
@@ -469,6 +486,7 @@ function passState(s, k){
 }
 function sceneOK(s){
   const sh = shotState(s);
+  if (s.blocker ? sh.closerD < 3 : (sh.closerD > 2.4 || sh.closer < 0.9)) return false;   // tight, lunging, but not in the shot
   if (s.on === 'far'  && !(sh.farLane >= 1.5 && sh.nearLane >= 1.5 && sh.farGap >= sh.nearGap)) return false;
   if (s.on === 'near' && !(sh.farLane >= 1.5 && sh.nearLane >= 1.5 && sh.nearGap >= sh.farGap*1.6)) return false;
   if (s.blocker && !(sh.farLane <= 0.6 && sh.nearLane <= 0.6)) return false;          // the shot really is blocked
@@ -487,8 +505,8 @@ const inArc = (p, deg, arc) => Math.abs(((Math.atan2(p[1], p[0]) * 180/Math.PI -
 function inPlay(s){
   /* nobody standing on the line of his carry, except the man who stepped out to block it */
   const blk = s.blocker ? s.opp[s.blocker] : null;
-  if (field(s).some(q => q !== blk && distToLane(q, s.recv, [0,0]) < 2.2)) return false;
-  const must = [s.nine, s.runner, s.target.square, s.target.reverse, s.target.far, s.target.near, s.opp.keeper, s.opp.cbA, s.opp.lb];
+  if (field(s).some(q => q !== blk && q !== s.opp.presser && distToLane(q, s.recv, [0,0]) < 2.2)) return false;   // the man closing him is allowed to be on him
+  const must = [s.nine, s.runner, s.target.square, s.target.reverse, s.target.far, s.target.near, s.opp.keeper, s.opp.cbA, s.opp.lb, s.opp.presser];
   return must.every(p => inArc(p, LOOK_DEG, ARC_SAFE));
 }
 function makeScene(side, answer){
@@ -514,8 +532,8 @@ function scoreScene(s){
   const fb = FB(s), blocked = !!s.blocker;
   const who = s.blocker === 'cbA' ? 'their centre-back' : 'their ' + fb;
   const ON = {
-    far:     'nobody is blocking you and their keeper is set square in the middle of his goal — far post, low: the default finish, and a save spills into the middle for a tap-in',
-    near:    'nobody is blocking you and their keeper has taken a step across to read the curler — the gap at his near post is now the bigger one',
+    far:     'nobody has got into your shooting lane yet, and their keeper is set square in the middle of his goal. One shift away from the man lunging at you, then far post, low: the default finish, and a save spills into the middle for a tap-in',
+    near:    'nobody has got into your shooting lane yet, and their keeper has taken a step across to read the curler. One shift away from the man lunging at you, then the near post: that gap is now the bigger one',
     square:  'their centre-back has left your 9 to block your shot — square it, your 9 is free',
     reverse: 'their ' + fb + ' has stepped inside to block your shot — slip your runner in behind him'
   };
@@ -1296,26 +1314,24 @@ const pathGroup = new THREE.Group();
 function clearPath(){ while (pathGroup.children.length) pathGroup.remove(pathGroup.children[0]); }
 function drawPath3D(s){
   clearPath();
-  const r = recvPoint(s.intended, s);
-  const ax = s.side*s.wingX, az = s.zBase;
-  const bx = s.side*(s.wingX + r[0]), bz = s.zBase + r[1];
   const mat = new THREE.MeshBasicMaterial({ color: 0xc6ef2f });
-  const dx = bx-ax, dz = bz-az, L = Math.hypot(dx, dz) || 1;
-  const ux = dx/L, uz = dz/L, yaw = Math.atan2(ux, uz);
-
-  for (let d = 1.9; d < L - 1.5; d += 0.95){
-    const m = new THREE.Mesh(new THREE.BoxGeometry(0.17, 0.02, 0.55), mat);
-    m.position.set(ax + ux*(d + 0.27), 0.05, az + uz*(d + 0.27));
-    m.rotation.y = yaw;
-    pathGroup.add(m);
+  const w = p => [s.side*(s.wingX + p[0]), s.zBase + p[1]];
+  const seg = (a, b, from) => { const dx = b[0]-a[0], dz = b[1]-a[1], L = Math.hypot(dx, dz) || 1, yaw = Math.atan2(dx/L, dz/L);
+    for (let d = from; d < L - 0.6; d += 0.95){ const m = new THREE.Mesh(new THREE.BoxGeometry(0.17, 0.02, 0.55), mat);
+      m.position.set(a[0] + dx/L*(d + 0.27), 0.05, a[1] + dz/L*(d + 0.27)); m.rotation.y = yaw; pathGroup.add(m); } };
+  const r = recvPoint(s.intended, s);
+  let start = [0, 0];
+  if (!s.blocker){
+    /* one shift, away from the man lunging at him, then the shot */
+    const p = s.opp.presser, L = Math.hypot(p[0], p[1]) || 1;
+    const t = Math.hypot(r[0], r[1]) || 1, side = [-r[1]/t, r[0]/t], away = (side[0]*p[0] + side[1]*p[1]) > 0 ? -1 : 1;
+    start = [side[0]*away*1.3 + r[0]/t*0.5, side[1]*away*1.3 + r[1]/t*0.5];
+    seg(w([0, 0]), w(start), 0.2);
   }
-  for (let i = 0; i < 18; i++){
-    const a0 = i/18 * Math.PI*2;
-    const m = new THREE.Mesh(new THREE.BoxGeometry(0.17, 0.02, 0.45), mat);
-    m.position.set(bx + Math.cos(a0)*1.45, 0.05, bz + Math.sin(a0)*1.45);
-    m.rotation.y = -a0;
-    pathGroup.add(m);
-  }
+  seg(w(start), w(r), start[0] || start[1] ? 0.3 : 1.9);
+  const b = w(r);
+  for (let i = 0; i < 18; i++){ const a0 = i/18*Math.PI*2, m = new THREE.Mesh(new THREE.BoxGeometry(0.17, 0.02, 0.45), mat);
+    m.position.set(b[0] + Math.cos(a0)*1.45, 0.05, b[1] + Math.sin(a0)*1.45); m.rotation.y = -a0; pathGroup.add(m); }
 }
 
 function setFov(){
@@ -1487,17 +1503,17 @@ function buildScene(s){
   };
 
   /* his team */
-  mover('own', s.nine, [s.nine[0] - 0.8, s.nine[1] + 0.9],
+  mover('own', s.nine, [s.nine[0] + 1.5, s.nine[1] + 3.2],
     s.on === 'square' ? 'your 9 · free, his man has left him' : 'your 9 · marked', { watch:true, watchAt:[0,0] });
   mover('own', s.runner, [s.runner[0] + 3.2, s.runner[1] + 5.2],
     s.on === 'reverse' ? 'your runner · free down the side of the box' : 'your runner · covered');
-  mover('own', s.farW, [s.farW[0] + 0.5, s.farW[1] + 2.5], null, { watch:true, watchAt:[0,0] });
+  mover('own', s.farW, [s.farW[0] + 1.0, s.farW[1] + 4.0], null, { watch:true, watchAt:[0,0] });
 
   /* the two who can step out to block him */
   if (s.blocker === 'cbA')
     mover('opp', O.cbA, [s.nine[0] + 0.6, s.nine[1] + 0.6], 'their centre-back · stepped out to block you', ball);
   else
-    mover('opp', O.cbA, [O.cbA[0] - 0.7, O.cbA[1] + 0.8], 'their centre-back · tight on your 9', ball);
+    mover('opp', O.cbA, [O.cbA[0] + 1.3, O.cbA[1] + 2.9], 'their centre-back · tight on your 9', ball);   // tracking the 9's run
   if (s.blocker === 'lb')
     mover('opp', O.lb, [s.runner[0] - 0.8, s.runner[1] + 3], 'their ' + fb + ' · stepped in to block you', ball);
   else
@@ -1510,11 +1526,11 @@ function buildScene(s){
   : s.on === 'near' ? 'their keeper · shading to his far post' : 'their keeper', ball);
 
   /* the rest */
-  mover('opp', O.presser, [O.presser[0]*1.55, O.presser[1]*1.55],
-    s.blocker ? null : 'closing you down · too late to block', ball);
-  mover('opp', O.cbB, [O.cbB[0] + 0.4, O.cbB[1] + 0.6], null, ball);
-  mover('opp', O.rb, [O.rb[0] + 0.3, O.rb[1] + 2.4], null, ball);
-  mover('opp', O.cm, drift(O.cm, 1.05), null, ball);
+  mover('opp', O.presser, s.from.presser,
+    s.blocker ? 'closing you down · a stride behind' : 'scrambling at you · lunging, not in your shot yet', ball);
+  mover('opp', O.cbB, [O.cbB[0] - 1.2, O.cbB[1] + 3.5], null, ball);          // everyone scrambling goal-side
+  mover('opp', O.rb, [O.rb[0] - 0.8, O.rb[1] + 4.0], null, ball);
+  mover('opp', O.cm, s.from.cm, 'their midfielder · sprinting back', ball);
 
   const bl = new THREE.Mesh(new THREE.SphereGeometry(0.115, 24, 16), LOOK.ballMaterial());
   bl.castShadow = true;
@@ -1589,7 +1605,7 @@ function seqFrame(s, T){
   const lb = lookBearing()*Math.PI/180;
   const up = ypTo(px, pz, px + side*26*Math.cos(lb), 1.2, pz + 26*Math.sin(lb));
   const down = ypTo(px, pz, bx, 0.115, bz);
-  const q = T < 300 ? 0 : Math.min(1, (T - 300)/400);
+  const q = T < 150 ? 0 : Math.min(1, (T - 150)/300);
   const yp = mixYP(down, up, ease(q));
   camYP(px, pz, yp[0], yp[1]);
 }
