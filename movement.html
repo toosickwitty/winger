@@ -150,6 +150,8 @@ footer{flex:0 0 auto;border-top:1px solid var(--line);background:var(--turf);col
   .cta{padding:11px;font-size:17px}
   .tag{font-size:11.5px;padding:1px 5px}
 }
+a.iconbtn{text-decoration:none;display:inline-flex;align-items:center;white-space:nowrap}
+@media (max-width:480px){ header{gap:8px;padding-left:10px;padding-right:10px} .iconbtn{padding:4px 7px;font-size:12px} }
 </style>
 
 <div id="bg"></div>
@@ -157,6 +159,7 @@ footer{flex:0 0 auto;border-top:1px solid var(--line);background:var(--turf);col
   <div class="mark">Pocket<span>.</span></div>
   <div class="hgap"></div>
   <div class="meta" id="hmeta">Rep 0 / 16</div>
+  <a class="iconbtn" id="home" href="index.html" aria-label="All drills">&lsaquo; Drills</a>
   <button class="iconbtn" id="reset">Reset</button>
 </header>
 
@@ -220,6 +223,7 @@ footer{flex:0 0 auto;border-top:1px solid var(--line);background:var(--turf);col
   <svg viewBox="0 0 64 64" fill="none" stroke="currentColor" stroke-width="3"><rect x="20" y="6" width="24" height="52" rx="4"/><circle cx="32" cy="50" r="2" fill="currentColor"/></svg>
   <b>Turn your phone sideways</b>
   <span>This drill needs the whole width of the pitch in one look.</span>
+  <a class="iconbtn" href="index.html" style="margin-top:6px">&lsaquo; All drills</a>
 </div>
 
 
@@ -406,7 +410,10 @@ function buildCandidate(side, answer){
   const recv = recvPoint(answer, lineOz);
   const taken = [];
 
-  const passerAt = drop(taken, () => [rand(-26,-22), rand(7.0, 10.0)], 3.0);
+  /* the ball: with your 6 in the middle, or (when your 8 has dropped out of the
+     half-space to get it) with your 8, deep in his own lane */
+  const passerAt = t.eight ? drop(taken, () => [rand(-26,-22), rand(7.0, 10.0)], 3.0)
+                           : drop(taken, () => [rand(-18.5,-15.5), rand(6.5, 9.0)], 3.0);
   const onLane = q => distToLane(q, passerAt, recv) < LANE_R[answer];
 
   /* THE TWO CUES \u2014 both teammates, both in blue, each either there or not */
@@ -435,9 +442,21 @@ function buildCandidate(side, answer){
   /* his 9, central and on the shoulder of their line */
   const strikerAt = drop(taken, () => [-wingX + rand(-2.5, 2.5), lineOz + rand(0.8, 2.2)], 2.6);
 
+  /* the rest of the shape, one man per lane (juego de posicion, five lanes):
+     far winger wide on the other touchline, far interior in the other half-space,
+     your 6 behind the ball, your full-back behind you when he has not overlapped */
+  const farWAt   = [-wingX - rand(26, 29), lineOz + rand(0.5, 3.0)];
+  const farEAt   = [-wingX - rand(11, 15), lineOz + rand(4.0, 7.0)];
+  const sixAt    = t.eight ? null : [-wingX + rand(-2.5, 2.5), passerAt[1] + rand(4, 7)];
+  const fbBackAt = t.fb ? null : [rand(0.5, 2.5), rand(11, 15)];
+  /* and theirs: the far side of their back line and their other midfielder */
+  const oppRBAt  = [farWAt[0] + rand(2, 3.5), lineOz + rand(-0.8, 0.4)];   // their far full-back, on your other winger
+  const oppMidAt = [-wingX - rand(7, 10), lineOz + rand(6, 8)];
+
   return {
     side, wingX, zBase, lineOz, recv, fb:t.fb, eight:t.eight,
     fbAt, eightAt, markerAt, lineAt, holderAt, passerAt, strikerAt,
+    farWAt, farEAt, sixAt, fbBackAt, oppRBAt, oppMidAt,
     keeperAt: W(rand(-1.5,1.5), rand(-50.0,-49.2)),
     toOff: W, intended: answer
   };
@@ -1489,7 +1508,17 @@ function buildScene(s){
     'their keeper', Object.assign({ speed:0.15, mps:0.4 }, ball));
 
   place('own', s.passerAt[0], s.passerAt[1], s, s.passerAt[0] - 1.2, s.passerAt[1] - 0.4,
-    'the ball', { speed:0.2, mps:0.4, watch:true, watchAt:[0,0], flag:true });
+    s.eight ? 'your 6 \u00b7 on the ball' : 'your 8 \u00b7 dropped out of the half-space to get it',
+    { speed:0.2, mps:0.4, watch:true, watchAt:[0,0], flag:true });
+  /* the rest of the shape */
+  const still = q => ({ speed:0.25, mps:0.9, watch:true, watchAt:B });
+  if (s.farWAt)   place('own', s.farWAt[0], s.farWAt[1], s, s.farWAt[0], s.farWAt[1] - 1.5, 'your other winger \u00b7 wide', still());
+  if (s.farEAt)   place('own', s.farEAt[0], s.farEAt[1], s, s.farEAt[0], s.farEAt[1] - 1.5, 'your other 8 \u00b7 far half-space', still());
+  if (s.sixAt)    place('own', s.sixAt[0], s.sixAt[1], s, s.sixAt[0], s.sixAt[1] - 1.0, 'your 6', still());
+  if (s.fbBackAt) place('own', s.fbBackAt[0], s.fbBackAt[1], s, s.fbBackAt[0], s.fbBackAt[1] - 1.0,
+    'your full-back \u00b7 staying behind you', still());
+  if (s.oppRBAt)  place('opp', s.oppRBAt[0], s.oppRBAt[1], s, drift(s.oppRBAt)[0], drift(s.oppRBAt)[1], null, Object.assign({ speed:0.2, mps:0.5 }, ball));
+  if (s.oppMidAt) place('opp', s.oppMidAt[0], s.oppMidAt[1], s, drift(s.oppMidAt)[0], drift(s.oppMidAt)[1], null, Object.assign({ speed:0.2, mps:0.5 }, ball));
   const bl = new THREE.Mesh(new THREE.SphereGeometry(0.115, 24, 16), LOOK.ballMaterial());
   bl.castShadow = true;
   bl.position.set(s.side*(s.wingX + s.passerAt[0] + 0.5), 0.115, s.zBase + s.passerAt[1] - 0.4);
