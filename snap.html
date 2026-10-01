@@ -257,7 +257,7 @@ const CFG = {
   eyeHeight: 1.55,
   wingX: 28,                        // where he is standing, off the touchline
   ballAt: [-11.5, 16.5],            // roughly where the pass will come from
-  hFov: 88,                         // HORIZONTAL degrees
+  hFov: 100,                        // HORIZONTAL degrees: from the 10 he needs both wingers in one look
   vFovMax: 76,
   look: { ox: -21.03, oz: -15.28 },  // across the pitch toward goal, from his half-space
   colors: { own: 0x5b9dff, opp: 0xff5c44, skin: 0xe8c9a0 }
@@ -326,7 +326,7 @@ const ZONE = { box: 20.15, six: 9.16, goalZ: -52.5 };
 const TYPES = ['ruptura', 'espalda', 'entrelineas', 'apoyo', 'cambio'];
 const TEMPLATES = {};
 TYPES.forEach(t => { TEMPLATES[t + '-wing'] = [1]; TEMPLATES[t + '-ten'] = [1]; });
-const ARC_SAFE = 45, FLASH_S = 0.7, MIN_PASS = 18;
+const ARC_SAFE = 44, FLASH_S = 0.7, MIN_PASS = 18;      // hFov 100: 50 deg each side, less a body width and a margin
 const rand = (a,b) => a + Math.random()*(b-a);
 const pickOne = a => a[Math.floor(Math.random()*a.length)];
 function shuffle(a){
@@ -361,18 +361,23 @@ const inArc = (p, deg, arc) => Math.abs(((Math.atan2(p[1], p[0]) * 180/Math.PI -
 
 function candidate(side, key){
   const [type, view] = key.split('-'), ten = view === 'ten';
-  const W = ten ? [rand(-4, 4), rand(-10, 2)] : [rand(17, 23), rand(-12, -2)];
+  const W = type === 'cambio' ? (ten ? [rand(6, 10), rand(-10, 2)] : [rand(10, 14), rand(-12, -2)])   // a switch: he has drawn the block over, cutting in
+                               : ten ? [rand(-4, 4), rand(-10, 2)] : [rand(17, 23), rand(-12, -2)];
   const deep = Math.random() < 0.5;                                    // their block: high line, or deep
   const lineZ = W[1] - (ten ? (deep ? rand(24, 27) : rand(20, 23)) : (deep ? rand(20, 23) : rand(16, 19)));
   const midZ  = lineZ + rand(9, 12);
-  const shift = W[0] * (type === 'cambio' ? rand(0.55, 0.7) : rand(0.3, 0.4));   // shuffled toward the ball
+  const shift = type === 'cambio' ? (ten ? rand(8, 11) : W[0]*rand(0.8, 0.95))     // the whole block has come across to the ball
+                                  : W[0] * rand(0.3, 0.4);                         // shuffled toward the ball
   const P = [];
   const add = (team, role, end, vel, tag) => { const q = { team, role, end, vel: vel || [0, 0], tag: tag || null }; P.push(q); return q; };
 
-  /* their shape: a back four and a midfield three, near side first */
+  /* their shape: a back four and a midfield three, near side first.
+     From the 10's position it is a counter: you won it deep, he has dropped in to take it.
+     Their front players and most of their midfield were caught upfield, behind him, with
+     your own back line and 6. In front: their back four and two midfielders sprinting back. */
   const bw = ten ? [13, 4.6, -4.6, -13] : [15, 5.2, -5.2, -15];
   const back = bw.map(x => [shift + x + rand(-1, 1), lineZ + rand(-0.6, 0.6)]);
-  const mids = [9, 0, -9].map(x => [shift + x + rand(-1.5, 1.5), midZ + rand(-1, 1)]);
+  const mids = (ten ? [rand(6, 9), rand(-1.5, 1.5)] : [9, 0, -9]).map(x => [shift + x + rand(-1.5, 1.5), midZ + rand(-1, 1)]);
   const lineStep = Math.random() < 0.5 ? rand(1.0, 2.0) : -rand(1.0, 2.0);   // +z: stepping up to squeeze, as a unit
 
   /* your options, before deciding which one is on */
@@ -425,7 +430,7 @@ function candidate(side, key){
     title = 'A la espalda';
   } else if (type === 'entrelineas'){
     /* the pocket: their midfield has stepped up to press, their back line held */
-    mids.forEach(m => m[1] += rand(2, 3.5));
+    if (!ten) mids.forEach(m => m[1] += rand(2, 3.5));
     /* the free man between the lines: in the half-space on your side, centrally, or the far half-space */
     const lane = pickOne(['near', 'centre', 'far']);
     const at = [shift + (lane === 'near' ? rand(5.5, 8.5) : lane === 'far' ? -rand(5.5, 8.5) : rand(-2.5, 2.5)), (lineZ + midZ)/2 + rand(0, 1.5)];
@@ -447,18 +452,19 @@ function candidate(side, key){
     title = 'Apoyo del 9'; why = 'your 9 dropped off their centre-backs into the space between the lines and nobody followed him — into his feet as he comes';
   } else {
     /* cambio: the whole block has shifted over; the far winger is alone, holding width */
-    back[3][0] = Math.max(back[2][0] - 9, shift - 14);
-    const at = [Math.max(-31.5, back[3][0] - rand(12, 15)), lineZ + rand(2, 5)];
+    back[3][0] = back[2][0] - rand(7.5, 9);                          // their far full-back tucked right in
+    const at = [rand(-26, -21), lineZ + rand(2, 5)];                  // your far winger: wide, but off the boards
     const v = [rand(-0.3, 0.2), -rand(1.5, 2.5)];
     target = [at[0] + v[0]*0.8, at[1] + v[1]*0.8 - 1];
-    farPos = null;
+    farPos = null; if (ten) nearPos = null;                             // from the 10, the near winger is behind the ball side
     chosen = add('own', 'chosen', at, v, 'your far winger · alone, holding the width');
-    title = 'Cambio de orientación'; why = 'their whole block shifted over to the ball and your far winger was alone, holding the width — switch it';
+    title = 'Cambio de orientación'; why = 'they all came across to your side and the far side was empty — switch it. You do not need to find him first: in positional play your far winger is always holding the width over there';
   }
 
   /* the back line and midfield move as units */
   back.forEach((p, i) => add('opp', 'back' + i, p, [0, lineStep]));
-  mids.forEach((p, i) => add('opp', 'mid' + i, p, [(W[0] > p[0] ? 1 : -1)*rand(0.8, 1.8), rand(0.3, 1.0)]));
+  mids.forEach((p, i) => add('opp', 'mid' + i, p, ten ? [rand(-0.6, 0.6), -rand(4.0, 5.5)]            // recovering, flat out
+                                                    : [(W[0] > p[0] ? 1 : -1)*rand(0.8, 1.8), rand(0.3, 1.0)]));
   const find = r => P.find(q => q.role === r);
 
   /* everything that is not the answer is shut */
@@ -483,7 +489,7 @@ function candidate(side, key){
     const m = find('mid1'); m.end = [tenPos[0] + g[0]*rand(0.9, 1.2), tenPos[1] + g[1]*rand(0.9, 1.2)]; m.vel = tenVel.slice();
   }
   /* short options, each with a man on him */
-  const shorts = ten ? [[W[0] + rand(7, 10), W[1] - rand(1, 3)], [W[0] - rand(7, 10), W[1] - rand(1, 3)]]
+  const shorts = ten ? [[W[0] + (Math.random() < 0.5 ? 1 : -1)*rand(7, 10), W[1] - rand(1, 3)]]       // on the counter: one man near you, tracked
                      : [[W[0] - rand(8, 11), W[1] - rand(2, 5)], [W[0] - rand(3, 6), W[1] + rand(4, 7)]];
   shorts.forEach(p => {
     add('own', 'short', p, [rand(-0.8, 0.8), rand(1.0, 2.0)]);
@@ -527,7 +533,14 @@ function sceneOK(s){
   /* the ball has a lane (a lofted switch goes over it) and the receiver has room */
   if (s.type !== 'cambio' && Math.min(...opp.map(q => distToLane(q, [0,0], tgt))) < 2.4) return false;
   const room = Math.min(...opp.map(q => d2(q, tgt)));
-  if (room < (s.type === 'cambio' ? 8 : toFeet ? 4.5 : 5.5)) return false;
+  if (s.type === 'cambio'){
+    const L = Math.hypot(tgt[0], tgt[1]), flight = L/20;          // a driven switch, about 20 m/s on average
+    if (L > 40) return false;                                    // in his range: a strong U13 drives 35-40 m
+    if (room < 6.5*(flight - 0.3) + 3) return false;             // the nearest man cannot arrive until he has had it half a second
+    /* the picture: their block crowded over on his side, the far side empty */
+    const farSide = opp.filter(q => q[0] < tgt[0] + 14).length;
+    if (farSide > 1) return false;
+  } else if (room < (toFeet ? 4.5 : 5.5)) return false;
   if (Math.min(...opp.map(q => d2(q, rcv))) < (toFeet ? 4.5 : 1.5)) return false;
   /* inside the pitch */
   const X = s.wingX + tgt[0], Z = s.zBase + tgt[1];
@@ -540,9 +553,24 @@ function sceneOK(s){
   /* nobody standing on anyone else */
   const all = s.players.map(p => p.end);
   for (let i = 0; i < all.length; i++) for (let j = i+1; j < all.length; j++) if (d2(all[i], all[j]) < 0.9) return false;
-  /* he can see it all in one look */
-  const must = [tgt, ...own.filter(p => p.role !== 'short').map(p => p.end)];
-  return must.every(p => inArc(p, s.lookDeg, ARC_SAFE) && Math.abs(s.wingX + p[0]) < 33.5);
+  /* he can see it all in one look: the whole look, not just its last frame */
+  const at = (p, t) => [p.end[0] - p.vel[0]*(FLASH_S - t), p.end[1] - p.vel[1]*(FLASH_S - t)];
+  for (const t of [0, FLASH_S/2, FLASH_S]){
+    const must = [tgt, ...own.filter(p => p.role !== 'short').map(p => at(p, t))];
+    if (!must.every(p => inArc(p, s.lookDeg, ARC_SAFE) && Math.abs(s.wingX + p[0]) < 33.5)) return false;
+  }
+  /* and the man the ball is for is never hidden behind a defender nearer to him */
+  const ch = s.players.find(p => p.role === 'chosen');
+  for (const t of [0, FLASH_S*0.25, FLASH_S*0.5, FLASH_S*0.75, FLASH_S]){
+    const c = at(ch, t), dc = Math.hypot(c[0], c[1]), bc = Math.atan2(c[1], c[0]);
+    for (const q of s.players.filter(p => p.team === 'opp')){
+      const o = at(q, t), dq = Math.hypot(o[0], o[1]);
+      if (dq > dc + 1) continue;
+      let d = Math.abs(Math.atan2(o[1], o[0]) - bc); if (d > Math.PI) d = 2*Math.PI - d;
+      if (d*180/Math.PI < Math.atan(0.9/dq)*180/Math.PI + 1.2) return false;
+    }
+  }
+  return true;
 }
 function makeScene(side, key){
   let last = null;
