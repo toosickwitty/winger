@@ -417,7 +417,8 @@ function buildCandidate(side, answer){
   const onLane = q => distToLane(q, passerAt, recv) < LANE_R[answer];
 
   /* THE TWO CUES \u2014 both teammates, both in blue, each either there or not */
-  const fbAt    = t.fb    ? drop(taken, () => [rand( 0.2, 1.6), lineOz + rand(2.5, 5.0)], 2.2) : null;   // onside by construction
+  /* the overlap has already gone past him by the time his head comes round: he sees it at once */
+  const fbAt    = t.fb    ? drop(taken, () => [rand( 0.0, 1.2), lineOz + rand(0.8, 2.2)], 2.2) : null;   // onside by construction
   const eightAt = t.eight ? drop(taken, () => [rand(-13.0,-10.0), rand(-7.0,-4.0)], 2.2) : null;
 
   /* their shape: full-back on him, back line, a holding midfielder, keeper */
@@ -484,7 +485,16 @@ function inPlay(sc){
    clear of them from his eye too, so no defender stands in front of or behind
    them on the same bearing. An 8 two metres from their holding midfielder is
    an 8 you do not notice. */
+const FB_SPRINT = 6.5, FB_SETTLE = 1.8;             // m/s: past you while you check the ball, then into the channel
+function fbAtLookStart(sc){
+  const L = Math.hypot(0.25, 4), dir = [-0.25/L, -4/L], back = FB_SETTLE*CFG.flashMs/1000;
+  return [sc.fbAt[0] - dir[0]*back, sc.fbAt[1] - dir[1]*back];
+}
 function cuesStandOut(sc){
+  if (sc.fbAt){
+    const v = fbAtLookStart(sc), b = Math.atan2(v[1], v[0])*180/Math.PI;
+    if (Math.abs(((b - LOOK_DEG + 540) % 360) - 180) > ARC_SAFE - 6) return false;
+  }
   const opp = [sc.markerAt, ...sc.lineAt, sc.holderAt, sc.keeperAt];
   const cues = [sc.eightAt, sc.fbAt].filter(Boolean);
   return cues.every(c => opp.every(q => {
@@ -1470,13 +1480,32 @@ function place(kind, ox, oz, s, moveOx, moveOz, tag, opt){
   placed.push({ mesh:p, tag, kind, sx, sz, ex:x, ez:z, pose:p.userData.pose });
 }
 
-/* k = 0 at the start of the look, 1 at the end */
+/* k = 0 at the start of the look, 1 at the end; negative while he is still checking his shoulder */
+const PRE_MS = () => CFG.checkMs + CFG.turnMs;
+let ballFollow = null;
 function setPhase(k, tSec){
   placed.forEach(o => {
+    if (o.via){
+      /* two speeds: a sprint, then a jog; strides matched to the ground covered */
+      const v = o.via, pg = o.mesh.userData.poseGait;
+      let x, z, d;
+      if (k < 0){ const u = Math.max(0, (k - v.k0)/(0 - v.k0)); x = v.S[0] + (v.V[0]-v.S[0])*u; z = v.S[1] + (v.V[1]-v.S[1])*u; d = v.d1*u; }
+      else { x = v.V[0] + (o.ex - v.V[0])*k; z = v.V[1] + (o.ez - v.V[1])*k; d = v.d1 + Math.hypot(o.ex - v.V[0], o.ez - v.V[1])*k; }
+      o.mesh.position.x = x; o.mesh.position.z = z;
+      if (pg) pg('run', d/3.47); else o.pose(tSec);
+      return;
+    }
     o.mesh.position.x = o.sx + (o.ex - o.sx)*k;
     o.mesh.position.z = o.sz + (o.ez - o.sz)*k;
     o.pose(tSec);
   });
+  /* the ball stays at the feet of the man carrying it */
+  if (ballFollow){
+    const o = ballFollow.o, m = ballFollow.mesh;
+    m.position.set(o.mesh.position.x + ballFollow.dx, 0.115, o.mesh.position.z + ballFollow.dz);
+    const d = Math.hypot(o.ex - o.sx, o.ez - o.sz)*k;
+    m.rotation.x = -d/0.115;
+  }
 }
 
 function buildScene(s){
@@ -1489,40 +1518,49 @@ function buildScene(s){
 
   /* the two cues, labelled for the feedback */
   if (s.fbAt)
-    place('own', s.fbAt[0], s.fbAt[1], s, s.fbAt[0] + 0.3, s.fbAt[1] - 4.0,
-      'your full-back \u00b7 overlapping, the touchline is his', { speed:0.8, mps:3.4 });
+    place('own', s.fbAt[0], s.fbAt[1], s, s.fbAt[0] - 0.25, s.fbAt[1] - 4.0,
+      'your full-back \u00b7 overlapping, the touchline is his', { speed:0.8, mps:3.47 });
+  if (s.fbAt){
+    /* sprinting past you during the shoulder check, then settling into the channel during the look */
+    const o = placed[placed.length - 1], V = fbAtLookStart(s), W0 = s.wingX;
+    const L = Math.hypot(0.25, 4), dir = [-0.25/L, -4/L], S = [V[0] - dir[0]*FB_SPRINT*PRE_MS()/1000, V[1] - dir[1]*FB_SPRINT*PRE_MS()/1000];
+    const w = q => [s.side*(W0 + q[0]), s.zBase + q[1]];
+    o.via = { S: w(S), V: w(V), k0: -PRE_MS()/CFG.flashMs, d1: FB_SPRINT*PRE_MS()/1000 };
+  }
   if (s.eightAt)
     place('own', s.eightAt[0], s.eightAt[1], s, s.eightAt[0], s.eightAt[1] - 1.5,
-      'your 8 \u00b7 in the half-space', { speed:0.35, mps:1.0, watch:true, watchAt:B });
+      'your 8 \u00b7 in the half-space', { speed:0.35, mps:2.4, watch:true, watchAt:B });
 
-  place('own', s.strikerAt[0], s.strikerAt[1], s, s.strikerAt[0], s.strikerAt[1] - 1.5,
-    'your 9 \u00b7 central', { speed:0.3, mps:0.9, watch:true, watchAt:B });
+  place('own', s.strikerAt[0], s.strikerAt[1], s, s.strikerAt[0] + 1.5, s.strikerAt[1] - 0.3,
+    'your 9 \u00b7 central', { speed:0.3, mps:1.8, watch:true, watchAt:B });          // working across their line
 
-  place('opp', s.markerAt[0], s.markerAt[1], s, drift(s.markerAt)[0], drift(s.markerAt)[1],
-    'their full-back', Object.assign({ speed:0.2, mps:0.3 }, ball));
-  s.lineAt.forEach((p, i) => place('opp', p[0], p[1], s, drift(p)[0], drift(p)[1],
-    i === 0 ? 'their back line' : null, Object.assign({ speed:0.2, mps:0.5 }, ball)));
+  place('opp', s.markerAt[0], s.markerAt[1], s, s.markerAt[0] + 0.2, s.markerAt[1] - 1.0,   // dropping off you, eyes on the ball
+    'their full-back', Object.assign({ speed:0.2, mps:1.25, backpedal:true }, ball));
+  s.lineAt.forEach((p, i) => place('opp', p[0], p[1], s, p[0] + 1.0, p[1] + 0.1,         // sliding across with the ball
+    i === 0 ? 'their back line' : null, Object.assign({ speed:0.2, mps:1.3 }, ball)));
   place('opp', s.holderAt[0], s.holderAt[1], s, drift(s.holderAt)[0], drift(s.holderAt)[1],
-    null, Object.assign({ speed:0.2, mps:0.5 }, ball));
+    null, Object.assign({ speed:0.2, mps:1.6 }, ball));
   place('gk', s.keeperAt[0], s.keeperAt[1], s, drift(s.keeperAt)[0], drift(s.keeperAt)[1],
     'their keeper', Object.assign({ speed:0.15, mps:0.4 }, ball));
 
-  place('own', s.passerAt[0], s.passerAt[1], s, s.passerAt[0] - 1.2, s.passerAt[1] - 0.4,
+  place('own', s.passerAt[0], s.passerAt[1], s, s.passerAt[0] - 0.5, s.passerAt[1] - 1.2,
     s.eight ? 'your 6 \u00b7 on the ball' : 'your 8 \u00b7 dropped out of the half-space to get it',
-    { speed:0.2, mps:0.4, watch:true, watchAt:[0,0], flag:true });
+    { speed:0.2, mps:1.6, watch:true, watchAt:[0,0], flag:true });                   // carrying it forward
+  const carrier = placed[placed.length - 1];
   /* the rest of the shape */
-  const still = q => ({ speed:0.25, mps:0.9, watch:true, watchAt:B });
-  if (s.farWAt)   place('own', s.farWAt[0], s.farWAt[1], s, s.farWAt[0], s.farWAt[1] - 1.5, 'your other winger \u00b7 wide', still());
-  if (s.farEAt)   place('own', s.farEAt[0], s.farEAt[1], s, s.farEAt[0], s.farEAt[1] - 1.5, 'your other 8 \u00b7 far half-space', still());
-  if (s.sixAt)    place('own', s.sixAt[0], s.sixAt[1], s, s.sixAt[0], s.sixAt[1] - 1.0, 'your 6', still());
+  const still = mps => ({ speed:0.25, mps, watch:true, watchAt:B });
+  if (s.farWAt)   place('own', s.farWAt[0], s.farWAt[1], s, s.farWAt[0], s.farWAt[1] - 1.5, 'your other winger \u00b7 wide', still(1.6));
+  if (s.farEAt)   place('own', s.farEAt[0], s.farEAt[1], s, s.farEAt[0], s.farEAt[1] - 1.5, 'your other 8 \u00b7 far half-space', still(2.0));
+  if (s.sixAt)    place('own', s.sixAt[0], s.sixAt[1], s, s.sixAt[0] + 0.8, s.sixAt[1] - 1.0, 'your 6', still(1.4));
   if (s.fbBackAt) place('own', s.fbBackAt[0], s.fbBackAt[1], s, s.fbBackAt[0], s.fbBackAt[1] - 1.0,
-    'your full-back \u00b7 staying behind you', still());
-  if (s.oppRBAt)  place('opp', s.oppRBAt[0], s.oppRBAt[1], s, drift(s.oppRBAt)[0], drift(s.oppRBAt)[1], null, Object.assign({ speed:0.2, mps:0.5 }, ball));
-  if (s.oppMidAt) place('opp', s.oppMidAt[0], s.oppMidAt[1], s, drift(s.oppMidAt)[0], drift(s.oppMidAt)[1], null, Object.assign({ speed:0.2, mps:0.5 }, ball));
+    'your full-back \u00b7 staying behind you', still(1.6));
+  if (s.oppRBAt)  place('opp', s.oppRBAt[0], s.oppRBAt[1], s, drift(s.oppRBAt)[0], drift(s.oppRBAt)[1], null, Object.assign({ speed:0.2, mps:1.3 }, ball));
+  if (s.oppMidAt) place('opp', s.oppMidAt[0], s.oppMidAt[1], s, drift(s.oppMidAt)[0], drift(s.oppMidAt)[1], null, Object.assign({ speed:0.2, mps:1.6 }, ball));
   const bl = new THREE.Mesh(new THREE.SphereGeometry(0.115, 24, 16), LOOK.ballMaterial());
   bl.castShadow = true;
   bl.position.set(s.side*(s.wingX + s.passerAt[0] + 0.5), 0.115, s.zBase + s.passerAt[1] - 0.4);
   actors.add(bl);
+  ballFollow = { o: carrier, mesh: bl, dx: s.side*0.5, dz: -0.4 };
 }
 
 function aimReview(s){
@@ -1627,7 +1665,7 @@ function nextRep(){
   buildScene(current);
   aimAt(current, ballBearing(current), 1.1);   // eyes on the ball first
   clearPath();
-  setPhase(0, 0);
+  setPhase(-PRE_MS()/CFG.flashMs, -PRE_MS()/1000);
   labels.style.display = 'none'; labels.innerHTML = '';
   el('leaders').style.display = 'none';
   maskEl.style.display = 'none'; timer.style.display = 'none';
@@ -1647,6 +1685,7 @@ function flash(){
   const t0 = performance.now();
   (function turn(now){
     const e = now - t0;
+    setPhase((e - PRE_MS())/CFG.flashMs, (e - PRE_MS())/1000);   // the play keeps moving while he checks
     if (e < CFG.checkMs){ requestAnimationFrame(turn); return; }
     const k = Math.min(1, (e - CFG.checkMs) / CFG.turnMs);
     const q = k < 0.5 ? 2*k*k : 1 - Math.pow(-2*k + 2, 2)/2;   // ease in and out, like a head turn
@@ -1682,7 +1721,7 @@ function replayLook(){
   const btn = el('replay'); btn.disabled = true; btn.textContent = 'Watching\u2026';
   labels.style.display = 'none'; el('leaders').style.display = 'none';
   clearPath();
-  setPhase(0, 0);
+  setPhase(-PRE_MS()/CFG.flashMs, -PRE_MS()/1000);
 
   const a0 = ballBearing(current), a1 = lookBearing();
   const d = ((a1 - a0 + 540) % 360) - 180;
@@ -1690,6 +1729,7 @@ function replayLook(){
   const t0 = performance.now();
   (function turn(now){
     const e = now - t0;
+    setPhase((e - PRE_MS())/CFG.flashMs, (e - PRE_MS())/1000);   // the play keeps moving while he checks
     if (e < CFG.checkMs){ requestAnimationFrame(turn); return; }
     const k = Math.min(1, (e - CFG.checkMs) / CFG.turnMs);
     const q = k < 0.5 ? 2*k*k : 1 - Math.pow(-2*k + 2, 2)/2;
