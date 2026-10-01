@@ -1447,7 +1447,7 @@ function place(kind, ox, oz, s, moveOx, moveOz, tag, opt){
 
   if (opt.watch){
     const d = wrap(toRec - faceYaw);
-    const waist = clamp(d, -0.9, 0.9);
+    const wm = opt.waistMax === undefined ? 0.9 : opt.waistMax, waist = clamp(d, -wm, wm);
     p.userData.upper.rotation.y = waist;
     p.userData.head.rotation.y  = clamp(d - waist, -1.2, 1.2);
   }
@@ -1508,7 +1508,9 @@ function buildScene(s){
     const v = Math.hypot(p.vel[0], p.vel[1]);
     const from = [p.end[0] - s.side*0 - p.vel[0]*T, p.end[1] - p.vel[1]*T];
     if (v < 0.15) place(p.team, p.end[0], p.end[1], s, p.end[0], p.end[1], p.tag, Object.assign({ speed:0, mps:0 }, eye));
-    else mover(p.team, p.end, from, p.tag, ['chosen','nine','farW'].includes(p.role) ? {} : eye);
+    /* everyone has his head on the ball. Runners keep their bodies on the run and only
+       turn the head and shoulders; the rest open up to it */
+    else mover(p.team, p.end, from, p.tag, ['chosen','nine','farW'].includes(p.role) ? Object.assign({ waistMax: 0.35 }, eye) : eye);
   });
   const bl = new THREE.Mesh(new THREE.SphereGeometry(0.115, 24, 16), LOOK.ballMaterial());
   bl.castShadow = true; actors.add(bl); ballMesh = bl;
