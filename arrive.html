@@ -363,7 +363,7 @@ function buildCandidate(side, id){
   /* built backwards from the timing: line, second man, first man and the space first;
      then the winger goes exactly where a well-timed run meets a real lay-off in stride */
   const Wx = rand(25, 28.5);
-  const lineZ = kase === 'pocket' ? rand(-34, -31) : rand(-28, -24);   // higher than in Third Man: room to carry it to the box
+  const lineZ = kase === 'pocket' ? rand(-34, -31) : kase === 'in' ? rand(-31, -27.5) : rand(-28, -24);   // higher than in Third Man: room to carry it to the box
   const midZ = lineZ + rand(9, 11);
   const inShape = kase === 'in';
   const Z = {
@@ -1026,13 +1026,33 @@ function nextFinish(){
 const FIN_MAP = { opp: { cbA: 'CBn', lb: 'LB', cbB: 'CBf', rb: 'RB', presser: 'M8', cm: 'M6', keeper: 'keeper' },
                   own: { nine: 'B', farW: 'farW', runner: 'R' } };
 const absOf = (f, p) => [f.wingX + p[0], f.zBase + p[1]];
-function finishAbs(f){
+function finishAbs(f, s){
   const o = {};
   for (const k in FIN_MAP.opp) o[FIN_MAP.opp[k]] = absOf(f, f.opp[k]);
+  /* whichever of their two midfielders is nearer him when it is laid off is the one who closes him down */
+  if (s && s.pressId === 'M6'){ const t = o.M8; o.M8 = o.M6; o.M6 = t; }
+  /* and whichever centre-back is nearer takes the 9 (or steps out); the other covers */
+  if (s && s.cbSwap){ const t = o.CBn; o.CBn = o.CBf; o.CBf = t; }
   o.B = absOf(f, f.nine); o.farW = absOf(f, f.farW); o.R = absOf(f, f.runner);
   return o;
 }
-function runnerStart(s){ const r = s.finAbs.R; return [Math.min(31, r[0] + s.rOff[0]), r[1] + s.rOff[1]]; }
+function runnerStart(s){ if (s.rStart) return s.rStart; const r = s.finAbs.R; return [Math.min(31, r[0] + s.rOff[0]), r[1] + s.rOff[1]]; }
+/* where the runner waits before his run: never in one of the spaces, never on the winger's run,
+   onside, and near enough to get down the side of the box in time once the winger has gone */
+function placeRunner(s, P0){
+  const fin = s.finAbs.R, zs = Object.values(s.Z), path = [s.W, s.Z[s.kase]];
+  const deepest = Math.min(...[s.LB, s.CBn || [0, 99], s.CBf, s.RB].map(q => q[1]));
+  const tFin = s._meet.tMeet + Math.max(900, d2(s._meet.M, s.Wf)/CARRY*1000), go = s._meet.tMeet - 600;
+  let best = null, bd = -1;
+  for (let i = 0; i < 80; i++){
+    const q = [rand(6, 27), rand(deepest + 0.8, deepest + 14)];
+    if (d2(q, fin)/((tFin - go)/1000) > MAXV) continue;
+    const clear = Math.min(...zs.map(z => d2(z, q)), d2(q, s.W) + 1, laneD(q, path[0], path[1]) + 2);
+    if (clear > bd){ bd = clear; best = q; }
+    if (clear >= 7) break;
+  }
+  s.rStart = best; s.rClear = bd;
+}
 /* everyone's track after the meet: from where the run left them to the finish picture */
 function extend(s, P){
   const m = s._meet, M = m.M, tMeet = m.tMeet;
@@ -1040,31 +1060,83 @@ function extend(s, P){
   const dir = [(s.Wf[0]-M[0])/(d2(M, s.Wf) || 1), (s.Wf[1]-M[1])/(d2(M, s.Wf) || 1)];
   P.me = P.me.filter(k => k[0] <= tMeet).concat([[tFin, ...s.Wf]]);
   P.ball = P.ball.filter(k => k[0] <= tMeet).concat([[tFin, s.Wf[0] + dir[0]*0.6, s.Wf[1] + dir[1]*0.6]]);
+  const carrierAt = t => trackAt(P.me, t).p;
+  const ease = u => u*u*(3 - 2*u);
   for (const id in s.finAbs){
     if (id === 'R') continue;
     const from = id === 'B' ? P.t_lay + 150 : P.t_lay;            // they all react to the lay-off
     const at = trackAt(P.tr[id], from).p;
-    P.tr[id] = P.tr[id].filter(k => k[0] < from).concat([[from, ...at], [tFin, ...s.finAbs[id]]]);
+    const keep = P.tr[id].filter(k => k[0] < from).concat([[from, ...at]]);
+    if (id === s.cmId){
+      /* the man chasing from behind: flat out after him, as close as his legs get him */
+      const rf = [s.finAbs[id][0] - s.Wf[0], s.finAbs[id][1] - s.Wf[1]];
+      let p = at.slice();
+      for (let t = from + 100; t <= tFin + 1; t += 100){
+        const c = carrierAt(t), tg = [c[0] + rf[0], c[1] + rf[1]], dd = d2(p, tg), st = Math.min(dd, (MAXV + 0.4)*0.1);
+        if (dd > 0.01) p = [p[0] + (tg[0]-p[0])/dd*st, p[1] + (tg[1]-p[1])/dd*st];
+        keep.push([t, ...p]);
+      }
+      P.tr[id] = keep;
+    } else if (closers(s).includes(id)){
+      /* he has the ball: the men nearest him close him down. Their run is set against HIM, not
+         a spot on the grass: they come in on him from where they were, round him rather than
+         through him, and arrive goal-side, square to the ball. */
+      const c0 = carrierAt(from), r0 = [at[0] - c0[0], at[1] - c0[1]];
+      const rf = [s.finAbs[id][0] - s.Wf[0], s.finAbs[id][1] - s.Wf[1]];
+      const R0 = Math.hypot(r0[0], r0[1]), Rf = Math.hypot(rf[0], rf[1]);
+      const a0 = Math.atan2(r0[1], r0[0]); let da = Math.atan2(rf[1], rf[0]) - a0;
+      while (da > Math.PI) da -= 2*Math.PI; while (da < -Math.PI) da += 2*Math.PI;
+      for (let i = 1; i <= 10; i++){
+        const u = i/10, t = from + (tFin - from)*u, c = carrierAt(t), e = ease(u);
+        const rr = R0 + (Rf - R0)*e, aa = a0 + da*e;
+        const onHim = [c[0] + Math.cos(aa)*rr, c[1] + Math.sin(aa)*rr];
+        const straight = [at[0] + (s.finAbs[id][0] - at[0])*u, at[1] + (s.finAbs[id][1] - at[1])*u];
+        /* first he gets going toward where the play is heading; then his run locks onto the man with the ball */
+        keep.push([t, straight[0] + (onHim[0] - straight[0])*e, straight[1] + (onHim[1] - straight[1])*e]);
+      }
+      P.tr[id] = keep;
+    } else P.tr[id] = keep.concat([[tFin, ...s.finAbs[id]]]);
   }
   const rs = runnerStart(s);
   P.tr.R = [[0, ...rs], [tMeet - 600, ...rs], [tFin, ...s.finAbs.R]];
   P.tFin = tFin; P.finish = true; P.tEnd = tFin; P.carryDir = dir;
   return P;
 }
-function speedsOK(s, P){
-  const tFin = P.tFin;
+/* the men who close him down: the nearer midfielder, the man who steps out to block (if one
+   does), and the one chasing from behind */
+function closers(s){
+  const c = [s.pressId];
+  if (s.fin.blocker === 'cbA') c.push(s.cbSwap ? 'CBf' : 'CBn');
+  if (s.fin.blocker === 'lb') c.push('LB');
+  return c;
+}
+function speedsOK(s, P){ return speedExcess(s, P) <= 0; }
+/* how far over a real sprint the worst run is (0 or less: everyone's runs are real) */
+function speedExcess(s, P){
+  let worst = -1;
+  const fast = closers(s).concat(['B', s.cbSwap ? 'CBf' : 'CBn', 'LB', s.cmId]);   // the closers, the 9 and the men tracking him and the runner
   for (const id in s.finAbs){
-    const k = P.tr[id], a = k[k.length - 2], b = k[k.length - 1];
-    const v = Math.hypot(b[1]-a[1], b[2]-a[2]) / Math.max(1, b[0]-a[0]) * 1000;
-    if (v > (id === 'B' ? MAXV + 0.6 : MAXV)) return false;          // the second man: a flat-out sprint into the box
+    const k = P.tr[id], from = id === 'B' ? P.t_lay + 150 : P.t_lay;
+    for (let i = 1; i < k.length; i++){
+      if (k[i][0] <= from) continue;
+      const a = k[i-1], b = k[i], v = Math.hypot(b[1]-a[1], b[2]-a[2]) / Math.max(1, b[0]-a[0]) * 1000;
+      worst = Math.max(worst, v - (fast.includes(id) ? MAXV + 0.6 : MAXV));   // the men going flat out
+    }
   }
-  return true;
+  /* and nobody runs through him */
+  for (const id of ['CBn','LB','CBf','RB','M8','M6']){
+    for (let t = s._meet.tMeet; t <= P.tFin; t += 50){
+      const a = trackAt(P.tr[id], t).p, c = trackAt(P.me, t).p;
+      if (Math.hypot(a[0]-c[0], a[1]-c[1]) < 1.2) worst = Math.max(worst, 5);
+    }
+  }
+  return worst;
 }
 function makeScene(side, id){
   if (!SPEC[id]) id = 'in6';
   const fAns = nextFinish();
-  let last = null;
-  for (let k = 0; k < 30; k++){
+  let last = null, lastX = 1e9;
+  for (let k = 0; k < 40; k++){
     const s = tmMakeScene(side, id);
     const P0 = tmPlan(s, { t: (s.onTime[0] + s.onTime[1])/2, zone: s.kase });
     if (P0.result !== 'in stride') continue;
@@ -1074,10 +1146,18 @@ function makeScene(side, id){
       if (d < 5 || d > 16 || Wf[1] - M[1] > 1.5) continue;           // never carrying it back toward his own goal
       const f = FIN.build(side, fAns, Wf, M);
       if (!(FIN.sceneOK(f) && FIN.onside(f) && FIN.inPlay(f))) continue;
-      s.fin = f; s.fAns = fAns; s.Wf = Wf; s.finAbs = finishAbs(f); s.rOff = [rand(1.5, 3.5), rand(13, 17)];
-      last = s;
+      s.fin = f; s.fAns = fAns; s.Wf = Wf; s.rOff = [rand(1.5, 3.5), rand(13, 17)]; s.rStart = null;
+      const m8 = trackAt(P0.tr.M8, P0.t_lay).p, m6 = trackAt(P0.tr.M6, P0.t_lay).p;
+      s.pressId = d2(m6, Wf) < d2(m8, Wf) ? 'M6' : 'M8'; s.cmId = s.pressId === 'M6' ? 'M8' : 'M6';
+      s.cbSwap = false; const fa = finishAbs(f, s);
+      const cn = trackAt(P0.tr.CBn, P0.t_lay).p, cf = trackAt(P0.tr.CBf, P0.t_lay).p;
+      s.cbSwap = Math.max(d2(cn, fa.CBf), d2(cf, fa.CBn)) < Math.max(d2(cn, fa.CBn), d2(cf, fa.CBf));
+      s.finAbs = finishAbs(f, s);
+      placeRunner(s, P0); if (s.rClear < 6) continue;                 // nobody of ours standing in a space
       const P = extend(s, tmPlan(s, { t: (s.onTime[0] + s.onTime[1])/2, zone: s.kase }));
-      if (speedsOK(s, P)) return s;
+      const x = speedExcess(s, P);
+      if (x <= 0) return s;
+      if (x < lastX){ lastX = x; last = Object.assign(Object.create(Object.getPrototypeOf(s)), s, { fin: s.fin, Wf: s.Wf.slice(), finAbs: Object.assign({}, s.finAbs) }); }
     }
   }
   return last || tmMakeScene(side, id);
@@ -2222,8 +2302,16 @@ function frameAt(s, P, T){
     o.ex = p[0]; o.ez = p[1];
     /* the gait that fits the speed, at its natural tempo, stride matched to the ground covered */
     const pg = o.mesh.userData.poseGait;
-    if (sp > 0.5){ o.mesh.rotation.y = Math.atan2(s.side*t.v[0], t.v[1]);
-      if (pg) pg(sp > 2.3 ? 'run' : 'walk', t.dist/(sp > 2.3 ? 3.47 : 1.67)); else o.pose(t.dist/3.47); }
+    if (sp > 0.5){
+      const run = Math.atan2(s.side*t.v[0], t.v[1]);
+      let face = run, back = false;
+      if (P.finish && o.kind === 'opp' && s._meet && T > s._meet.tMeet && Math.hypot(B[0] - p[0], B[1] - p[1]) < 8){
+        const toBall = Math.atan2(B[0] - p[0], B[1] - p[1]);
+        let d = Math.abs(toBall - run); if (d > Math.PI) d = 2*Math.PI - d;
+        if (d < 1.9 || sp <= 4.2){ face = toBall; back = d >= 1.9; }   /* square to the ball; backpedalling if he is giving ground */
+      }
+      o.mesh.rotation.y = face;
+      if (pg) pg(back ? 'walk' : (sp > 2.3 ? 'run' : 'walk'), back ? -t.dist/1.67 : t.dist/(sp > 2.3 ? 3.47 : 1.67)); else o.pose(t.dist/3.47); }
     else { o.mesh.rotation.y = Math.atan2(B[0] - p[0], B[1] - p[1]); if (pg) pg('idle', T/1000); else o.pose(-0.05 - T/1000); }
   });
   /* the first man shapes up and strikes it */
@@ -2542,8 +2630,8 @@ function showComboReview(choice){
   T('CBn', f.blocker === 'cbA' ? 'their centre-back · stepped out to block you' : 'their centre-back · tight on ' + s.who);
   T('LB', f.blocker === 'lb' ? 'their ' + fb + ' · stepped in to block you' : 'their ' + fb + ' · goal-side of your runner');
   T('keeper', f.on === 'far' ? 'their keeper · cheating to his near post' : f.on === 'near' ? 'their keeper · shading to his far post' : 'their keeper');
-  T('M8', f.blocker ? 'closing you down · a stride behind' : 'scrambling at you · lunging, not in your shot yet');
-  T('M6', 'their 6 · sprinting back');
+  T(s.pressId, f.blocker ? 'closing you down · a stride behind' : 'scrambling at you · lunging, not in your shot yet');
+  T(s.cmId, (s.cmId === 'M6' ? 'their 6' : 'their 8') + ' · chasing you from behind');
   reviewing = true; camAim = null; seqCam = null;
   camera.position.set(s.side*(s.Wf[0] + 3), 15, s.Wf[1] + 9);
   camera.fov = 58; camera.updateProjectionMatrix();
