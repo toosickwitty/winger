@@ -1686,7 +1686,7 @@ function aimReview(s){
    he has just checked it \u2014 this is that check, and the habit it trains is
    the point of the whole suite. */
 let passerRig = null, ballMesh = null, seqCam = null;
-let ACT = {}, ZONES = {}, playing = false, playT = 0, sOn = 0, sEarly = 0, sLate = 0;
+let ACT = {}, ZONES = {}, playing = false, playT = 0, playGen = 0, sOn = 0, sEarly = 0, sLate = 0;
 function zoneColour(k, hex, op){ const z = ZONES[k]; if (!z) return; z.ring.material.color.setHex(hex); z.ring.material.opacity = op; z.disc.material.color.setHex(hex); z.disc.material.opacity = op*0.22;
   z.g.children.slice(2).forEach(m => { m.material.color.setHex(hex); m.material.opacity = op*0.75; }); }
 function playRep(interactive, done){
@@ -1695,8 +1695,10 @@ function playRep(interactive, done){
   ['out', 'in', 'pocket'].forEach(k => zoneColour(k, 0xfff1a8, 0.75));
   if (s.tap) zoneColour(s.tap.zone, 0xc6ef2f, 0.8);
   playing = interactive;
+  const gen = ++playGen;                     // a newer rep or replay supersedes this one
   const t0 = performance.now();
   (function step(now){
+    if (gen !== playGen) return;
     const T = Math.max(0, now - t0);
     playT = T;
     frameAt(s, s._P, Math.min(T, s._P.tEnd));
@@ -1944,6 +1946,7 @@ function paintSides(){
 function startSession(){ rep = 0; sPts = 0; sMax = 0; sBest = 0; sOn = 0; sEarly = 0; sLate = 0; bag = newBag(); nextRep(); }
 
 function nextRep(){
+  playGen++; playing = false;
   replaying = false;
   const rb = el('replay'); if (rb){ rb.disabled = false; rb.textContent = 'Replay the look'; }
   if (rep >= CFG.repsPerSession) return endSession();
