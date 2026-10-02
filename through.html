@@ -1609,7 +1609,7 @@ let passerRig = null, ballMesh = null, seqCam = null;
    straight back. It is the only way to see whether his full-back has gone on
    the overlap, and whether anyone has gone with him. */
 let glances = [], glanceOpen = false, seqT = 0;
-const GLANCE = { up: 100, hold: 300, down: 100 };       // the same 0.5 s scan as Shape
+const GLANCE = { up: 120, hold: 100, down: 130 };       // the same scan as Shape: about 0.35 s, like a pro
 /* each glance is { t, out }: out = over the outside shoulder, down the touchline */
 function glanceW(T){
   let g = null;
