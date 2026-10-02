@@ -1876,4 +1876,12 @@ el('hmeta').textContent = 'Rep 0 / ' + CFG.repsPerSession;
 resize();
 const seed = makeScene(1, 'near'); buildScene(seed); aimCamera(seed);
 loadStats(); loop();
+
+/* keyboard: space = next rep, R = replay (whichever is on screen) */
+addEventListener('keydown', e => {
+  if (e.ctrlKey || e.metaKey || e.altKey) return;
+  const on = id => { const b = document.getElementById(id); return b && b.offsetParent !== null && !b.disabled ? b : null; };
+  if (e.code === 'Space' || e.key === ' '){ e.preventDefault(); if (e.repeat) return; const b = on('next'); if (b) b.click(); }
+  else if (e.key === 'r' || e.key === 'R'){ if (e.repeat) return; const b = on('replay'); if (b){ e.preventDefault(); b.click(); } }
+});
 </script>

@@ -1609,7 +1609,7 @@ let passerRig = null, ballMesh = null, seqCam = null;
    straight back. It is the only way to see whether his full-back has gone on
    the overlap, and whether anyone has gone with him. */
 let glances = [], glanceOpen = false, seqT = 0;
-const GLANCE = { up: 120, hold: 100, down: 130 };       // the same scan as Shape: about 0.35 s, like a pro
+const GLANCE = { up: 110, hold: 130, down: 110 };       // the same scan as Shape: about 0.35 s, like a pro
 /* each glance is { t, out }: out = over the outside shoulder, down the touchline */
 function glanceW(T){
   let g = null;
@@ -2137,4 +2137,12 @@ try {
   const seed = makeScene(1, 'nine'); buildScene(seed); seqFrame(seed, seqTimes().end); aimCamera(seed);
 } catch (e) { console.error('seed scene failed', e); }
 loadStats();
+
+/* keyboard: space = next rep, R = replay (whichever is on screen) */
+addEventListener('keydown', e => {
+  if (e.ctrlKey || e.metaKey || e.altKey) return;
+  const on = id => { const b = document.getElementById(id); return b && b.offsetParent !== null && !b.disabled ? b : null; };
+  if (e.code === 'Space' || e.key === ' '){ e.preventDefault(); if (e.repeat) return; const b = on('next'); if (b) b.click(); }
+  else if (e.key === 'r' || e.key === 'R'){ if (e.repeat) return; const b = on('replay'); if (b){ e.preventDefault(); b.click(); } }
+});
 </script>
