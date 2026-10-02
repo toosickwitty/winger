@@ -210,7 +210,7 @@ a.iconbtn{text-decoration:none;display:inline-flex;align-items:center;white-spac
       <button data-mode="test" aria-pressed="false">Test</button>
     </div>
     <button class="cta" id="start">Start session</button>
-    <p class="note">16 reps, about five minutes. Spanish positional play (<i>juego de posici&oacute;n</i>) cuts the pitch into <b>five lanes</b>: two wide lanes, two half-spaces and the middle &mdash; one player per lane on each line. A few seconds of play, then it freezes as the last pass is struck: tap where you should be.<br><br><b>We have it</b> &mdash; you are the width (<i>amplitud</i>), level with their last defender: on the touchline when the ball is on your side, pinning their full-back (<i>fijar al lateral</i>); a few metres in when it is central; at the inside edge of your lane when it is far. If your full-back takes the wide lane, you take the half-space (<i>un jugador por carril</i>).<br><b>They have it</b> &mdash; you are one of the midfield four (<i>l&iacute;nea de medios</i>): level with your 8s, closing your half-space, sliding with the block (<i>basculaci&oacute;n</i>); jump to their full-back as the ball travels to him (<i>saltar al lateral</i>).<br><b>We just lost it</b> &mdash; press in the first five seconds (<i>presi&oacute;n tras p&eacute;rdida</i>): their outlet right by you, you press him; away from you, come inside, level with the ball, and shut the pass to their full-back.<br><br><b>Learn</b> paints the lanes on the grass, shows a live map while it plays and everyone on the map when you tap. <b>Test</b> takes all of that away.<br><br><b>Scan:</b> while it plays, tap the left or right half of the screen to look over that shoulder &mdash; a 90&deg; turn of the head, held half a second, then back to the ball (0.7 s in all).</p></p></p>
+    <p class="note">16 reps, about five minutes. Spanish positional play (<i>juego de posici&oacute;n</i>) cuts the pitch into <b>five lanes</b>: two wide lanes, two half-spaces and the middle &mdash; one player per lane on each line. A few seconds of play, then it freezes as the last pass is struck: tap where you should be.<br><br><b>We have it</b> &mdash; you are the width (<i>amplitud</i>), level with their last defender: on the touchline when the ball is on your side, pinning their full-back (<i>fijar al lateral</i>); a few metres in when it is central; at the inside edge of your lane when it is far. If your full-back takes the wide lane, you take the half-space (<i>un jugador por carril</i>).<br><b>They have it</b> &mdash; you are one of the midfield four (<i>l&iacute;nea de medios</i>): level with your 8s, closing your half-space, sliding with the block (<i>basculaci&oacute;n</i>); jump to their full-back as the ball travels to him (<i>saltar al lateral</i>).<br><b>We just lost it</b> &mdash; press in the first five seconds (<i>presi&oacute;n tras p&eacute;rdida</i>): their outlet right by you, you press him; away from you, come inside, level with the ball, and shut the pass to their full-back.<br><br><b>Learn</b> paints the lanes on the grass and shows everyone on the map when you tap. <b>Test</b> takes all of that away.<br><br><b>Scan:</b> while it plays, tap the left or right half of the screen to look over that shoulder &mdash; a 90&deg; turn of the head, held 0.3 s, then back to the ball (0.5 s in all).</p></p></p>
   </div>
 
   <div id="panelAsk" class="hide">
@@ -590,6 +590,7 @@ function tracks(s){
     for (let i = 1; i < s.ev.length; i++){ const p = T.at[i]; if (p) s.ev[i].at = p; }
     retime(s);
   }
+  for (let i = 1; i < s.ev.length; i++) s.ev[i].from = T.from[i] || s.ev[i-1].at;
   return T;
 }
 function simulate(s){
@@ -600,7 +601,7 @@ function simulate(s){
   const tEnd = s.tFreeze + 100;
   const ci = ev.findIndex(e => e.intercept);
   let pressers = null, miss = 0, bp = ev[0].at.slice();
-  const atRecv = [];
+  const atRecv = [], from = [];
   for (let t = DT; t <= tEnd + 1e-6; t += DT){
     /* the latest pass struck, and who has it */
     let i = 0; while (i + 1 < ev.length && ev[i+1].ts <= t) i++;
@@ -638,14 +639,19 @@ function simulate(s){
       V[id] = step/(DT/1000);
     });
     /* the ball: in the air between feet, otherwise at the holder's feet */
-    if (inFlight){ const e = ev[i], f = (t - e.ts)/(e.ta - e.ts), a = ev[i-1].at; bp = [a[0] + (e.at[0]-a[0])*f, a[1] + (e.at[1]-a[1])*f]; }
+    if (inFlight){ const e = ev[i], f = (t - e.ts)/(e.ta - e.ts);
+      if (!from[i]) from[i] = bp.slice();                       // struck from where it sat, in front of his foot
+      const a = from[i]; bp = [a[0] + (e.at[0]-a[0])*f, a[1] + (e.at[1]-a[1])*f]; }
     else { const h = P[ev[i].role], k = i > 0 ? Math.min(1, (t - ev[i].ta)/200) : 1, a = i > 0 ? ev[i].at : h;
-      bp = [a[0] + (h[0]-a[0])*k, a[1] + (h[1]-a[1])*k];     // settles onto his foot
+      /* it settles in front of his foot, on the line he is about to play it along */
+      let ox = 0, oz = 0;
+      if (ev[i+1]){ const dx = ev[i+1].at[0] - h[0], dz = ev[i+1].at[1] - h[1], dl = Math.hypot(dx, dz) || 1; ox = dx/dl*0.0; oz = dz/dl*0.0; }     // (the passer's body stands behind it: see the page's step)
+      bp = [a[0] + (h[0] + ox - a[0])*k, a[1] + (h[1] + oz - a[1])*k];
       if (i > 0 && !atRecv[i]){ atRecv[i] = h.slice(); miss = Math.max(miss, d2(h, ev[i].at)); } }
     ball.push([t, bp[0], bp[1]]);
     if (t % 100 === 0 || t >= tEnd) ids.forEach(id => tr[id].push([t, P[id][0], P[id][1]]));
   }
-  return { tr, ball, miss, at: atRecv, pressers };
+  return { tr, ball, miss, at: atRecv, pressers, from };
 }
 function trackAt(k, T){
   if (!k || !k.length) return { p: [0, 0], dist: 0, v: [0, 0] };
@@ -658,6 +664,27 @@ function trackAt(k, T){
     dist += seg;
   }
   const l = k[k.length-1]; return { p: [l[1], l[2]], dist, v: [0, 0] };
+}
+/* The man on the ball shows where it is going: from the moment he has it (after a
+   quarter-second turn from facing the ball coming in), his body points exactly
+   along the line of the pass he is about to play, and stays on it as he strikes it.
+   Returns { a: his facing (right-wing coords), ts: when he strikes it } or null.     */
+function passFacing(s, id, T){
+  const ev = s.ev;
+  for (let i = 1; i < ev.length; i++){
+    if (ev[i-1].role !== id) continue;
+    const start = i === 1 ? -1 : ev[i-1].ta, end = ev[i].ts + 350;
+    if (T < start || T > end) continue;
+    const f = ev[i].from || ev[i-1].at, d = [ev[i].at[0] - f[0], ev[i].at[1] - f[1]];
+    const pass = Math.atan2(d[0], d[1]);
+    if (i === 1) return { a: pass, ts: ev[i].ts };
+    /* he receives facing the ball, then opens up onto the pass */
+    const g = ev[i-1].from || ev[i-2].at, inc = Math.atan2(g[0] - ev[i-1].at[0], g[1] - ev[i-1].at[1]);
+    const q = Math.min(1, Math.max(0, (T - start)/250)), e = q < 0.5 ? 2*q*q : 1 - Math.pow(-2*q + 2, 2)/2;
+    let dd = pass - inc; while (dd > Math.PI) dd -= 2*Math.PI; while (dd < -Math.PI) dd += 2*Math.PI;
+    return { a: inc + dd*e, ts: ev[i].ts };
+  }
+  return null;
 }
 /* who has the ball at T (null while it travels) */
 function holderAt(s, T){
@@ -1690,7 +1717,7 @@ function buildScene(s){
     new THREE.MeshBasicMaterial({ color: 0xfff27a, transparent: true, opacity: 0.85, depthWrite: false, side: THREE.DoubleSide }));
   carrierRing.rotation.x = -Math.PI/2; carrierRing.position.y = 0.03; actors.add(carrierRing);
   laneLines.visible = learning();
-  buildRadar(s);
+  document.getElementById('radar').style.display = 'none';   // no live map: he builds the picture himself
 }
 /* the radar: the same sideways map as the answer, live */
 function buildRadar(s){
@@ -1782,13 +1809,22 @@ function seqFrame(s, T){
     o.mesh.position.set(p[0], 0, p[1]); o.ex = p[0]; o.ez = p[1];
     const pg = o.mesh.userData.poseGait;
     /* the gait that fits the speed; slow men turn to face the ball */
-    if (sp > 0.6){ o.mesh.rotation.y = Math.atan2(s.side*t.v[0], t.v[1]);
+    const pf = passFacing(s, id, T);
+    if (pf !== null){
+      /* body square to the pass, and a step into it as he strikes it: the stride
+         goes exactly along the line the ball will take */
+      const ux = s.side*Math.sin(pf.a), uz = Math.cos(pf.a);
+      o.mesh.rotation.y = Math.atan2(ux, uz);
+      const q = Math.min(1, Math.max(0, (T - (pf.ts - 300))/650)), st = 0.75*(q < 0.5 ? 2*q*q : 1 - Math.pow(-2*q + 2, 2)/2);
+      o.mesh.position.set(p[0] + ux*(st - 0.75), 0, p[1] + uz*(st - 0.75));      // behind the ball, then through it
+      if (q > 0 && q < 1){ if (pg) pg('walk', st/0.75*0.9); else o.pose(st); }
+      else if (pg) pg('idle', T/1000); else o.pose(-0.05 - T/1000); }
+    else if (sp > 0.6){ o.mesh.rotation.y = Math.atan2(s.side*t.v[0], t.v[1]);
       if (pg) pg(sp > 2.3 ? 'run' : 'walk', t.dist/(sp > 2.3 ? 3.47 : 1.67)); else o.pose(t.dist/3.47); }
     else { o.mesh.rotation.y = Math.atan2(B[0] - p[0], B[1] - p[1]); if (pg) pg('idle', T/1000); else o.pose(-0.05 - T/1000); }
   });
   const hid = holderAt(s, T);
   if (carrierRing){ carrierRing.visible = !!hid; if (hid){ const q = wx(trackAt(s.T.tr[hid], T).p); carrierRing.position.set(q[0], 0.03, q[1]); } }
-  drawRadar(s, T);
   /* his eyes: he stands still and keeps the ball in the middle of his picture,
      with the little lag a head has, so the play reads */
   const me = wx(s.start);
@@ -1813,10 +1849,10 @@ function runSequence(done){
   })(t0);
 }
 /* Scanning. A tap on the left or right half of the picture while the play runs
-   turns his head 90 degrees that way: 0.1 s to get there, half a second to take
-   the picture in, 0.1 s back onto the ball. One scan at a time. */
+   turns his head 90 degrees that way: 0.1 s to get there, 0.3 s to take the
+   picture in, 0.1 s back onto the ball. One scan at a time. */
 let seqLive = false, scan = null;
-const SCAN_OUT = 100, SCAN_HOLD = 500, SCAN_BACK = 100;
+const SCAN_OUT = 100, SCAN_HOLD = 300, SCAN_BACK = 100;
 function scanNow(){
   if (!scan) return null;
   const t = performance.now() - scan.t0, E = q => q < 0.5 ? 2*q*q : 1 - Math.pow(-2*q + 2, 2)/2;
