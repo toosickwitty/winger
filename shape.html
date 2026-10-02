@@ -210,7 +210,7 @@ a.iconbtn{text-decoration:none;display:inline-flex;align-items:center;white-spac
       <button data-mode="test" aria-pressed="false">Test</button>
     </div>
     <button class="cta" id="start">Start session</button>
-    <p class="note">16 reps, about five minutes. Spanish positional play (<i>juego de posici&oacute;n</i>) cuts the pitch into <b>five lanes</b>: two wide lanes, two half-spaces and the middle &mdash; one player per lane on each line. A few seconds of play, then it freezes as the last pass is struck: tap where you should be.<br><br><b>We have it</b> &mdash; you are the width (<i>amplitud</i>), level with their last defender: on the touchline when the ball is on your side, pinning their full-back (<i>fijar al lateral</i>); a few metres in when it is central; at the inside edge of your lane when it is far. If your full-back takes the wide lane, you take the half-space (<i>un jugador por carril</i>).<br><b>They have it</b> &mdash; you are one of the midfield four (<i>l&iacute;nea de medios</i>): level with your 8s, closing your half-space, sliding with the block (<i>basculaci&oacute;n</i>); jump to their full-back as the ball travels to him (<i>saltar al lateral</i>).<br><b>We just lost it</b> &mdash; press in the first five seconds (<i>presi&oacute;n tras p&eacute;rdida</i>): their outlet right by you, you press him; away from you, come inside, level with the ball, and shut the pass to their full-back.<br><br><b>Learn</b> paints the lanes on the grass and shows everyone on the map when you tap. <b>Test</b> takes all of that away.<br><br><b>Scan:</b> while it plays, tap the left or right half of the screen to look over that shoulder &mdash; a 90&deg; turn of the head, held 0.3 s, then back to the ball (0.5 s in all).</p></p></p>
+    <p class="note">16 reps, about five minutes. Spanish positional play (<i>juego de posici&oacute;n</i>) cuts the pitch into <b>five lanes</b>: two wide lanes, two half-spaces and the middle &mdash; one player per lane on each line. A few seconds of play, then it freezes as the last pass is struck: tap where you should be.<br><br><b>We have it</b> &mdash; you are the width (<i>amplitud</i>), level with their last defender: on the touchline when the ball is on your side, pinning their full-back (<i>fijar al lateral</i>); a few metres in when it is central; at the inside edge of your lane when it is far. If your full-back takes the wide lane, you take the half-space (<i>un jugador por carril</i>).<br><b>They have it</b> &mdash; you are one of the midfield four (<i>l&iacute;nea de medios</i>): level with your 8s, closing your half-space, sliding with the block (<i>basculaci&oacute;n</i>); jump to their full-back as the ball travels to him (<i>saltar al lateral</i>).<br><b>We just lost it</b> &mdash; press in the first five seconds (<i>presi&oacute;n tras p&eacute;rdida</i>): their outlet right by you, you press him; away from you, come inside, level with the ball, and shut the pass to their full-back.<br><br><b>Learn</b> paints the lanes on the grass and shows everyone on the map when you tap. <b>Test</b> takes all of that away.<br><br><b>Scan:</b> while it plays, tap the left or right half of the screen (on a computer, the &larr; &rarr; keys) to look over that shoulder &mdash; a 90&deg; turn of the head, held 0.3 s, then back to the ball (0.5 s in all).</p></p></p>
   </div>
 
   <div id="panelAsk" class="hide">
@@ -1480,8 +1480,8 @@ const LOOK = (() => {
     });
   }
   /* The ball, readable on a phone: a dark outline, and never drawn smaller than a
-     ball looks to the eye on a real pitch. Real size up to 14 m away, then held at the
-     on-screen size it has at 14 m, up to 2.5x real size far away. */
+     ball looks to the eye on a real pitch. Real size up to 20 m away, then held at the
+     on-screen size it has at 20 m, up to 1.5x real size far away. */
   const BALL_R = 0.115;
   let hullMat = null;
   function ballLook(b, camera){
@@ -1493,9 +1493,9 @@ const LOOK = (() => {
     /* the drill sets the height; remember it, so the grown ball still sits on the grass */
     if (b.userData.setY === undefined || Math.abs(b.position.y - b.userData.setY) > 1e-6) b.userData.baseY = b.position.y;
     const d = camera.position.distanceTo(b.position);
-    const k = Math.min(2.5, Math.max(1, d/14));
+    const k = Math.min(1.5, Math.max(1, d/20));
     b.scale.setScalar(k);
-    b.userData.hull.scale.setScalar(1 + 0.28*Math.min(1, d/14));      // a fine outline up close, a firm one far away
+    b.userData.hull.scale.setScalar(1 + 0.28*Math.min(1, d/20));      // a fine outline up close, a firm one far away
     const y = b.userData.baseY < 0.3 ? b.userData.baseY + BALL_R*(k - 1) : b.userData.baseY;
     b.position.y = y; b.userData.setY = y;
   }
@@ -1860,10 +1860,20 @@ function scanNow(){
   const k = t < SCAN_OUT ? E(t/SCAN_OUT) : t < SCAN_OUT + SCAN_HOLD ? 1 : E(1 - (t - SCAN_OUT - SCAN_HOLD)/SCAN_BACK);
   return { dir: scan.dir, k };
 }
+function startScan(dir){
+  if (!seqLive || scan) return false;
+  scan = { dir, t0: performance.now() };
+  return true;
+}
 stage.addEventListener('pointerdown', e => {
-  if (!seqLive || scan) return;
   const r = stage.getBoundingClientRect();
-  scan = { dir: e.clientX < r.left + r.width/2 ? 1 : -1, t0: performance.now() };
+  startScan(e.clientX < r.left + r.width/2 ? 1 : -1);
+});
+/* on a computer: the arrow keys */
+addEventListener('keydown', e => {
+  if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return;
+  if (seqLive) e.preventDefault();
+  if (!e.repeat) startScan(e.key === 'ArrowLeft' ? 1 : -1);
 });
 let seqGen = 0;
 
@@ -2069,7 +2079,7 @@ function nextRep(){
   maskEl.style.display = 'none'; timer.style.display = 'none';
   show(pAsk);
   el('askWord').firstChild.textContent = 'Watch';
-  el('askHint').textContent = 'Tap left or right to scan over that shoulder.';
+  el('askHint').textContent = matchMedia('(hover: hover) and (pointer: fine)').matches ? 'Press ← or → to scan over that shoulder.' : 'Tap left or right to scan over that shoulder.';
   el('answers').innerHTML = '';
   setVeil(true, (current.side === 1 ? 'Right wing' : 'Left wing') + (learning() ? ' · Learn' : ' · Test'), 'Who has it, and where is it? When it freezes: your lane, and your line.');
   setTimeout(flash, CFG.cueMs);

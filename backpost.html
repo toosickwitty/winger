@@ -1226,8 +1226,8 @@ const LOOK = (() => {
     });
   }
   /* The ball, readable on a phone: a dark outline, and never drawn smaller than a
-     ball looks to the eye on a real pitch. Real size up to 14 m away, then held at the
-     on-screen size it has at 14 m, up to 2.5x real size far away. */
+     ball looks to the eye on a real pitch. Real size up to 20 m away, then held at the
+     on-screen size it has at 20 m, up to 1.5x real size far away. */
   const BALL_R = 0.115;
   let hullMat = null;
   function ballLook(b, camera){
@@ -1239,9 +1239,9 @@ const LOOK = (() => {
     /* the drill sets the height; remember it, so the grown ball still sits on the grass */
     if (b.userData.setY === undefined || Math.abs(b.position.y - b.userData.setY) > 1e-6) b.userData.baseY = b.position.y;
     const d = camera.position.distanceTo(b.position);
-    const k = Math.min(2.5, Math.max(1, d/14));
+    const k = Math.min(1.5, Math.max(1, d/20));
     b.scale.setScalar(k);
-    b.userData.hull.scale.setScalar(1 + 0.28*Math.min(1, d/14));      // a fine outline up close, a firm one far away
+    b.userData.hull.scale.setScalar(1 + 0.28*Math.min(1, d/20));      // a fine outline up close, a firm one far away
     const y = b.userData.baseY < 0.3 ? b.userData.baseY + BALL_R*(k - 1) : b.userData.baseY;
     b.position.y = y; b.userData.setY = y;
   }
