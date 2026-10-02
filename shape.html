@@ -199,7 +199,7 @@ a.iconbtn{text-decoration:none;display:inline-flex;align-items:center;white-spac
   <svg id="leaders"></svg>
   <div class="veil on" id="veil">
     <div class="big" id="veilBig">Ready</div>
-    <div class="sub" id="veilSub">Five lanes, one player per lane. When it freezes: your lane, and your line.</div>
+    <div class="sub" id="veilSub">Five lanes. When it freezes: your lane, and your line.</div>
   </div>
 </div>
 
@@ -217,7 +217,7 @@ a.iconbtn{text-decoration:none;display:inline-flex;align-items:center;white-spac
       <button data-mode="test" aria-pressed="false">Test</button>
     </div>
     <button class="cta" id="start">Start session</button>
-    <p class="note">16 reps, about five minutes. Spanish positional play (<i>juego de posici&oacute;n</i>) cuts the pitch into <b>five lanes</b>: two wide lanes, two half-spaces and the middle &mdash; one player per lane on each line. A few seconds of play, then it freezes as the last pass is struck: tap where you should be.<br><br><b>We have it</b> &mdash; you are the width (<i>amplitud</i>), level with their last defender: on the touchline when the ball is on your side, pinning their full-back (<i>fijar al lateral</i>); a few metres in when it is central; at the inside edge of your lane when it is far. If your full-back takes the wide lane, you take the half-space (<i>un jugador por carril</i>).<br><b>They have it</b> &mdash; you are one of the midfield four (<i>l&iacute;nea de medios</i>): level with your 8s, closing your half-space, sliding with the block (<i>basculaci&oacute;n</i>); jump to their full-back as the ball travels to him (<i>saltar al lateral</i>).<br><b>We just lost it</b> &mdash; press in the first five seconds (<i>presi&oacute;n tras p&eacute;rdida</i>): their outlet right by you, you press him; away from you, come inside, level with the ball, and shut the pass to their full-back.<br><br><b>Learn</b> paints the lanes on the grass and shows everyone on the map when you tap. <b>Test</b> takes all of that away.<br><br><b>Scan:</b> while it plays, tap the left or right half of the screen (on a computer, the &larr; &rarr; keys) to look over that shoulder &mdash; a quick 90&deg; turn of the head and straight back to the ball, about a third of a second, like a pro.</p></p></p>
+    <p class="note">16 reps, about five minutes. Spanish positional play (<i>juego de posici&oacute;n</i>) cuts the pitch into <b>five lanes</b>: two wide lanes, two inside lanes (<i>pasillos interiores</i>; English coaches call them half-spaces) and the middle. Spread out: no more than two team-mates in a lane and no more than three on a line, so whoever has the ball always has two or three options. A few seconds of play, then it freezes as the last pass is struck: tap where you should be.<br><br><b>We have it</b> &mdash; you are the width (<i>amplitud</i>), level with their last defender: on the touchline when the ball is on your side, pinning their full-back (<i>fijar al lateral</i>); a few metres in when it is central; at the inside edge of your lane when it is far. If your full-back takes your lane on your line, you take the half-space.<br><b>They have it</b> &mdash; you are one of the midfield four (<i>l&iacute;nea de medios</i>): level with your 8s, closing your half-space, sliding with the block (<i>basculaci&oacute;n</i>); jump to their full-back as the ball travels to him (<i>saltar al lateral</i>).<br><b>We just lost it</b> &mdash; press straight away (<i>presi&oacute;n tras p&eacute;rdida</i>): their outlet right by you, you press him; away from you, come inside, level with the ball, and shut the pass to their full-back.<br><br><b>Learn</b> paints the lanes on the grass and shows everyone on the map when you tap. <b>Test</b> takes all of that away.<br><br><b>Scan:</b> while it plays, tap the left or right half of the screen (on a computer, the &larr; &rarr; keys) to look over that shoulder &mdash; a quick 90&deg; turn of the head and straight back to the ball, about a third of a second, like a pro.</p></p></p>
   </div>
 
   <div id="panelAsk" class="hide">
@@ -325,8 +325,8 @@ const pick = a => a[Math.floor(Math.random()*a.length)];
    Juego de posición (Spanish positional play) for a winger off the ball.
 
    The pitch is cut into five vertical lanes (carriles): two wide lanes, two
-   half-spaces (carriles interiores) and the middle. One player per lane on each
-   line. With the ball, a 4-3-3 fills the front line across all five: two wingers
+   inside lanes (pasillos interiores, the half-spaces) and the middle. At most two
+   per lane and three per line (Perarnau). With the ball, a 4-3-3 fills the front line across all five: two wingers
    wide, the two 8s in the half-spaces, the 9 in the middle. Without it, the team
    defends as a 4-1-4-1: the wingers join the 8s in a midfield line of four.
 
@@ -340,7 +340,7 @@ const pick = a => a[Math.floor(Math.random()*a.length)];
        salto (their full-back gets it)            goal-side and inside their full-back
        línea de cuatro (ball in the middle)       our midfield line, same gap to his 8 as the 8s keep
        basculación (ball far side)                our midfield line, slid into his half-space
-     WE JUST LOST IT (the first five seconds)
+     WE JUST LOST IT (the first seconds)
        presión tras pérdida, near him             press their receiver, goal-side and inside
        presión tras pérdida, far from him         narrow and high, level with the ball: no way out inside
 
@@ -445,7 +445,7 @@ const PRINCIPLE = {
     why: 'We have it in the middle. Stay in your wide lane, a few metres in from the line, level with their last defender. If you drift inside, two of us share a lane and their back line gets narrow and comfortable.' },
   attFar: { es: 'Abierto, pero cerca del juego', title: 'Wide, but close to the play',
     why: 'We have it on the far side. Come in to the inside edge of your lane &mdash; still wider than your 8, still level with their last defender. The pros stay right on the touchline so that after the switch (cambio de orientaci&oacute;n) they are alone one-on-one with the full-back; you come in until the switch is a pass your team can really play. If it gets crossed from the far side, attack the back post.' },
-  attSwap: { es: 'Un jugador por carril', title: 'Not the same lane on the same line',
+  attSwap: { es: '', title: 'Not the same lane on the same line',
     why: 'Your full-back has overlapped into your lane, on your line. Two of you cannot stand there together, so you go inside: the half-space, between their full-back and centre-back, level with their last defender. Now their full-back has two of you to deal with.' },
   defNear: { es: 'Saltar al lateral', title: 'Jump to their full-back',
     why: 'Their full-back gets it on your side. Jump as the ball is travelling to him, not after he has it, and come on a curve from the inside out, ending goal-side and inside him: your run shuts the pass inside, so he can only go down the line or back.' },
@@ -454,8 +454,8 @@ const PRINCIPLE = {
   defFar: { es: 'Basculaci&oacute;n', title: 'Slide with the block',
     why: 'They have it on the far side. The whole block slides toward the ball and you slide with it, into your half-space, level with the midfield line, so there is no gap to play through. If they switch it, you have time to get back out.' },
   turnPress: { es: 'Presi&oacute;n tras p&eacute;rdida', title: 'Press, straight away',
-    why: 'We just lost it, and their outlet is right by you. Do not run back &mdash; press. In the first five seconds they are still disorganised. Come at him from the angle that shuts his pass forward and inside, so he is pinned against the touchline.' },
-  turnCover: { es: 'Presi&oacute;n tras p&eacute;rdida &middot; cerrar dentro', title: 'Narrow, level with the ball',
+    why: 'We just lost it, and their outlet is right by you. Do not run back &mdash; press. In the first seconds after we lose it they are still disorganised. Come at him from the angle that shuts his pass forward and inside, so he is pinned against the touchline.' },
+  turnCover: { es: 'Presi&oacute;n tras p&eacute;rdida', title: 'Narrow, level with the ball',
     why: 'We just lost it, away from you. The players nearest the ball press it. Your job: come inside to your half-space and get level with the ball, so the team is tight around it and you shut the pass out to their nearest free man &mdash; usually their full-back. You are not running back to defend your goal; you are helping win it back. Only if the press is beaten do you drop into the block (repliegue).' }
 };
 
@@ -767,14 +767,14 @@ function gridCheck(s, p){
 }
 /* orienting yourself: what on the pitch tells you where the spot is */
 const FIND = {
-  attNear: 'Lane: the edge of the 18-yard box, extended up the pitch, is the inside edge of your wide lane &mdash; stay outside it. Height: their last defender is the offside line; be level with him. This is how a winger makes <i>superioridad cualitativa</i>: alone, one-on-one with their full-back.',
+  attNear: 'Lane: the edge of the 18-yard box, extended up the pitch, is the inside edge of your wide lane &mdash; stay outside it. Height: their last defender is the offside line; be level with him. With their full-back pinned and isolated, your 1v1 can make the difference: beating your man is <i>superioridad cualitativa</i>.',
   attMid: 'Lane: stay outside the 18-yard-box line, extended. Height: level with their last defender. Stagger: not directly level with your 8 in the next lane &mdash; a slight diagonal gives the passer a real option.',
   attFar: 'Lane: the inside edge of your wide lane is the 18-yard-box line, extended &mdash; come in to it, not past it. Height: level with their last defender, so the switch can go in behind.',
-  attSwap: 'Lane: the half-space runs between the 18-yard-box edge and the 6-yard-box edge, extended. Height: level with their last defender. Standing between their full-back and centre-back is <i>superioridad posicional</i>.',
-  defNear: 'Reference: their full-back, not the grid. Go as the ball travels to him and finish goal-side and inside him.',
-  defMid: 'Height: our midfield line &mdash; level with your 8s. Lane: keep the same gap to your 8 that the 8s keep to each other; close your half-space first.',
+  attSwap: 'Lane: the half-space runs between the 18-yard-box edge and the 6-yard-box edge, extended. Height: level with their last defender. Standing between their full-back and centre-back, behind the line pressing us, is a positional advantage (<i>superioridad posicional</i>).',
+  defNear: 'Good pressing technique (general coaching, not specifically Spanish). Reference: their full-back, not the grid. Go as the ball travels to him and finish goal-side and inside him.',
+  defMid: 'General coaching for a 4-1-4-1 block, not specifically Spanish. Height: our midfield line &mdash; level with your 8s. Lane: keep the same gap to your 8 that the 8s keep to each other; close your half-space first.',
   defFar: 'Height: our midfield line. Lane: slide in until you are in your half-space, between the 18-yard and 6-yard box edges extended &mdash; the whole block moves together.',
-  turnPress: 'Reference: their receiver, not the grid. In the first five seconds the ball tells you where to be.',
+  turnPress: 'Reference: their receiver, not the grid. In the first seconds after we lose it, the ball tells you where to be.',
   turnCover: 'Reference: the ball. Come in to your half-space and get level with it; the grid only matters again once we have it back or drop into the block.'
 };
 const ROLE_NAME = { R8: 'your 8', L8: 'your other 8', RB: 'your full-back', LB: 'the other full-back', S6: 'your 6', N9: 'your 9',
@@ -2280,7 +2280,7 @@ function answerMap(tap){
       (mates.length ? ' ' + ROLE_NAME[mates[0]][0].toUpperCase() + ROLE_NAME[mates[0]].slice(1) + ' is already there &mdash; same lane, same line. Stagger: a different height, or a different lane.' : '')); }
   const p = PRINCIPLE[c.kind];
   const r2 = document.createElement('div'); r2.className = 'row';
-  r2.innerHTML = '<span class="wy"><b><i>' + p.es + '</i> &middot; ' + p.title + '.</b> ' + p.why + '</span>';
+  r2.innerHTML = '<span class="wy"><b>' + (p.es ? '<i>' + p.es + '</i> &middot; ' : '') + p.title + '.</b> ' + p.why + '</span>';
   box.appendChild(r2);
   /* the grid: 5 lanes x 4 sections; max 2 in a lane, max 3 on a line */
   if (c.kind.startsWith('att')){ const g = gridCheck(c, c.ideal), nm = id => ROLE_NAME[id] || id;
@@ -2485,7 +2485,7 @@ el('again').onclick = startSession;
 el('next').onclick  = nextRep;
 el('replay').onclick = replayLook;
 el('done').onclick  = () => { show(pIdle); paintSeg(); el('hmeta').textContent = 'Rep 0 / '+CFG.repsPerSession;
-  setVeil(true,'Ready','Five lanes. One player per lane, on every line.'); };
+  setVeil(true,'Ready','Five lanes. No more than two in a lane, three on a line.'); };
 el('reset').onclick = () => {
   stats = { L:{pts:0,max:0}, R:{pts:0,max:0}, side: stats.side };
   paintSides(); paintSeg(); saveStats(); show(pIdle);
