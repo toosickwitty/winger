@@ -1230,7 +1230,7 @@ const LOOK = (() => {
 
     // the ground outside the pitch, then the pitch itself
     const surround = new THREE.Mesh(new THREE.PlaneGeometry(240, 260),
-      new THREE.MeshStandardMaterial({ color: 0x2f6a2e, roughness: 1 }));
+      new THREE.MeshStandardMaterial({ color: 0x245424, roughness: 1 }));
     surround.rotation.x = -Math.PI/2; surround.position.y = -0.01;
     surround.receiveShadow = true; scene.add(surround);
 
@@ -1239,7 +1239,7 @@ const LOOK = (() => {
     tt.repeat.set(PW / 10, PL / 10);                    // a 5 m mowing band, noise every 10 m
     tt.anisotropy = renderer.capabilities.getMaxAnisotropy();
     const pitch = new THREE.Mesh(new THREE.PlaneGeometry(PW, PL),
-      new THREE.MeshStandardMaterial({ map: tt, roughness: 0.96 }));
+      new THREE.MeshStandardMaterial({ map: tt, color: 0x9a9a9a, roughness: 0.96 }));   // a darker, stadium green: the ball stands out
     pitch.rotation.x = -Math.PI/2; pitch.position.y = 0.0;
     pitch.receiveShadow = true; scene.add(pitch);
 
@@ -1248,7 +1248,11 @@ const LOOK = (() => {
   }
 
   /* Shadows are sharp only near the action, so the shadow camera follows it. */
-  function frame(actors){
+  function frame(actors, camera){
+    if (camera){
+      const bm = MATS.get('ball');
+      if (bm) [actors, actors && actors.parent].forEach(g => g && g.children.forEach(c => { if (c.material === bm) ballLook(c, camera); }));
+    }
     LIVE.forEach(P => {
       if (!P.parent){ LIVE.delete(P); if (P.userData.rig.skeleton) P.userData.rig.skeleton.dispose(); }
       else P.userData.rig.apply();
@@ -1279,8 +1283,30 @@ const LOOK = (() => {
           g.closePath(); g.fill();
         });
       });
-      return new THREE.MeshStandardMaterial({ map: t, roughness: 0.45 });
+      /* lit from inside as well as by the sun: still round up close, but it stays
+         white whatever the light, so it never greys into the grass */
+      return new THREE.MeshStandardMaterial({ map: t, roughness: 0.45, emissive: 0xffffff, emissiveMap: t, emissiveIntensity: 0.6 });
     });
+  }
+  /* The ball, readable on a phone: a dark outline, and never drawn smaller than a
+     ball looks to the eye on a real pitch. Real size up to 14 m away, then held at the
+     on-screen size it has at 14 m, up to 2.5x real size far away. */
+  const BALL_R = 0.115;
+  let hullMat = null;
+  function ballLook(b, camera){
+    if (!b.userData.hull){
+      hullMat = hullMat || new THREE.MeshBasicMaterial({ color: 0x0b0d10, side: THREE.BackSide });
+      const h = new THREE.Mesh(new THREE.SphereGeometry(BALL_R, 20, 14), hullMat);
+      b.add(h); b.userData.hull = h;
+    }
+    /* the drill sets the height; remember it, so the grown ball still sits on the grass */
+    if (b.userData.setY === undefined || Math.abs(b.position.y - b.userData.setY) > 1e-6) b.userData.baseY = b.position.y;
+    const d = camera.position.distanceTo(b.position);
+    const k = Math.min(2.5, Math.max(1, d/14));
+    b.scale.setScalar(k);
+    b.userData.hull.scale.setScalar(1 + 0.28*Math.min(1, d/14));      // a fine outline up close, a firm one far away
+    const y = b.userData.baseY < 0.3 ? b.userData.baseY + BALL_R*(k - 1) : b.userData.baseY;
+    b.position.y = y; b.userData.setY = y;
   }
 
   return { LEGSIGN, setupWorld, makePlayer, ballMaterial, frame, load, onReady,
@@ -1579,7 +1605,7 @@ function resize(){
 }
 addEventListener('resize', resize);
 if (window.ResizeObserver) new ResizeObserver(() => { resize(); const ft = document.querySelector('footer'); if (ft) ft.scrollTop = 0; if (labels.style.display === 'block' && labels.innerHTML){ renderer.render(scene,camera); drawLabels(); } }).observe(stage);
-function loop(){ LOOK.frame(actors); renderer.render(scene,camera); requestAnimationFrame(loop); }
+function loop(){ LOOK.frame(actors, camera); renderer.render(scene,camera); requestAnimationFrame(loop); }
 
 function drawMask(){
   const c = document.getElementById('mask'), g = c.getContext('2d');
