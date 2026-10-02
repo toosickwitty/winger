@@ -210,7 +210,7 @@ a.iconbtn{text-decoration:none;display:inline-flex;align-items:center;white-spac
       <button data-mode="test" aria-pressed="false">Test</button>
     </div>
     <button class="cta" id="start">Start session</button>
-    <p class="note">16 reps, about five minutes. Spanish positional play (<i>juego de posici&oacute;n</i>) cuts the pitch into <b>five lanes</b>: two wide lanes, two half-spaces and the middle &mdash; one player per lane on each line. A few seconds of play, then it freezes as the last pass is struck: tap where you should be.<br><br><b>We have it</b> &mdash; you are the width (<i>amplitud</i>), level with their last defender: on the touchline when the ball is on your side, pinning their full-back (<i>fijar al lateral</i>); a few metres in when it is central; at the inside edge of your lane when it is far. If your full-back takes the wide lane, you take the half-space (<i>un jugador por carril</i>).<br><b>They have it</b> &mdash; you are one of the midfield four (<i>l&iacute;nea de medios</i>): level with your 8s, closing your half-space, sliding with the block (<i>basculaci&oacute;n</i>); jump to their full-back as the ball travels to him (<i>saltar al lateral</i>).<br><b>We just lost it</b> &mdash; press in the first five seconds (<i>presi&oacute;n tras p&eacute;rdida</i>): their outlet right by you, you press him; away from you, come inside, level with the ball, and shut the pass to their full-back.<br><br><b>Learn</b> paints the lanes on the grass, shows a live map while it plays and everyone on the map when you tap. <b>Test</b> takes all of that away.</p></p></p>
+    <p class="note">16 reps, about five minutes. Spanish positional play (<i>juego de posici&oacute;n</i>) cuts the pitch into <b>five lanes</b>: two wide lanes, two half-spaces and the middle &mdash; one player per lane on each line. A few seconds of play, then it freezes as the last pass is struck: tap where you should be.<br><br><b>We have it</b> &mdash; you are the width (<i>amplitud</i>), level with their last defender: on the touchline when the ball is on your side, pinning their full-back (<i>fijar al lateral</i>); a few metres in when it is central; at the inside edge of your lane when it is far. If your full-back takes the wide lane, you take the half-space (<i>un jugador por carril</i>).<br><b>They have it</b> &mdash; you are one of the midfield four (<i>l&iacute;nea de medios</i>): level with your 8s, closing your half-space, sliding with the block (<i>basculaci&oacute;n</i>); jump to their full-back as the ball travels to him (<i>saltar al lateral</i>).<br><b>We just lost it</b> &mdash; press in the first five seconds (<i>presi&oacute;n tras p&eacute;rdida</i>): their outlet right by you, you press him; away from you, come inside, level with the ball, and shut the pass to their full-back.<br><br><b>Learn</b> paints the lanes on the grass, shows a live map while it plays and everyone on the map when you tap. <b>Test</b> takes all of that away.<br><br><b>Scan:</b> while it plays, tap the left or right half of the screen to look over that shoulder &mdash; a 90&deg; turn of the head, held half a second, then back to the ball (0.7 s in all).</p></p></p>
   </div>
 
   <div id="panelAsk" class="hide">
@@ -1796,18 +1796,39 @@ function seqFrame(s, T){
   const home = ypTo(me[0], me[1], me[0] - s.side*14, 1.4, me[1] - 22);
   const onBall = ypTo(me[0], me[1], lag[0], 0.6, lag[1]); onBall[1] = Math.max(onBall[1], -0.3);
   const yp = mixYP(home, onBall, 0.88);
+  const sc = scanNow();
+  if (sc){ yp[0] += sc.dir*Math.PI/2*sc.k; yp[1] = yp[1] + (-0.06 - yp[1])*sc.k; }      // left is +yaw
   camYP(me[0], me[1], yp[0], yp[1]);
 }
 function runSequence(done){
   const t0 = performance.now(), end = seqTimes().end, gen = ++seqGen;
+  seqLive = true; scan = null;
   (function step(now){
     if (gen !== seqGen) return;
     const T = Math.min(end, now - t0);
     seqFrame(current, T);
     if (T < end){ requestAnimationFrame(step); return; }
+    seqLive = false;
     done();                                   // frozen: the last pass has just been struck
   })(t0);
 }
+/* Scanning. A tap on the left or right half of the picture while the play runs
+   turns his head 90 degrees that way: 0.1 s to get there, half a second to take
+   the picture in, 0.1 s back onto the ball. One scan at a time. */
+let seqLive = false, scan = null;
+const SCAN_OUT = 100, SCAN_HOLD = 500, SCAN_BACK = 100;
+function scanNow(){
+  if (!scan) return null;
+  const t = performance.now() - scan.t0, E = q => q < 0.5 ? 2*q*q : 1 - Math.pow(-2*q + 2, 2)/2;
+  if (t >= SCAN_OUT + SCAN_HOLD + SCAN_BACK){ scan = null; return null; }
+  const k = t < SCAN_OUT ? E(t/SCAN_OUT) : t < SCAN_OUT + SCAN_HOLD ? 1 : E(1 - (t - SCAN_OUT - SCAN_HOLD)/SCAN_BACK);
+  return { dir: scan.dir, k };
+}
+stage.addEventListener('pointerdown', e => {
+  if (!seqLive || scan) return;
+  const r = stage.getBoundingClientRect();
+  scan = { dir: e.clientX < r.left + r.width/2 ? 1 : -1, t0: performance.now() };
+});
 let seqGen = 0;
 
 let camAim = null;                      // [bearing, height] while not on the usual look
@@ -2012,7 +2033,7 @@ function nextRep(){
   maskEl.style.display = 'none'; timer.style.display = 'none';
   show(pAsk);
   el('askWord').firstChild.textContent = 'Watch';
-  el('askHint').textContent = 'The whole team, not just the ball.';
+  el('askHint').textContent = 'Tap left or right to scan over that shoulder.';
   el('answers').innerHTML = '';
   setVeil(true, (current.side === 1 ? 'Right wing' : 'Left wing') + (learning() ? ' · Learn' : ' · Test'), 'Who has it, and where is it? When it freezes: your lane, and your line.');
   setTimeout(flash, CFG.cueMs);
