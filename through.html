@@ -413,12 +413,12 @@ function buildCandidate(side, answer){
   const O = p => [p[0] - W, p[1] - zB];
   /* where he takes the pass: out in the channel, a 45-degree carry back from W */
   const R = [W + CARRY/Math.SQRT2, zB + CARRY/Math.SQRT2];
-  const passer = [Math.min(R[0] + rand(2, 4), 31), R[1] + rand(5.5, 7)];
+  const passer = [Math.min(R[0] + rand(2, 4), 31), R[1] + rand(6.5, 8)];   // far enough back that you are not in one zone
   /* ...who then overlaps: level with him, out in the channel, by the time he looks up.
      Not every time. Some reps he stays back, so the only way to know is to look. */
   const fbGoes = on === 'overlap' || Math.random() < 0.5;
   const fbRun = [rand(25.5, 29), zB - rand(0.5, 2)];
-  const fb = fbGoes ? fbRun : [passer[0] - rand(0, 1.5), passer[1] - rand(2, 3.5)];
+  const fb = fbGoes ? fbRun : [passer[0] - rand(0, 1.5), passer[1] - rand(0.5, 1.5)];
   const ball = [W, zB];
   const taken = [ball];
 
@@ -1540,8 +1540,10 @@ function buildScene(s){
   const drift = p => [p[0]*0.94, p[1]*0.94];          // everyone shuffles toward the ball
 
   /* his team: two runs in behind, a 10 between the lines, a 6 behind him */
-  place('own', s.nine[0], s.nine[1], s, s.nine[0] + 0.3, s.nine[1] - 8,
-    'your 9 · running in behind', { speed:0.8, mps:3.6 });
+  /* the 9 works across the shoulder of their last man, ready to spin in behind: he stays in his
+     own zone, clear of the 10 behind him, instead of running through the 10's patch */
+  place('own', s.nine[0], s.nine[1], s, s.nine[0] + 6, s.nine[1] - 0.6,
+    'your 9 · on the shoulder, ready to go in behind', { speed:0.3, mps:0.7, watch:true, watchAt:[0,0] });
   place('own', s.wide[0], s.wide[1], s, s.wide[0] + 3, s.wide[1] - 8,
     'your far winger · running in behind', { speed:0.8, mps:3.6 });
   place('own', s.ten[0], s.ten[1], s, s.ten[0] - 0.4, s.ten[1] - 1.2,
@@ -1551,7 +1553,7 @@ function buildScene(s){
   const O = s.opp, fbn = s.side === 1 ? { near:'left-back', far:'right-back' } : { near:'right-back', far:'left-back' };
   if (s.cover.nine)                                   // dropping with the run, goal-side
     place('opp', O.cbA[0], O.cbA[1], s, O.cbA[0] + 0.3, O.cbA[1] - 6,
-      'their centre-back · goal-side of your 9', Object.assign({ speed:0.75, mps:3.4 }, ball));
+      'their centre-back · goal-side of your 9', Object.assign({ speed:0.3, mps:0.9 }, ball));   // dropped off him, holding goal-side
   else
     place('opp', O.cbA[0], O.cbA[1], s, drift(O.cbA)[0], drift(O.cbA)[1],
       'their centre-backs · flat and split', Object.assign({ speed:0.2, mps:0.5 }, ball));

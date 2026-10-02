@@ -362,7 +362,7 @@ function buildCandidate(side, answer){
      first, then you turn away from him to look. */
   const passerAt = drop(taken, () => [rand(-24,-19), rand(8, 13)], 3.0);
 
-  return {
+  const sc = {
     side, passerAt,
     wingX: rand(25.5, 30.5),            // how tightly he is hugging the touchline
     zBase: rand(-17, -9),               // just past halfway, coming into the attacking third
@@ -373,6 +373,60 @@ function buildCandidate(side, answer){
     lineZ, lineN, lineAt, coverAt, insideAt, extras, strikerAt, mate, markerAt, presserAt, markerDrop,
     intended: answer
   };
+  ownSpacing(sc, taken);
+  return sc;
+}
+
+/* Our own men keep the positional-play spacing (Perarnau): no more than two of us in one
+   vertical lane, no more than three across one line, and never two of us in the same zone
+   (same lane, within 6 m of each other up and down the pitch). Checked where they start the
+   look and where they end it. The lanes follow the boxes: wide = touchline to the edge of the
+   18-yard box, inside lane = to the edge of the 6-yard box, the middle between. */
+const laneOfX = x => { const a = Math.abs(x); return a > 20.16 ? (x > 0 ? 4 : 0) : a > 9.16 ? (x > 0 ? 3 : 1) : 2; };
+function teamSpaced(pts){
+  const lanes = {};
+  for (const p of pts){ const l = laneOfX(p[0]); lanes[l] = (lanes[l] || 0) + 1; if (lanes[l] > 2) return false; }
+  for (const a of pts) if (pts.filter(b => Math.abs(b[1] - a[1]) < 3).length > 3) return false;
+  for (let i = 0; i < pts.length; i++) for (let j = i + 1; j < pts.length; j++)
+    if (laneOfX(pts[i][0]) === laneOfX(pts[j][0]) && Math.abs(pts[i][1] - pts[j][1]) < 6) return false;
+  return true;
+}
+/* where one of ours starts the look, given where he ends it, where he is heading and how fast */
+function startOf(sc, end, to, mps){
+  const d = Math.hypot(to[0] - end[0], to[1] - end[1]) || 1, run = mps*(CFG.flashMs/1000);
+  return [end[0] - (to[0] - end[0])/d*run, end[1] - (to[1] - end[1])/d*run];
+}
+function ownSpacing(sc, taken){
+  const abs = q => [sc.wingX + q[0], sc.zBase + q[1]];
+  const others = taken.filter(q => q !== sc.strikerAt && q !== sc.mate);
+  const pick = () => {
+    const st = polar(rand(-20, -3), rand(12, 20));
+    const stTo = [st[0] + rand(2, 7), st[1] - rand(4, 9)];
+    let m = null, mTo = null, mMps = rand(2.5, 5), mSp = rand(0.35, 0.85);
+    if (sc.mate){
+      m = polar(rand(-ARC_SAFE, 8), rand(10, 22));
+      mTo = Math.random() < 0.5 ? [rand(-2.6, -0.4), rand(-1.0, 1.4)] : [m[0] + rand(-4, 4), m[1] - rand(2, 7)];
+    }
+    return { st, stTo, m, mTo, mMps, mSp };
+  };
+  const ok = c => {
+    if (!clears(others, c.st, 2.4) || (c.m && (!clears(others, c.m, 2.4) || !clears([c.st], c.m, 2.4)))) return false;
+    const ends = [abs([0, 0]), abs(sc.passerAt), abs(c.st)].concat(c.m ? [abs(c.m)] : []);
+    const starts = [abs([0, 0]), abs(sc.passerAt), abs(startOf(sc, c.st, c.stTo, 4.2))]
+      .concat(c.m ? [abs(startOf(sc, c.m, c.mTo, c.mMps))] : []);
+    return teamSpaced(ends) && teamSpaced(starts);
+  };
+  for (let tries = 0; tries < 2; tries++){
+    for (let i = 0; i < 150; i++){
+      const c = pick();
+      if (!ok(c)) continue;
+      sc.strikerAt = c.st; sc.strikerTo = c.stTo;
+      sc.mate = c.m; sc.mateTo = c.mTo; sc.mateMps = c.mMps; sc.mateSp = c.mSp;
+      return;
+    }
+    sc.mate = null;                    // no room for a third man of ours: leave him out
+  }
+  sc.strikerTo = [sc.strikerAt[0] + rand(2, 7), sc.strikerAt[1] - rand(4, 9)];
 }
 
 function shuffle(a){
@@ -1530,15 +1584,14 @@ function buildScene(s){
 
   /* his own men can look where they are going — they are marking nobody */
   place('own', s.strikerAt[0], s.strikerAt[1], s,
-    s.strikerAt[0] + rand(2,7), s.strikerAt[1] - rand(4,9),
+    s.strikerTo[0], s.strikerTo[1],
     'your striker · running in behind', { speed:rand(0.8,1.0), mps:4.2 });
 
   if (s.mate){
     /* a teammate either shows for the ball or runs off it */
-    const t = Math.random() < 0.5 ? atBall()
-                                  : [s.mate[0] + rand(-4,4), s.mate[1] - rand(2,7)];
+    const t = s.mateTo;
     place('own', s.mate[0], s.mate[1], s, t[0], t[1], null,
-      { speed:rand(0.35,0.85), mps:rand(2.5,5) });
+      { speed:s.mateSp, mps:s.mateMps });
   }
 
   /* your passer, and the ball at his feet */

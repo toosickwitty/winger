@@ -194,7 +194,7 @@ a.iconbtn{text-decoration:none;display:inline-flex;align-items:center;white-spac
       <button data-side="alt" aria-pressed="false">Both</button>
     </div>
     <button class="cta" id="start">Start session</button>
-    <p class="note">16 reps, about six minutes. Each rep starts with a check over your shoulder at the ball, then your head comes round to read the lanes. One player per lane: is your full-back overlapping outside you, and is your 8 in the half-space inside you?</p>
+    <p class="note">16 reps, about six minutes. Each rep starts with a check over your shoulder at the ball, then your head comes round to read the lanes. Is your full-back overlapping outside you, and is your 8 in the half-space inside you?</p>
   </div>
 
   <div id="panelAsk" class="hide">
@@ -295,7 +295,7 @@ const pick = a => a[Math.floor(Math.random()*a.length)];
    one is the answer. If all three are occupied, nothing is on and he comes
    back to the ball. No magnitudes to judge, no distances to estimate: a body
    is either there or it is not. */
-/* POSITIONAL PLAY: one player per lane.
+/* POSITIONAL PLAY: every lane filled, never two of us in one zone.
 
    In juego de posicion the winger's position is decided by his TEAMMATES as
    much as by the opposition. Two blue shirts settle it:
@@ -304,8 +304,8 @@ const pick = a => a[Math.floor(Math.random()*a.length)];
 
        no  / yes  -> HOLD WIDTH      the 8 has the half-space; pin their full-back
                                       high and wide so the 8 has room (Yamal's job)
-       yes / no   -> TAKE THE HALF-SPACE   the touchline is his now; two in one
-                                      lane is one too many, so go inside
+       yes / no   -> TAKE THE HALF-SPACE   the touchline is his now and the
+                                      half-space is empty, so go inside and fill it
        yes / yes  -> COME SHORT      your full-back is already making the run down
                                       the channel and your 8 has the half-space. A
                                       third runner there is one too many: drop,
@@ -413,7 +413,7 @@ function buildCandidate(side, answer){
   /* the ball: with your 6 in the middle, or (when your 8 has dropped out of the
      half-space to get it) with your 8, deep in his own lane */
   const passerAt = t.eight ? drop(taken, () => [rand(-26,-22), rand(7.0, 10.0)], 3.0)
-                           : drop(taken, () => [rand(-18.5,-15.5), rand(6.5, 9.0)], 3.0);
+                           : drop(taken, () => [rand(10.5, 14.0) - wingX, rand(6.5, 9.0)], 3.0);
   const onLane = q => distToLane(q, passerAt, recv) < LANE_R[answer];
 
   /* THE TWO CUES \u2014 both teammates, both in blue, each either there or not */
@@ -443,13 +443,23 @@ function buildCandidate(side, answer){
   /* his 9, central and on the shoulder of their line */
   const strikerAt = drop(taken, () => [-wingX + rand(-2.5, 2.5), lineOz + rand(0.8, 2.2)], 2.6);
 
-  /* the rest of the shape, one man per lane (juego de posicion, five lanes):
+  /* the rest of the shape, spaced out across the five lanes (juego de posicion):
      far winger wide on the other touchline, far interior in the other half-space,
      your 6 behind the ball, your full-back behind you when he has not overlapped */
-  const farWAt   = [-wingX - rand(26, 29), lineOz + rand(0.5, 3.0)];
-  const farEAt   = [-wingX - rand(11, 15), lineOz + rand(4.0, 7.0)];
-  const sixAt    = t.eight ? null : [-wingX + rand(-2.5, 2.5), passerAt[1] + rand(4, 7)];
-  const fbBackAt = t.fb ? null : [rand(0.5, 2.5), rand(11, 15)];
+  const rest = () => {
+    const farWAt   = [-wingX - rand(26, 29), lineOz + rand(0.5, 3.0)];
+    const farEAt   = [-wingX - rand(11, 15), lineOz + rand(4.0, 10.0)];
+    const sixAt    = t.eight ? null : [-wingX + rand(-2.5, 2.5), passerAt[1] + rand(4, 7)];
+    const fbBackAt = t.fb ? null : [rand(0.5, 2.5), rand(11, 15)];
+    return { farWAt, farEAt, sixAt, fbBackAt };
+  };
+  let shape = rest();
+  for (let k = 0; k < 60; k++){
+    const own = { fbAt, eightAt, strikerAt, passerAt, ...shape };
+    if (teamSpaced(ownStartEnd(own, wingX, zBase))) break;
+    shape = rest();
+  }
+  const { farWAt, farEAt, sixAt, fbBackAt } = shape;
   /* and theirs: the far side of their back line and their other midfielder */
   const oppRBAt  = [farWAt[0] + rand(2, 3.5), lineOz + rand(-0.8, 0.4)];   // their far full-back, on your other winger
   const oppMidAt = [-wingX - rand(7, 10), lineOz + rand(6, 8)];
@@ -463,6 +473,42 @@ function buildCandidate(side, answer){
   };
 }
 
+/* Our own men keep the positional-play spacing (Perarnau): no more than two of us in one
+   vertical lane, no more than three across one line, and never two of us in the same zone
+   (same lane, within 6 m up and down the pitch). The lanes follow the boxes: wide = touchline
+   to the edge of the 18-yard box, inside lane = to the edge of the 6-yard box, the middle
+   between. The overlap is the one exception: your full-back running past you IS the cue. */
+const laneOfX = x => { const a = Math.abs(x); return a > 20.16 ? (x > 0 ? 4 : 0) : a > 9.16 ? (x > 0 ? 3 : 1) : 2; };
+function teamSpaced(sets){
+  for (const pts of sets){
+    const lanes = {};
+    for (const p of pts){ const l = laneOfX(p.p[0]); lanes[l] = (lanes[l] || 0) + 1; if (lanes[l] > 2) return false; }
+    for (const a of pts) if (pts.filter(b => Math.abs(b.p[1] - a.p[1]) < 3).length > 3) return false;
+    for (let i = 0; i < pts.length; i++) for (let j = i + 1; j < pts.length; j++){
+      const a = pts[i], b = pts[j];
+      if ((a.id === 'fb' && b.id === 'me') || (a.id === 'me' && b.id === 'fb')) continue;
+      if (laneOfX(a.p[0]) === laneOfX(b.p[0]) && Math.abs(a.p[1] - b.p[1]) < 6) return false;
+    }
+  }
+  return true;
+}
+/* where each of ours is at the start and at the end of the look (pitch coordinates) */
+const OWN_MOVE = { fbAt:[-0.25,-4.0,3.47], eightAt:[0,-1.5,2.4], strikerAt:[1.5,-0.3,1.8], passerAt:[-0.5,-1.2,1.6],
+                   farWAt:[0,-1.5,1.6], farEAt:[0,-1.5,2.0], sixAt:[0.8,-1.0,1.4], fbBackAt:[0,-1.0,1.6] };
+function ownStartEnd(own, wingX, zBase){
+  const ID = { fbAt:'fb', eightAt:'eight', strikerAt:'nine', passerAt:'ball', farWAt:'farW', farEAt:'farE', sixAt:'six', fbBackAt:'fbBack' };
+  const end = [{ id:'me', p:[wingX, zBase] }], start = [{ id:'me', p:[wingX, zBase] }];
+  for (const k in OWN_MOVE){
+    const q = own[k]; if (!q) continue;
+    const m = OWN_MOVE[k], L = Math.hypot(m[0], m[1]) || 1, run = m[2]*CFG.flashMs/1000;
+    end.push({ id:ID[k], p:[wingX + q[0], zBase + q[1]] });
+    start.push({ id:ID[k], p:[wingX + q[0] - m[0]/L*run, zBase + q[1] - m[1]/L*run] });
+  }
+  return [start, end];
+}
+function spacedScene(sc){
+  return teamSpaced(ownStartEnd(sc, sc.wingX, sc.zBase));
+}
 function laneOK(sc, answer){
   const opp = [sc.markerAt, ...sc.lineAt, sc.holderAt];
   return opp.every(q => distToLane(q, sc.passerAt, sc.recv) >= LANE_R[answer]);
@@ -509,7 +555,7 @@ function makeScene(side, answer){
   let last = null;
   for (let attempt = 0; attempt < 300; attempt++){
     const sc = buildCandidate(side, answer);
-    if (laneOK(sc, answer) && inPlay(sc) && cuesStandOut(sc)) return sc;
+    if (laneOK(sc, answer) && inPlay(sc) && cuesStandOut(sc) && spacedScene(sc)) return sc;
     last = sc;
   }
   return last;
@@ -530,13 +576,13 @@ const VERDICT = {
   width: {        // 8 in the half-space, nobody outside you
     width:  [3, 'your 8 has the half-space and nobody has gone outside you \u2014 hold the width and pin their full-back so the 8 has room'],
     behind: [1, 'it is on, but running pulls their full-back back with you and closes the gap your 8 is standing in \u2014 holding width helps him more'],
-    half:   [0, 'your 8 is already in the half-space \u2014 going there puts two of you in one lane'],
+    half:   [0, 'your 8 is already in the half-space \u2014 going there puts you in his zone, same lane and same height'],
     short:  [0, 'coming back leaves the wide lane empty, and their full-back tucks in onto your 8']
   },
   half: {         // full-back overlapping, half-space empty
-    half:   [3, 'your full-back has overlapped into your lane \u2014 two in one lane is one too many, so go inside into the half-space'],
-    width:  [0, 'your full-back has the touchline now \u2014 staying there puts two of you in the wide lane'],
-    behind: [0, 'your full-back is already making that run down the channel \u2014 two runners in one lane'],
+    half:   [3, 'your full-back has overlapped and taken the touchline, and the half-space is empty \u2014 go inside and fill it, so every lane has a man in it'],
+    width:  [0, 'your full-back has the touchline now \u2014 staying there stacks two of you out wide and leaves the half-space empty'],
+    behind: [0, 'your full-back is already making that run down the channel \u2014 two runners going for the same space'],
     short:  [0, 'coming back leaves the half-space empty, with nobody inside to link with your full-back']
   },
   behind: {       // nobody ahead of you on this side
@@ -547,8 +593,8 @@ const VERDICT = {
   },
   short: {        // full-back overlapping AND 8 in the half-space
     short:  [3, 'your full-back is already running down the channel and your 8 has the half-space \u2014 a third runner is one too many, so come short, drag their full-back with you and give the ball the inside option'],
-    width:  [0, 'your full-back already has the touchline \u2014 two of you in the wide lane'],
-    half:   [0, 'your 8 is already in the half-space \u2014 two of you in one lane'],
+    width:  [0, 'your full-back already has the touchline \u2014 staying there stacks two of you out wide, and the ball has no short option'],
+    half:   [0, 'your 8 is already in the half-space \u2014 going there puts you in his zone, same lane and same height'],
     behind: [0, 'your full-back is already making that run \u2014 a third runner down the channel is one too many']
   }
 };

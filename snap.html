@@ -359,12 +359,14 @@ function distToLane(q, a, b){
 const unit = (x, z) => { const l = Math.hypot(x, z) || 1; return [x/l, z/l]; };
 const inArc = (p, deg, arc) => Math.abs(((Math.atan2(p[1], p[0]) * 180/Math.PI - deg + 540) % 360) - 180) <= arc;
 
+/* an x in the inside lane (the half-space) on that side: between the 6-yard and 18-yard box edges */
+const halfSpaceX = (sign, x) => sign*Math.min(19.5, Math.max(9.8, Math.abs(x)));
 function candidate(side, key){
   const [type, view] = key.split('-'), ten = view === 'ten';
   const W = type === 'cambio' ? (ten ? [rand(6, 10), rand(-10, 2)] : [rand(10, 14), rand(-12, -2)])   // a switch: he has drawn the block over, cutting in
                                : ten ? [rand(-4, 4), rand(-10, 2)] : [rand(17, 23), rand(-12, -2)];
   const deep = Math.random() < 0.5;                                    // their block: high line, or deep
-  const lineZ = W[1] - (ten ? (deep ? rand(24, 27) : rand(20, 23)) : (deep ? rand(20, 23) : rand(16, 19)));
+  const lineZ = W[1] - (ten ? (deep ? rand(26, 29) : rand(23, 26)) : (deep ? rand(20, 23) : rand(16, 19)));
   const midZ  = lineZ + rand(9, 12);
   const shift = type === 'cambio' ? (ten ? rand(8, 11) : W[0]*rand(0.8, 0.95))     // the whole block has come across to the ball
                                   : W[0] * rand(0.3, 0.4);                         // shuffled toward the ball
@@ -381,9 +383,9 @@ function candidate(side, key){
 
   /* your options, before deciding which one is on */
   const nine = [shift + rand(-2, 2), lineZ + rand(0.4, 1.4)];
-  const farW = [Math.max(-31, shift - (ten ? rand(17, 20) : rand(21, 25))), lineZ + rand(0.5, 2.5)];
-  const tenP = [shift + rand(-5, 5), (lineZ + midZ)/2 + rand(-1, 1)];
-  const nearW = ten ? [Math.min(31, shift + rand(17, 20)), lineZ + rand(0.5, 2.5)] : null;   // from the 10: your near winger
+  const farW = [ten ? Math.min(-20.4, shift - rand(19, 21)) : Math.max(-31, shift - rand(21, 25)), lineZ + rand(0.5, 2.5)];   // holding the far wide lane (from the 10: just inside his look)
+  const tenSide = pickOne([-1, 1]), tenP = [halfSpaceX(tenSide, shift + tenSide*rand(9.8, 13)), lineZ + rand(6.5, 8.5)];   // between the lines, in an inside lane
+  const nearW = ten ? [Math.max(20.4, shift + rand(19, 21)), lineZ + rand(0.5, 2.5)] : null;   // from the 10: your near winger, holding the near wide lane
   let chosen, target, title, why, runVel = null, ninePos = nine, farPos = farW, tenPos = tenP, nearPos = nearW;
   let tenVel = [rand(-1.5, 1.5), rand(0.5, 1.2)];
   const SPRINT = () => rand(5.8, 6.8);                                 // a run in behind: high-speed running
@@ -431,10 +433,10 @@ function candidate(side, key){
     /* the pocket: their two midfielders are still getting back, their back line has held */
     /* the free man between the lines: in the half-space on your side, centrally, or the far half-space */
     const lane = pickOne(['near', 'centre', 'far']);
-    const at = [shift + (lane === 'near' ? rand(5.5, 8.5) : lane === 'far' ? -rand(5.5, 8.5) : rand(-2.5, 2.5)), (lineZ + midZ)/2 + rand(0, 1.5)];
+    const at = [lane === 'near' ? halfSpaceX(1, shift + rand(10, 13)) : lane === 'far' ? halfSpaceX(-1, shift - rand(10, 13)) : shift + rand(-2.5, 2.5), (lineZ + midZ)/2 + rand(0, 1.5)];
     const v = [rand(-1.5, 1.5), rand(0.6, 1.4)];
     target = [at[0] + v[0]*0.8, at[1] + v[1]*0.8 - 0.8];
-    tenPos = lane === 'centre' ? null : [shift + (lane === 'near' ? -1 : 1)*rand(4, 7), (lineZ + midZ)/2 + rand(-0.5, 1)];
+    tenPos = lane === 'centre' ? null : [halfSpaceX(lane === 'near' ? -1 : 1, shift + (lane === 'near' ? -1 : 1)*rand(10, 13)), (lineZ + midZ)/2 + rand(-0.5, 1)];
     const who = lane === 'centre' ? 'your 10' : lane === 'near' ? 'your 8' : 'your far 8';
     chosen = add('own', 'chosen', at, v, who + ' · free between the lines');
     title = 'Entre líneas'; why = who + ' was free between their midfield and back line' + (lane === 'centre' ? '' : ', in the half-space') + ' — play it into his feet, a touch in front so he can turn';
@@ -446,7 +448,7 @@ function candidate(side, key){
     target = [at[0] + v[0]*0.5, at[1] + v[1]*0.5];
     ninePos = null;
     chosen = add('own', 'chosen', at, v, 'your 9 · dropping in, nobody following');
-    tenPos = [shift + (Math.random() < 0.5 ? 1 : -1)*rand(8, 11), (lineZ + midZ)/2 + rand(0, 2)];   // your 10 has moved over, marked
+    tenPos = [shift + (Math.random() < 0.5 ? 1 : -1)*rand(9.8, 13), (lineZ + midZ)/2 + rand(0, 2)];   // your 10 has moved over into an inside lane, marked
     title = 'Apoyo del 9'; why = 'your 9 dropped off their centre-backs into the space between the lines and nobody followed him — into his feet as he comes';
   } else {
     /* cambio: the whole block has shifted over; the far winger is alone, holding width */
@@ -464,19 +466,49 @@ function candidate(side, key){
   mids.forEach((p, i) => add('opp', 'mid' + i, p, [rand(-0.6, 0.6), -rand(4.0, 5.5)]));           // recovering, flat out
   const find = r => P.find(q => q.role === r);
 
+  /* the rest of our shape keeps the positional-play spacing around the answer: the men who are
+     not the answer are re-drawn (within where they belong) until nobody shares a zone, no lane
+     has three and no line has four, through the whole look */
+  const shortAt = () => [ten ? (Math.random() < 0.5 ? 1 : -1)*rand(10.5, 13) : W[0] - rand(4, 7), W[1] + rand(6.5, 8.5)];   // out of his lane from the 10
+  let nineV = [rand(-0.4, 0.4), -rand(5.5, 6.5)], farV = [rand(-0.2, 0.2), -rand(5.5, 6.5)], nearV = [rand(-0.2, 0.2), -rand(5.5, 6.5)];
+  let shortP = shortAt(), shortV = [rand(-0.8, 0.8), rand(1.0, 2.0)];
+  {
+    const tenFree = tenPos === tenP, ch = P.find(q => q.role === 'chosen'), runIn = type === 'ruptura' || type === 'espalda';
+    const pos = (e, v, t) => [e[0] - v[0]*(FLASH_S - t), e[1] - v[1]*(FLASH_S - t)];
+    const ok = () => {
+      for (const t of [0, FLASH_S/2, FLASH_S]){
+        const pts = [W, pos(shortP, shortV, t)]; if (t === 0 || !runIn) pts.push(pos(ch.end, ch.vel, t));
+        if (ninePos) pts.push(pos(ninePos, nineV, t));
+        if (farPos)  pts.push(pos(farPos, farV, t));
+        if (nearPos) pts.push(pos(nearPos, nearV, t));
+        if (tenPos)  pts.push(pos(tenPos, tenVel, t));
+        if (!teamSpaced(pts, t === FLASH_S)) return false;
+      }
+      return true;
+    };
+    for (let k = 0; k < 40 && !ok(); k++){
+      if (ninePos) ninePos = [shift + rand(-2, 2), lineZ + rand(0.4, 1.4)];
+      if (farPos)  farPos  = [ten ? Math.min(-20.4, shift - rand(19, 21)) : Math.max(-31, shift - rand(21, 25)), lineZ + rand(0.5, 2.5)];
+      if (nearPos) nearPos = [Math.max(20.4, shift + rand(19, 21)), lineZ + rand(0.5, 2.5)];
+      if (tenPos && tenFree){ const sg = pickOne([-1, 1]); tenPos = [halfSpaceX(sg, shift + sg*rand(9.8, 13)), lineZ + rand(6.5, 8.5)]; }
+      nineV = [rand(-0.4, 0.4), -rand(5.5, 6.5)]; farV = [rand(-0.2, 0.2), -rand(5.5, 6.5)]; nearV = [rand(-0.2, 0.2), -rand(5.5, 6.5)];
+      shortP = shortAt(); shortV = [rand(-0.8, 0.8), rand(1.0, 2.0)];
+    }
+  }
+
   /* everything that is not the answer is shut */
   if (ninePos){                                                     // a centre-back goal-side of your 9, with him
-    const v = [rand(-0.4, 0.4), -rand(5.5, 6.5)];
+    const v = nineV;
     add('own', 'nine', ninePos, v, 'your 9 · a centre-back goal-side of him');
     const cb = find(type === 'ruptura' && P.find(q => q.role === 'chosen').tag.startsWith('your 8') ? 'back2' : 'back1'); cb.end = [ninePos[0] + rand(-0.5, 0.5), ninePos[1] - rand(0.9, 1.3)]; cb.vel = [v[0], v[1]*0.95];
   }
   if (farPos){                                                      // their full-back tight on your far winger
-    const v = [rand(-0.2, 0.2), -rand(5.5, 6.5)];
+    const v = farV;
     add('own', 'farW', farPos, v, 'your far winger · their full-back tight on him');
     const fb = find('back3'); fb.end = [farPos[0] + rand(0.3, 0.8), farPos[1] - rand(0.9, 1.3)]; fb.vel = [v[0], v[1]*0.95];
   }
   if (nearPos){                                                     // from the 10: their near full-back tight on your near winger
-    const v = [rand(-0.2, 0.2), -rand(5.5, 6.5)];
+    const v = nearV;
     add('own', 'nearW', nearPos, v, 'your near winger · their full-back tight on him');
     const fb = find('back0'); fb.end = [nearPos[0] - rand(0.3, 0.8), nearPos[1] - rand(0.9, 1.3)]; fb.vel = [v[0], v[1]*0.95];
   }
@@ -486,9 +518,9 @@ function candidate(side, key){
     const m = find('mid1'); m.end = [tenPos[0] + g[0]*rand(0.9, 1.2), tenPos[1] + g[1]*rand(0.9, 1.2)]; m.vel = tenVel.slice();
   }
   /* short options, each with a man on him */
-  const shorts = [[W[0] - rand(4, 7)*(ten ? (Math.random() < 0.5 ? 1 : -1) : 1), W[1] + rand(4, 7)]];   // the support behind him, tracked: out of his look
+  const shorts = [shortP];                                          // the support behind him, tracked: out of his look
   shorts.forEach(p => {
-    add('own', 'short', p, [rand(-0.8, 0.8), rand(1.0, 2.0)]);
+    add('own', 'short', p, shortV);
     const g = unit(0 - p[0], ZONE.goalZ - p[1]);
     add('opp', 'marker', [p[0] + g[0]*rand(1.0, 1.3), p[1] + g[1]*rand(1.0, 1.3)], [rand(-0.6, 0.6), rand(1.0, 2.0)]);
   });
@@ -565,6 +597,34 @@ function sceneOK(s){
       let d = Math.abs(Math.atan2(o[1], o[0]) - bc); if (d > Math.PI) d = 2*Math.PI - d;
       if (d*180/Math.PI < Math.atan(0.9/dq)*180/Math.PI + 1.2) return false;
     }
+  }
+  /* and our own shape keeps the positional-play spacing */
+  if (!ownSpaced(s)) return false;
+  return true;
+}
+/* Our own men keep the positional-play spacing (Perarnau): no more than two of us in one
+   vertical lane, no more than three across one line, and never two of us in the same zone
+   (same lane, within 6 m up and down the pitch). The lanes follow the boxes: wide = touchline
+   to the edge of the 18-yard box, inside lane = to the edge of the 6-yard box, the middle
+   between. Lanes and zones are checked through the whole look; the lines are checked on the
+   picture he makes the pass from (the end of the look), because the runs in behind all set
+   off from deeper and pass through each other's lines on the way. The runner breaking their
+   line is checked where his run starts. */
+const laneOfX = x => x > ZONE.box ? 4 : x > ZONE.six ? 3 : x >= -ZONE.six ? 2 : x >= -ZONE.box ? 1 : 0;
+function teamSpaced(pts, lines){
+  const lanes = {};
+  for (const p of pts){ const l = laneOfX(p[0]); lanes[l] = (lanes[l] || 0) + 1; if (lanes[l] > 2) return false; }
+  if (lines !== false) for (const a of pts) if (pts.filter(b => Math.abs(b[1] - a[1]) < 3).length > 3) return false;
+  for (let i = 0; i < pts.length; i++) for (let j = i + 1; j < pts.length; j++)
+    if (laneOfX(pts[i][0]) === laneOfX(pts[j][0]) && Math.abs(pts[i][1] - pts[j][1]) < 6) return false;
+  return true;
+}
+function ownSpaced(s){
+  const runIn = s.type === 'ruptura' || s.type === 'espalda';
+  const at = (p, t) => [s.wingX + p.end[0] - p.vel[0]*(FLASH_S - t), s.zBase + p.end[1] - p.vel[1]*(FLASH_S - t)];
+  for (const t of [0, FLASH_S/2, FLASH_S]){
+    const own = s.players.filter(p => p.team === 'own' && (t === 0 || !runIn || p.role !== 'chosen'));
+    if (!teamSpaced([[s.wingX, s.zBase], ...own.map(p => at(p, t))], t === FLASH_S)) return false;
   }
   return true;
 }
