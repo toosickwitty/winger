@@ -372,12 +372,12 @@ const LANE_NAME = ['your wide lane', 'your half-space', 'the middle', 'the far h
    so we shift only a little. Their block slides a lot. Without the ball we slide
    as a block (basculación); they spread out to attack.                           */
 function attShape(Fx, D, jit, opt){
-  const ov = opt && opt.ov;
+  const ov = (opt && opt.ov) || 0;            // 1: the full-back has gone; 2: and the 8 has covered behind him
   const sx = clamp(0.15*Fx, -5, 5), L = clamp(D - 14, -40, -8);
   const o = {
     LCB: [-10 + sx, D + 18], RCB: [10 + sx, D + 18], LB: [-22 + sx, D + 9],
-    RB: ov ? [31, L + 3] : [22 + sx, D + 9],
-    S6: [sx, D + 6], L8: [-13 + sx, D - 4], R8: ov ? [22 + sx, D + 3] : [13 + sx, D - 4],     // when the full-back goes, the 8 covers the wide lane behind him
+    RB: ov ? [31, L + 7] : [22 + sx, D + 9],
+    S6: [sx, D + 6], L8: [-13 + sx, D - 4], R8: ov >= 2 ? [24 + sx, D + 4] : [14 + sx, D - 4],     // when the full-back goes, the 8 covers the wide lane behind him
     N9: [0.5*sx, L + 1], LW: [-winAtt(-Fx), L + 0.5], OGK: [0.1*Fx, clamp(D + 33, 28, 50.5)]
   };
   const so = clamp(0.45*Fx, -12, 12), sm = clamp(0.5*Fx, -13, 13), sf = clamp(0.35*Fx, -9, 9);
@@ -386,7 +386,15 @@ function attShape(Fx, D, jit, opt){
     TM1: [-18 + sm, L + 10], TM2: [-6 + sm, L + 10], TM3: [6 + sm, L + 10], TM4: [18 + sm, L + 10],
     TF1: [-6 + sf, L + 22], TF2: [6 + sf, L + 22], TGK: [0.1*Fx, -51]
   };
-  return jitter({ phase: 'att', own: o, opp: t, D, ov: !!ov }, jit);
+  const sh = jitter({ phase: 'att', own: o, opp: t, D, ov: !!ov }, jit);
+  /* with the ball every man keeps to his own lane (two per lane: full-back and winger wide,
+     centre-back and 8 in the inside lane, 6 and 9 in the middle), whatever the shift */
+  const LANE_OF = { LB: -2, LW: -2, LCB: -1, L8: -1, S6: 0, N9: 0, R8: ov >= 2 ? 2 : 1, RCB: 1, RB: 2 };
+  for (const id in LANE_OF){ const p = sh.own[id], l = LANE_OF[id];
+    const lo = l === 2 ? 21.7 : l === 1 ? 10.7 : l === 0 ? -7.6 : l === -1 ? -18.7 : -32.5;
+    const hi = l === 2 ? 32.5 : l === 1 ? 18.7 : l === 0 ? 7.6 : l === -1 ? -10.7 : -21.7;
+    p[0] = clamp(p[0], lo, hi); }
+  return sh;
 }
 /* his width with the ball: on the touchline / a few metres in / the inside edge of his lane */
 function winAtt(bx){ const z = zoneOf(bx); return z === 'near' ? 32 : z === 'mid' ? 29 : 22; }
@@ -445,8 +453,8 @@ const PRINCIPLE = {
     why: 'We have it in the middle. Stay in your wide lane, a few metres in from the line, level with their last defender. If you drift inside, two of us share a lane and their back line gets narrow and comfortable.' },
   attFar: { es: 'Abierto, pero cerca del juego', title: 'Wide, but close to the play',
     why: 'We have it on the far side. Come in to the inside edge of your lane &mdash; still wider than your 8, still level with their last defender. The pros stay right on the touchline so that after the switch (cambio de orientaci&oacute;n) they are alone one-on-one with the full-back; you come in until the switch is a pass your team can really play. If it gets crossed from the far side, attack the back post.' },
-  attSwap: { es: '', title: 'Not the same lane on the same line',
-    why: 'Your full-back has overlapped into your lane, on your line. Two of you cannot stand there together, so you go inside: the half-space, between their full-back and centre-back, level with their last defender. Now their full-back has two of you to deal with.' },
+  attSwap: { es: '', title: 'Two in your lane already',
+    why: 'Your full-back has overlapped up your lane and your 8 has dropped into it behind him to cover. That is two in your lane &mdash; the most. A third would break the spacing, so you go inside: the half-space, between their full-back and centre-back, level with their last defender. Now their full-back has two of you to deal with.' },
   defNear: { es: 'Saltar al lateral', title: 'Jump to their full-back',
     why: 'Their full-back gets it on your side. Jump as the ball is travelling to him, not after he has it, and come on a curve from the inside out, ending goal-side and inside him: your run shuts the pass inside, so he can only go down the line or back.' },
   defMid: { es: 'L&iacute;nea de medios', title: 'One of the midfield four',
@@ -456,7 +464,7 @@ const PRINCIPLE = {
   turnPress: { es: 'Presi&oacute;n tras p&eacute;rdida', title: 'Press, straight away',
     why: 'We just lost it, and their outlet is right by you. Do not run back &mdash; press. In the first seconds after we lose it they are still disorganised. Come at him from the angle that shuts his pass forward and inside, so he is pinned against the touchline.' },
   turnCover: { es: 'Presi&oacute;n tras p&eacute;rdida', title: 'Narrow, level with the ball',
-    why: 'We just lost it, away from you. The players nearest the ball press it. Your job: come inside to your half-space and get level with the ball, so the team is tight around it and you shut the pass out to their nearest free man &mdash; usually their full-back. You are not running back to defend your goal; you are helping win it back. Only if the press is beaten do you drop into the block (repliegue).' }
+    why: 'We just lost it, away from you. The players nearest the ball press it. Your job: come inside to your half-space, into the space no team-mate is already covering, and get level with the ball, so the team is tight around it and you shut the pass out to their nearest free man &mdash; usually their full-back. You are not running back to defend your goal; you are helping win it back. Only if the press is beaten do you drop into the block (repliegue).' }
 };
 
 /* ---------- a clip: a chain of passes ---------- */
@@ -500,7 +508,7 @@ function chain(phase, D, holder, n, finals, jit, opt){
     ROLES[phase].forEach(r => {
       if (r === role || r === prevRole) return;                   // no straight back to the man who gave it
       if (i === n && finals && !finals.includes(r)) return;
-      const c = receiverSpot(phase, r, Dn, jit, opt), L = d2(h.at, c.at);
+      const c = receiverSpot(phase, r, Dn, jit, typeof opt === 'function' ? opt(i) : opt), L = d2(h.at, c.at);
       if (L < PASS_MIN || L > PASS_MAX) return;
       if (!laneClear(h.at, c.at, phase === 'att' ? h.sh.opp : h.sh.own)) return;
       const fwd = (phase === 'att' ? h.at[1] - c.at[1] : c.at[1] - h.at[1]);
@@ -522,7 +530,7 @@ function candidate(side, key){
     const phase = key.slice(0, 3);
     const D = phase === 'att' ? rand(-8, 8) : rand(-16, 4);
     const holders = phase === 'att' ? ['LCB', 'RCB', 'LB', 'RB', 'S6', 'L8', 'R8'] : ['TB1', 'TB2', 'TB3', 'TB4', 'TM2', 'TM3'];
-    solved = chain(phase, D, pickOne(holders), 3, FINAL[key], jit, key === 'attSwap' ? { ov: true } : null);
+    solved = chain(phase, D, pickOne(holders), 3, FINAL[key], jit, key === 'attSwap' ? (i => ({ ov: i >= 2 ? 2 : 1 })) : null);
     if (!solved) return null;
   } else {
     /* we have it, one pass goes in, the next is cut out; they play one pass. Freeze. */
@@ -757,12 +765,22 @@ function yawAt(s, id, T){
 const GRID = { cuts: [-26.25, 0, 26.25], names: ['SECTION 4', 'SECTION 3', 'SECTION 2', 'SECTION 1'] };
 function bandsOf(s){ return GRID; }
 const bandOf = (z, b) => { let i = 0; while (i < b.cuts.length && z >= b.cuts[i]) i++; return i; };
+/* where the team-mates are, for judging a spot: where the play is taking them, or,
+   just after we lose it (when nobody is heading for a shape), where they are */
+function matePos(s){
+  const fin = s.ev[s.ev.length - 1].sh.own, out = {};
+  for (const id in s.ev[0].sh.own){
+    if (s.turn && s.T){ const k = s.T.tr[id], b = k[k.length - 1]; out[id] = [b[1], b[2]]; }
+    else out[id] = fin[id];
+  }
+  return out;
+}
 /* how a spot sits in the grid: who else is in its lane, and who is on its line */
 function gridCheck(s, p){
-  const own = s.ev[s.ev.length - 1].sh.own, lane = [], line = [];
+  const own = matePos(s), lane = [], line = [];
   for (const id in own){ if (id === 'OGK') continue; const q = own[id];
     if (laneOf(q[0]) === laneOf(p[0])) lane.push({ id, dz: q[1] - p[1] });
-    if (Math.abs(q[1] - p[1]) < 6) line.push(id); }
+    if (Math.abs(q[1] - p[1]) < 3) line.push(id); }
   return { lane, line };
 }
 /* orienting yourself: what on the pitch tells you where the spot is */
@@ -775,14 +793,14 @@ const FIND = {
   defMid: 'General coaching for a 4-1-4-1 block, not specifically Spanish. Height: our midfield line &mdash; level with your 8s. Lane: keep the same gap to your 8 that the 8s keep to each other; close your half-space first.',
   defFar: 'Height: our midfield line. Lane: slide in until you are in your half-space, between the 18-yard and 6-yard box edges extended &mdash; the whole block moves together.',
   turnPress: 'Reference: their receiver, not the grid. In the first seconds after we lose it, the ball tells you where to be.',
-  turnCover: 'Reference: the ball. Come in to your half-space and get level with it; the grid only matters again once we have it back or drop into the block.'
+  turnCover: 'Reference: the ball, and your team-mates. Come in to your half-space, level with the ball, into the gap nobody is covering &mdash; never on top of a team-mate; the grid only matters again once we have it back or drop into the block.'
 };
 const ROLE_NAME = { R8: 'your 8', L8: 'your other 8', RB: 'your full-back', LB: 'the other full-back', S6: 'your 6', N9: 'your 9',
                     LW: 'the other winger', RCB: 'your centre-back', LCB: 'the other centre-back', OGK: 'your keeper' };
 /* team-mates already on that spot's lane and line (where they are heading in this picture) */
 function boxMates(s, p){
-  const own = s.ev[s.ev.length - 1].sh.own, out = [];
-  for (const id in own){ const q = own[id]; if (id !== 'OGK' && laneOf(q[0]) === laneOf(p[0]) && Math.abs(q[1] - p[1]) < 8) out.push(id); }
+  const own = matePos(s), out = [];
+  for (const id in own){ const q = own[id]; if (id !== 'OGK' && laneOf(q[0]) === laneOf(p[0]) && Math.abs(q[1] - p[1]) < 6) out.push(id); }
   return out;
 }
 /* who has the ball at T (null while it travels) */
@@ -808,19 +826,63 @@ function sceneOK(s){
     const r = s.extra.recv, mine = d2(s.start, r);
     s.kind = (mine < 16 && r[0] > 9) ? 'turnPress' : 'turnCover';
     const I = idealFor(s.kind, s.ev[s.ev.length-1].sh, s.extra); s.ideal = I.at; s.ref = I.ref; s.intended = s.kind;
+    if (s.kind === 'turnCover'){
+      /* close inside where nobody already is: the space in his half-space, around the
+         ball's height, furthest from team-mates (where they are and where they are heading) */
+      const mates = [];
+      for (const id in s.ev[0].sh.own){ if (id === 'OGK') continue; const k = T.tr[id], a = k[k.length-2], b = k[k.length-1];
+        const p = [b[1], b[2]], v = [(b[1]-a[1])/((b[0]-a[0])/1000), (b[2]-a[2])/((b[0]-a[0])/1000)];
+        mates.push(p, [p[0] + v[0], p[1] + v[1]]); }
+      /* the others close the passing lines (Coaches' Voice): shut the line from the ball to
+         their nearest free man on his side, usually their full-back */
+      const oppNow = {}; for (const id in s.ev[0].sh.opp){ if (id === 'TGK' || id === s.extra.role) continue; const k = T.tr[id], b = k[k.length-1]; oppNow[id] = [b[1], b[2]]; }
+      const ownNow = []; for (const id in s.ev[0].sh.own){ const k = T.tr[id], b = k[k.length-1]; ownNow.push([b[1], b[2]]); }
+      let free = null;
+      for (const id in oppNow){ const q = oppNow[id]; if (q[0] < 3) continue;
+        if (ownNow.some(m => d2(m, q) < 4)) continue;
+        if (!free || d2(q, r) < d2(free, r)) free = q; }
+      let best = null;
+      for (let x = 10; x <= 19; x += 1) for (let dz = -3; dz <= 7; dz += 1){
+        const c = pitch([x, r[1] + dz]), md = Math.min(...mates.map(m => d2(m, c)));
+        if (md < 7) continue;
+        const sc = free ? -segD(c, r, free).d - 0.05*d2(c, [13, r[1] + 3]) : md - 0.15*d2(c, [13, r[1] + 3]);
+        if (!best || sc > best.sc) best = { c, md, sc };
+      }
+      s.extra.free = free;
+      if (!best || best.md < 7) return false;
+      s.ideal = best.c;
+      /* if that gap is right on their receiver, he is the nearest man: it is a press */
+      if (d2(best.c, r) < 7){ s.kind = s.intended = 'turnPress'; const Ip = idealFor('turnPress', s.ev[s.ev.length-1].sh, s.extra); s.ideal = Ip.at; s.ref = Ip.ref; }
+    }
     if (d2(s.ideal, s.start) < 6) return false;
   }
   /* his spot is his: no team-mate on it, where they are and where they are going */
   const fin = s.ev[s.ev.length-1].sh.own;
   for (const id in s.ev[0].sh.own){
     const k = T.tr[id], p = [k[k.length-1][1], k[k.length-1][2]];
-    if (d2(p, s.ideal) < 4) return false;
-    if (!s.turn && fin[id] && d2(fin[id], s.ideal) < 4) return false;
+    if (d2(p, s.ideal) < 6) return false;
+    const pf = trackAt(T.tr[id], s.tFreeze).p;                       // as he is in the frozen picture
+    if (id !== 'OGK' && laneOf(pf[0]) === laneOf(s.ideal[0]) && Math.abs(pf[1] - s.ideal[1]) < 6) return false;
+    if (!s.turn && fin[id] && d2(fin[id], s.ideal) < 6) return false;
   }
   /* nobody runs through him: he is the camera */
   for (const id in T.tr) for (const k of T.tr[id]) if (Math.hypot(k[1] - s.start[0], k[2] - s.start[1]) < 2.6) return false;
   for (const k of T.ball) if (Math.hypot(k[1] - s.start[0], k[2] - s.start[1]) < 2.2) return false;
   s.T = T;
+  /* while we have it, the team itself keeps the spacing at every moment the ball arrives
+     (Perarnau: at most 2 in a vertical lane, at most 3 on a horizontal line; and no two
+     in one zone of the grid, the same lane within 6 m up or down), checked every 0.1 s */
+  const ci = s.ev.findIndex(e => e.intercept), tHave = s.ev[0].phase !== 'att' ? -1 : ci > 0 ? s.ev[ci].ta : s.tFreeze;
+  for (let Tm = 0; Tm <= tHave; Tm += 100){
+    const pl = []; for (const id in s.ev[0].sh.own){ if (id === 'OGK') continue; pl.push(trackAt(T.tr[id], Tm).p); }
+    const lanes = {}; pl.forEach(p => { const l = laneOf(p[0]); lanes[l] = (lanes[l] || 0) + 1; });
+    for (const l in lanes) if (lanes[l] > 2) return false;
+    for (const p of pl) if (pl.filter(q => Math.abs(q[1] - p[1]) < 3).length > 3) return false;
+    for (let a = 0; a < pl.length; a++) for (let b = a + 1; b < pl.length; b++)
+      if (laneOf(pl[a][0]) === laneOf(pl[b][0]) && Math.abs(pl[a][1] - pl[b][1]) < 6) return false;
+  }
+  /* the answer never puts him on a team-mate's lane and line */
+  if (boxMates(s, s.ideal).length) return false;
   return true;
 }
 function makeScene(side, key){
@@ -2058,13 +2120,13 @@ function drawMap(s, reveal, tap){
   if (reveal){
     box(s.ideal, '#c6ef2f', .16);
     /* a team-mate already on that lane and line */
-    const fin = s.ev[s.ev.length-1].sh.own, taken = [];
+    const fin = matePos(s), taken = [];
     if (tap){ const mine = [W*tap[0], tap[1]]; boxMates(s, mine).forEach(id => taken.push(id)); }
-    if (s.kind === 'attSwap' && !taken.includes('RB')) taken.push('RB');
+    if (s.kind === 'attSwap'){ ['RB', 'R8'].forEach(id => { if (!taken.includes(id)) taken.push(id); }); }
     taken.forEach(id => { const q = P(fin[id]);
       L('circle', { cx: q[0], cy: q[1], r: 2.6, fill: 'none', stroke: '#ff8a70', 'stroke-width': .45 });
       const e = svgEl('text', { x: -q[1], y: q[0] + (q[0] > 0 ? -6.4 : 7.2), 'font-size': 1.9, 'text-anchor': 'middle', fill: '#ffc2b5' });
-      e.textContent = (id === 'RB' && s.kind === 'attSwap' ? 'YOUR FULL-BACK: YOUR LANE, YOUR LINE' : 'SAME LANE, SAME LINE'); });
+      e.textContent = s.kind === 'attSwap' && (id === 'RB' || id === 'R8') ? (id === 'RB' ? 'YOUR FULL-BACK' : 'YOUR 8, COVERING') : 'SAME LANE, SAME LINE'; });
   }
   LANES.forEach(x => L('line', { x1: x, y1: -52.5, x2: x, y2: 52.5, stroke: '#fff', 'stroke-width': .22, 'stroke-dasharray': '1.4 1.2', opacity: .4 }));
   if (bands) bands.cuts.forEach(z => L('line', { x1: -34, y1: z, x2: 34, y2: z, stroke: '#ffe066', 'stroke-width': .26, 'stroke-dasharray': '.8 1', opacity: .7 }));
@@ -2243,7 +2305,7 @@ function diagnose(c, mine){
   const li = laneOf(c.ideal[0]), lt = laneOf(mine[0]);
   const d = Math.hypot(mine[0]-c.ideal[0], mine[1]-c.ideal[1]);
   const lane = lt === li ? 'Right lane' : 'Wrong lane: you picked ' + LANE_NAME[lt] + ', your spot is in ' + LANE_NAME[li];
-  if (d <= HIT) return lt === li ? 'Right lane, right line.' : lane + '.';
+  if (d <= HIT) return lt === li ? 'Right lane, right line.' : 'Right spot, just over the lane line &mdash; keep it in ' + LANE_NAME[li] + '.';
   let line = '';
   if (c.ref.type === 'man'){
     line = 'you were ' + d.toFixed(0) + ' m from ' + c.ref.label + ' &mdash; get to him, ' + c.ref.how;
