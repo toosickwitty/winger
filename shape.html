@@ -132,6 +132,13 @@ footer{flex:0 0 auto;border-top:1px solid var(--line);background:var(--turf);col
 #map text{font-family:'Barlow Condensed',sans-serif;fill:#fff}
 #radar{position:absolute;left:8px;bottom:8px;width:31%;max-width:230px;aspect-ratio:112/75;z-index:20;display:none;
   border-radius:6px;background:rgba(8,16,11,.55);pointer-events:none}
+@media (min-width:900px) and (min-height:501px){
+  body:has(#panelFeedback:not(.hide)){display:grid;grid-template-columns:minmax(0,1fr) minmax(340px,34%);grid-template-rows:auto auto minmax(0,1fr)}
+  body:has(#panelFeedback:not(.hide)) header{grid-column:1 / -1}
+  body:has(#panelFeedback:not(.hide)) .sides{grid-column:1;grid-row:2}
+  body:has(#panelFeedback:not(.hide)) #stage{grid-column:1;grid-row:3}
+  body:has(#panelFeedback:not(.hide)) footer{grid-column:2;grid-row:2 / 4;overflow-y:auto;border-top:0;border-left:1px solid var(--line);padding:12px}
+}
 
 @media (orientation:landscape) and (max-height:500px){
   /* a phone on its side: every pixel of height goes to the pitch */
@@ -341,7 +348,7 @@ const pick = a => a[Math.floor(Math.random()*a.length)];
    (we attack toward z = -52.5). Mirrored for the left wing.                          */
 const BAG_COUNT = { attNear: 2, attMid: 2, attFar: 2, attSwap: 2, defNear: 2, defMid: 2, defFar: 2, turnPress: 1, turnCover: 1 };
 const HIT = 5, NEAR = 10;
-const LANE_X = [-20.4, -6.8, 6.8, 20.4];
+const LANE_X = [-20.16, -9.16, 9.16, 20.16];          // the lanes follow the boxes: the 18-yard box and the 6-yard box edges
 const rand = (a,b) => a + Math.random()*(b-a);
 const pickOne = a => a[Math.floor(Math.random()*a.length)];
 const d2 = (a, b) => Math.hypot(a[0]-b[0], a[1]-b[1]);
@@ -356,7 +363,7 @@ function newBag(){
 const zoneOf = bx => bx > 13 ? 'near' : bx < -13 ? 'far' : 'mid';
 const pitch = p => [clamp(p[0], -33, 33), clamp(p[1], -51.5, 51.5)];
 /* which lane a point is in, counted from HIS touchline: 0 his wide lane ... 4 the far wide lane */
-function laneOf(x){ return x > 20.4 ? 0 : x > 6.8 ? 1 : x > -6.8 ? 2 : x > -20.4 ? 3 : 4; }
+function laneOf(x){ return x > 20.16 ? 0 : x > 9.16 ? 1 : x > -9.16 ? 2 : x > -20.16 ? 3 : 4; }
 const LANE_NAME = ['your wide lane', 'your half-space', 'the middle', 'the far half-space', 'the far wide lane'];
 
 /* ---------- the shapes ----------
@@ -370,7 +377,7 @@ function attShape(Fx, D, jit, opt){
   const o = {
     LCB: [-10 + sx, D + 18], RCB: [10 + sx, D + 18], LB: [-22 + sx, D + 9],
     RB: ov ? [31, L + 3] : [22 + sx, D + 9],
-    S6: [sx, D + 6], L8: [-13 + sx, D - 4], R8: ov ? [9 + sx, D + 1] : [13 + sx, D - 4],
+    S6: [sx, D + 6], L8: [-13 + sx, D - 4], R8: ov ? [22 + sx, D + 3] : [13 + sx, D - 4],     // when the full-back goes, the 8 covers the wide lane behind him
     N9: [0.5*sx, L + 1], LW: [-winAtt(-Fx), L + 0.5], OGK: [0.1*Fx, clamp(D + 33, 28, 50.5)]
   };
   const so = clamp(0.45*Fx, -12, 12), sm = clamp(0.5*Fx, -13, 13), sf = clamp(0.35*Fx, -9, 9);
@@ -438,8 +445,8 @@ const PRINCIPLE = {
     why: 'We have it in the middle. Stay in your wide lane, a few metres in from the line, level with their last defender. If you drift inside, two of us share a lane and their back line gets narrow and comfortable.' },
   attFar: { es: 'Abierto, pero cerca del juego', title: 'Wide, but close to the play',
     why: 'We have it on the far side. Come in to the inside edge of your lane &mdash; still wider than your 8, still level with their last defender. The pros stay right on the touchline so that after the switch (cambio de orientaci&oacute;n) they are alone one-on-one with the full-back; you come in until the switch is a pass your team can really play. If it gets crossed from the far side, attack the back post.' },
-  attSwap: { es: 'Un jugador por carril', title: 'One player per lane',
-    why: 'Your full-back has taken the wide lane. Two of you cannot share it, so you go inside: the half-space, between their full-back and centre-back, level with their last defender. Now their full-back has two of you to deal with.' },
+  attSwap: { es: 'Un jugador por carril', title: 'Not the same lane on the same line',
+    why: 'Your full-back has overlapped into your lane, on your line. Two of you cannot stand there together, so you go inside: the half-space, between their full-back and centre-back, level with their last defender. Now their full-back has two of you to deal with.' },
   defNear: { es: 'Saltar al lateral', title: 'Jump to their full-back',
     why: 'Their full-back gets it on your side. Jump as the ball is travelling to him, not after he has it, and come on a curve from the inside out, ending goal-side and inside him: your run shuts the pass inside, so he can only go down the line or back.' },
   defMid: { es: 'L&iacute;nea de medios', title: 'One of the midfield four',
@@ -685,6 +692,44 @@ function passFacing(s, id, T){
     return { a: inc + dd*e, ts: ev[i].ts };
   }
   return null;
+}
+/* ---------- the grid ----------
+   Across: five lanes, set by the boxes (wide lane to the edge of the 18-yard box,
+   half-space to the edge of the 6-yard box, the middle between). Along: four
+   cross-field sections, as Guardiola's grid is described (5 x 4 = 20 zones; where
+   exactly those lines sit is not published, so they are equal quarters here).
+   The rule of thumb coaches quote: no more than 2 team-mates in one lane, no more
+   than 3 on one horizontal line, so the man on the ball has 2-3 options.          */
+const GRID = { cuts: [-26.25, 0, 26.25], names: ['SECTION 4', 'SECTION 3', 'SECTION 2', 'SECTION 1'] };
+function bandsOf(s){ return GRID; }
+const bandOf = (z, b) => { let i = 0; while (i < b.cuts.length && z >= b.cuts[i]) i++; return i; };
+/* how a spot sits in the grid: who else is in its lane, and who is on its line */
+function gridCheck(s, p){
+  const own = s.ev[s.ev.length - 1].sh.own, lane = [], line = [];
+  for (const id in own){ if (id === 'OGK') continue; const q = own[id];
+    if (laneOf(q[0]) === laneOf(p[0])) lane.push({ id, dz: q[1] - p[1] });
+    if (Math.abs(q[1] - p[1]) < 6) line.push(id); }
+  return { lane, line };
+}
+/* orienting yourself: what on the pitch tells you where the spot is */
+const FIND = {
+  attNear: 'Lane: the edge of the 18-yard box, extended up the pitch, is the inside edge of your wide lane &mdash; stay outside it. Height: their last defender is the offside line; be level with him. This is how a winger makes <i>superioridad cualitativa</i>: alone, one-on-one with their full-back.',
+  attMid: 'Lane: stay outside the 18-yard-box line, extended. Height: level with their last defender. Stagger: not directly level with your 8 in the next lane &mdash; a slight diagonal gives the passer a real option.',
+  attFar: 'Lane: the inside edge of your wide lane is the 18-yard-box line, extended &mdash; come in to it, not past it. Height: level with their last defender, so the switch can go in behind.',
+  attSwap: 'Lane: the half-space runs between the 18-yard-box edge and the 6-yard-box edge, extended. Height: level with their last defender. Standing between their full-back and centre-back is <i>superioridad posicional</i>.',
+  defNear: 'Reference: their full-back, not the grid. Go as the ball travels to him and finish goal-side and inside him.',
+  defMid: 'Height: our midfield line &mdash; level with your 8s. Lane: keep the same gap to your 8 that the 8s keep to each other; close your half-space first.',
+  defFar: 'Height: our midfield line. Lane: slide in until you are in your half-space, between the 18-yard and 6-yard box edges extended &mdash; the whole block moves together.',
+  turnPress: 'Reference: their receiver, not the grid. In the first five seconds the ball tells you where to be.',
+  turnCover: 'Reference: the ball. Come in to your half-space and get level with it; the grid only matters again once we have it back or drop into the block.'
+};
+const ROLE_NAME = { R8: 'your 8', L8: 'your other 8', RB: 'your full-back', LB: 'the other full-back', S6: 'your 6', N9: 'your 9',
+                    LW: 'the other winger', RCB: 'your centre-back', LCB: 'the other centre-back', OGK: 'your keeper' };
+/* team-mates already on that spot's lane and line (where they are heading in this picture) */
+function boxMates(s, p){
+  const own = s.ev[s.ev.length - 1].sh.own, out = [];
+  for (const id in own){ const q = own[id]; if (id !== 'OGK' && laneOf(q[0]) === laneOf(p[0]) && Math.abs(q[1] - p[1]) < 8) out.push(id); }
+  return out;
 }
 /* who has the ball at T (null while it travels) */
 function holderAt(s, T){
@@ -1754,7 +1799,7 @@ function aimReview(s){ }
 let passerRig = null, ballMesh = null, seqCam = null, ACT = {}, carrierRing = null, RADAR = null;
 /* the five lanes, painted the way Spanish academies mark a training pitch */
 const laneLines = new THREE.Group();
-[-20.4, -6.8, 6.8, 20.4].forEach(x => {
+[-20.16, -9.16, 9.16, 20.16].forEach(x => {
   const m = new THREE.Mesh(new THREE.PlaneGeometry(0.14, 105),
     new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.42, depthWrite: false }));
   m.rotation.x = -Math.PI/2; m.position.set(x, 0.015, 0); laneLines.add(m);
@@ -1933,7 +1978,7 @@ function drawMask(){
    everyone at the moment it froze, the pass that was struck, where he should
    be, and his tap. */
 const NS = 'http://www.w3.org/2000/svg';
-const LANES = [-20.4, -6.8, 6.8, 20.4];
+const LANES = [-20.16, -9.16, 9.16, 20.16];
 function svgEl(tag, at, parent){
   const e = document.createElementNS(NS, tag);
   for (const k in at) e.setAttribute(k, at[k]);
@@ -1949,13 +1994,30 @@ function drawMap(s, reveal, tap){
   const W = s.side, P = p => [W*p[0], p[1]];
   L('rect', { x: -34, y: -52.5, width: 68, height: 105, class: 'pitch' });
   /* his lane, lightly lit; on the reveal, the lane his spot is in */
-  L('rect', { x: W === 1 ? 20.4 : -34, y: -52.5, width: 13.6, height: 105, fill: '#5aa9ff', opacity: .08 });
+  L('rect', { x: W === 1 ? 20.16 : -34, y: -52.5, width: 13.84, height: 105, fill: '#5aa9ff', opacity: .08 });
+  /* the boxes: lanes across, and the bands the defending team's lines make */
+  const bands = bandsOf(s);                            // the boxes are always on the map
+  const edges = [34, 20.16, 9.16, -9.16, -20.16, -34];
+  const box = (p, fill, op) => {                       // tint the box a point (right-wing metres) is in
+    const li = laneOf(p[0]), xa = W*edges[li], xb = W*edges[li+1];
+    let z0 = -52.5, z1 = 52.5;
+    if (bands){ const bi = bandOf(p[1], bands); z0 = bi === 0 ? -52.5 : bands.cuts[bi-1]; z1 = bi === bands.cuts.length ? 52.5 : bands.cuts[bi]; }
+    L('rect', { x: Math.min(xa, xb), y: z0, width: Math.abs(xa - xb), height: z1 - z0, fill, opacity: op });
+    return [W*(edges[li] + edges[li+1])/2, (z0 + z1)/2];
+  };
   if (reveal){
-    const li = laneOf(s.ideal[0]), edges = [34, 20.4, 6.8, -6.8, -20.4, -34];
-    const xa = W*edges[li], xb = W*edges[li+1];
-    L('rect', { x: Math.min(xa, xb), y: -52.5, width: Math.abs(xa - xb), height: 105, fill: '#c6ef2f', opacity: .10 });
+    box(s.ideal, '#c6ef2f', .16);
+    /* a team-mate already on that lane and line */
+    const fin = s.ev[s.ev.length-1].sh.own, taken = [];
+    if (tap){ const mine = [W*tap[0], tap[1]]; boxMates(s, mine).forEach(id => taken.push(id)); }
+    if (s.kind === 'attSwap' && !taken.includes('RB')) taken.push('RB');
+    taken.forEach(id => { const q = P(fin[id]);
+      L('circle', { cx: q[0], cy: q[1], r: 2.6, fill: 'none', stroke: '#ff8a70', 'stroke-width': .45 });
+      const e = svgEl('text', { x: -q[1], y: q[0] + (q[0] > 0 ? -6.4 : 7.2), 'font-size': 1.9, 'text-anchor': 'middle', fill: '#ffc2b5' });
+      e.textContent = (id === 'RB' && s.kind === 'attSwap' ? 'YOUR FULL-BACK: YOUR LANE, YOUR LINE' : 'SAME LANE, SAME LINE'); });
   }
   LANES.forEach(x => L('line', { x1: x, y1: -52.5, x2: x, y2: 52.5, stroke: '#fff', 'stroke-width': .22, 'stroke-dasharray': '1.4 1.2', opacity: .4 }));
+  if (bands) bands.cuts.forEach(z => L('line', { x1: -34, y1: z, x2: 34, y2: z, stroke: '#ffe066', 'stroke-width': .26, 'stroke-dasharray': '.8 1', opacity: .7 }));
   L('rect', { x: -34, y: -52.5, width: 68, height: 105, class: 'ln' });
   L('line', { x1: -34, y1: 0, x2: 34, y2: 0, class: 'ln' });
   L('circle', { cx: 0, cy: 0, r: 9.15, class: 'ln' });
@@ -1963,12 +2025,19 @@ function drawMap(s, reveal, tap){
     L('rect', { x: -20.15, y: d === 1 ? gz : gz - 16.5, width: 40.3, height: 16.5, class: 'ln' });
     L('rect', { x: -9.16, y: d === 1 ? gz : gz - 5.5, width: 18.32, height: 5.5, class: 'ln' });
     L('rect', { x: -3.66, y: d === 1 ? gz - 2 : gz, width: 7.32, height: 2, fill: 'none', stroke: '#fff', 'stroke-width': .45 });
+    /* the D: the arc of the penalty spot outside the 18-yard box */
+    const ez = gz + d*16.5, hx = Math.sqrt(9.15*9.15 - 5.5*5.5);
+    L('path', { d: 'M ' + (-hx) + ' ' + ez + ' A 9.15 9.15 0 0 ' + (d === 1 ? 0 : 1) + ' ' + hx + ' ' + ez, class: 'ln' });
+    L('circle', { cx: 0, cy: gz + d*11, r: .35, fill: '#dfe8e0' });
   });
   /* labels stay upright: placed in screen space at the pitch point (x, z) */
   const txt = (x, z, t, size, opa, dy, fill) => { const e = svgEl('text', { x: -z, y: x + (dy || 0), 'font-size': size, 'text-anchor': 'middle', opacity: opa || 1, fill: fill || '#fff' }); e.textContent = t; return e; };
-  const at = svgEl('text', { x: 44, y: -35, 'font-size': 2.3, 'text-anchor': 'middle', opacity: .7 }); at.textContent = 'ATTACKING ▶';
+  const at = svgEl('text', { x: 44, y: 36.6, 'font-size': 2.3, 'text-anchor': 'middle', opacity: .7 }); at.textContent = 'ATTACKING \u25B6';
+  /* the lines named, above the pitch */
+  if (bands){ const zs = [-52.5].concat(bands.cuts, [52.5]);
+    bands.names.forEach((n, i) => { const zc = (zs[i] + zs[i+1])/2, e = svgEl('text', { x: -zc, y: -35.2, 'font-size': 1.9, 'text-anchor': 'middle', opacity: .55 }); e.textContent = n; }); }
   /* the lanes named, at our end */
-  [[27.2, 'WIDE'], [13.6, 'HALF-SPACE'], [0, 'MIDDLE'], [-13.6, 'HALF-SPACE'], [-27.2, 'WIDE']].forEach(([x, n]) => txt(x, 47, n, 1.7, .4, 0.6));
+  [[27.1, 'WIDE'], [14.66, 'HALF-SPACE'], [0, 'MIDDLE'], [-14.66, 'HALF-SPACE'], [-27.1, 'WIDE']].forEach(([x, n]) => txt(x, 47, n, 1.7, .4, 0.6));
   const st = P(s.start);
   L('circle', { cx: st[0], cy: st[1], r: 1.3, fill: 'none', stroke: '#5aa9ff', 'stroke-width': .5, 'stroke-dasharray': '.7 .5' });
   txt(st[0], st[1], 'YOU WERE HERE', 2.1, .85, W === 1 ? -2.4 : 3.6);
@@ -2002,11 +2071,6 @@ function drawMap(s, reveal, tap){
     const m = ref.id === s.extra.role ? to : endp;
     L('circle', { cx: m[0], cy: m[1], r: 2.4, fill: 'none', stroke: '#ff8a70', 'stroke-width': .4 });
     txt(m[0], m[1], ref.label.toUpperCase(), 1.9, .95, W === 1 ? 4.6 : -3.6, '#ff8a70');
-  }
-  if (s.kind === 'attSwap'){
-    const rb = P(fin.own.RB);
-    L('circle', { cx: rb[0], cy: rb[1], r: 2.4, fill: 'none', stroke: '#8cc4ff', 'stroke-width': .4 });
-    txt(rb[0], rb[1], 'YOUR FULL-BACK', 1.9, .95, W === 1 ? 4.6 : -3.6, '#8cc4ff');
   }
   /* where he should be */
   const f = P(s.ideal);
@@ -2161,11 +2225,32 @@ function answerMap(tap){
     r.innerHTML = '<span class="chip ' + cls + '">' + chip + '</span><span class="wy">' + text + '</span>'; box.appendChild(r); };
   const stayed = mine && Math.hypot(mine[0]-c.start[0], mine[1]-c.start[1]) < 4 && pts < 3;
   if (d === null) row('Too slow', 't0', 'Pick your spot while the ball is still travelling &mdash; by the time it arrives you should already be moving.');
-  else row(TIER_NAME[pts], 't' + pts, diagnose(c, mine) + (stayed ? ' You stayed where you were &mdash; the play moved and you did not.' : ''));
+  else { const mates = pts < 3 ? boxMates(c, mine) : [];
+    row(TIER_NAME[pts], 't' + pts, diagnose(c, mine) + (stayed ? ' You stayed where you were &mdash; the play moved and you did not.' : '') +
+      (mates.length ? ' ' + ROLE_NAME[mates[0]][0].toUpperCase() + ROLE_NAME[mates[0]].slice(1) + ' is already there &mdash; same lane, same line. Stagger: a different height, or a different lane.' : '')); }
   const p = PRINCIPLE[c.kind];
   const r2 = document.createElement('div'); r2.className = 'row';
   r2.innerHTML = '<span class="wy"><b><i>' + p.es + '</i> &middot; ' + p.title + '.</b> ' + p.why + '</span>';
   box.appendChild(r2);
+  /* the grid: 5 lanes x 4 sections; max 2 in a lane, max 3 on a line */
+  if (c.kind.startsWith('att')){ const g = gridCheck(c, c.ideal), nm = id => ROLE_NAME[id] || id;
+    const laneTxt = g.lane.length === 0 ? 'nobody else is in this lane'
+      : g.lane.length === 1 ? nm(g.lane[0].id) + ' is in it, ' + (g.lane[0].dz > 0 ? 'lower down' : 'higher up') + ' &mdash; 2 in a lane is the most'
+      : g.lane.map(x => nm(x.id)).join(' and ') + ' are in it too';
+    const lineTxt = g.line.length === 0 ? 'you are on your own line' : 'on your line: ' + g.line.map(nm).join(', ') + ' &mdash; ' + (g.line.length + 1) + ' with you' + (g.line.length + 1 === 3 ? ', the most' : g.line.length + 1 > 3 ? ' &mdash; one over the rule of thumb for a moment, because your full-back has joined the front line' : '');
+    let warn = '';
+    if (mine){ const t = gridCheck(c, mine);
+      if (t.lane.length >= 2 && t.lane.length > g.lane.length) warn = ' Your tap made it 3 in one lane &mdash; one too many.';
+      else if (t.line.length >= 3 && t.line.length > g.line.length) warn = ' Your tap made it ' + (t.line.length + 1) + ' on one line &mdash; one too many.'; }
+    const r3 = document.createElement('div'); r3.className = 'row';
+    r3.innerHTML = '<span class="wy"><b>The grid.</b> Five lanes, four sections; no more than 2 team-mates in a lane, no more than 3 on a line, so the man on the ball always has 2&ndash;3 options. At your spot: ' + laneTxt + '; ' + lineTxt + '.' + warn + '</span>';
+    box.appendChild(r3); }
+  else if (!c.turn){ const r3 = document.createElement('div'); r3.className = 'row';
+    r3.innerHTML = '<span class="wy"><b>The grid.</b> The 2-in-a-lane, 3-on-a-line rule of thumb is for when we have the ball &mdash; it keeps passing options open. Without it, we defend in lines: you are one of four across the midfield line.</span>';
+    box.appendChild(r3); }
+  { const r4 = document.createElement('div'); r4.className = 'row';
+    r4.innerHTML = '<span class="wy"><b>Find it on the pitch.</b> ' + (FIND[c.kind] || '') + '</span>';
+    box.appendChild(r4); }
   setTimeout(() => show(pFeed), 300);
 }
 function answer(choice, btn){
