@@ -618,14 +618,18 @@ function retime(s){
 /* the ball goes where the receiver actually gets to: a few runs of the simulation settle it */
 function tracks(s){
   let T = null;
+  const longEnd = () => s.ev[s.ev.length-1].ta + 600;             // until the last ball has been taken
   for (let it = 0; it < 8; it++){
-    T = simulate(s);
+    s._tEnd = longEnd(); T = simulate(s); s._tEnd = undefined;
     if (T.miss < 0.15) break;
     for (let i = 1; i < s.ev.length; i++){ const p = T.at[i]; if (p){ const u = uOf(s.ev, i); s.ev[i].at = [p[0] + FOOT*u[0], p[1] + FOOT*u[1]]; } }
     retime(s);
   }
   for (let i = 1; i < s.ev.length; i++) s.ev[i].from = T.from[i] || s.ev[i-1].at;
-  return simulate(s);                       // the tracks for the passes exactly as they are played
+  s._tEnd = longEnd(); const L = simulate(s); s._tEnd = undefined;   // every receiver, the last one too, meets his ball
+  const F = simulate(s);                    // the tracks for the passes exactly as they are played, up to the freeze
+  F.miss = L.miss;
+  return F;
 }
 /* The ball stops in front of the man who takes it, on the line of his next pass
    (or, for the last man, toward where it came from): he gets there while it travels. */
@@ -676,7 +680,9 @@ function simulate(s){
         /* which shape is he reacting to? */
         let j = 0; for (let k = 1; k < ev.length; k++) if (ev[k].ts + 250 <= t || (ev[k].role === id && ev[k].ts + 120 <= t)) j = k;
         const e = ev[j];
-        if (j > 0 && e.role === id){ const u = uOf(ev, j); tgt = [e.at[0] - FOOT*u[0], e.at[1] - FOOT*u[1]]; dl = Math.max(e.ta, t); vmax = VRECV; }
+        if (j > 0 && e.role === id){ const u = uOf(ev, j); tgt = [e.at[0] - FOOT*u[0], e.at[1] - FOOT*u[1]]; dl = Math.max(e.ta, t); vmax = VRECV;
+          const f = e.from || ev[j-1].at, ax = tgt[0] - P[id][0], az = tgt[1] - P[id][1];
+          if (ax*(P[id][0] - f[0]) + az*(P[id][1] - f[1]) > 0) vmax = 2.2; }        // away from the passer: a jog
         else if (own && ci > 0 && e.phase === 'def'){ tgt = ev[ci].attSh.own[id]; dl = 0; }
         else { tgt = posIn(e.sh, id) || P[id]; dl = j > 0 ? e.ta + (e.intercept ? 1200 : 400) : 0; }
       }
