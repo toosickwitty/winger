@@ -1,5 +1,9 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Winger">
 <title>Shoulder — winger scanning trainer</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -1976,4 +1980,42 @@ addEventListener('keydown', e => {
   if (e.code === 'Space' || e.key === ' '){ e.preventDefault(); if (e.repeat) return; const b = on('next'); if (b) b.click(); }
   else if (e.key === 'r' || e.key === 'R'){ if (e.repeat) return; const b = on('replay'); if (b){ e.preventDefault(); b.click(); } }
 });
+</script>
+<script id="fs-sideways">
+/* Phone or tablet held sideways: fill the whole screen, no browser bar.
+   Browsers only allow full screen from a touch, so it starts on the first
+   touch after the device is turned (or on Start). Turning it upright again
+   leaves full screen. A computer (no touch screen) never goes full screen.
+   iPhone Safari does not allow web pages to go full screen; there the drill
+   runs without the browser bar when opened from the Home Screen. */
+(function(){
+  const touch = (navigator.maxTouchPoints || 0) > 0 && matchMedia('(pointer: coarse)').matches;
+  if (!touch) return;
+  const d = document, de = d.documentElement;
+  const req = de.requestFullscreen || de.webkitRequestFullscreen;
+  const ex = d.exitFullscreen || d.webkitExitFullscreen;
+  const fsEl = () => d.fullscreenElement || d.webkitFullscreenElement;
+  const mq = matchMedia('(orientation: landscape)');
+  const quiet = p => { if (p && p.catch) p.catch(() => {}); };
+  function enter(){
+    if (!req || fsEl() || !mq.matches) return;
+    try { quiet(req.call(de, { navigationUI: 'hide' })); } catch (_) {}
+  }
+  function leave(){ if (ex && fsEl()) { try { quiet(ex.call(d)); } catch (_) {} } }
+  function turned(){ if (mq.matches) enter(); else leave(); }
+  if (mq.addEventListener) mq.addEventListener('change', turned); else mq.addListener(turned);
+  addEventListener('orientationchange', () => setTimeout(turned, 200));
+  ['touchend', 'pointerup', 'click'].forEach(t => d.addEventListener(t, enter, { capture: true, passive: true }));
+  /* the canvas follows the new size */
+  const fire = () => setTimeout(() => dispatchEvent(new Event('resize')), 120);
+  d.addEventListener('fullscreenchange', fire); d.addEventListener('webkitfullscreenchange', fire);
+  /* iPhone in Safari: say how to get the full-screen version */
+  const iPhone = /iPhone|iPod/.test(navigator.userAgent), app = navigator.standalone || matchMedia('(display-mode: standalone)').matches;
+  if (iPhone && !app){
+    const box = d.querySelector('#rotate span');
+    if (box && !d.getElementById('fsTip')){ const t = d.createElement('span'); t.id = 'fsTip';
+      t.innerHTML = 'For full screen with no browser bar: tap Share, then <b style="font:inherit;color:inherit;text-transform:none;letter-spacing:0;font-weight:600">Add to Home Screen</b>, and open Winger from there.';
+      box.after(t); }
+  }
+})();
 </script>
