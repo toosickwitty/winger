@@ -483,7 +483,7 @@ const PRINCIPLE = {
   defWide: { es: 'Cerrar el pasillo interior', title: 'Ball gone wide: shut the way back inside',
     why: 'Their full-back has it on your side and your winger has jumped to him. Your job is the pass back inside: midfielders have to recover once play goes out wide, to stop the opposition playing back inside and finding a man in the half-space (Coaches&rsquo; Voice). Get on that line: a couple of metres off their midfielder inside, on the ball side of him, so the pass back in cannot reach him.' },
   turnPress: { es: 'Presi&oacute;n tras p&eacute;rdida', title: 'Press, straight away',
-    why: 'We just lost it, and their outlet is right by you. Do not run back &mdash; press. The interior presses aggressively after losing it when he is the man nearest (Coaches&rsquo; Voice). Come at him from the angle that shuts his pass forward and inside.' },
+    why: 'We just lost it, and their outlet is right by you. Do not run back &mdash; press. After losing it the interior presses aggressively when it is needed (Coaches&rsquo; Voice), and here he is the man nearest. Come at him from the angle that shuts his pass forward and inside (general coaching).' },
   turnCover: { es: 'Presi&oacute;n tras p&eacute;rdida', title: 'Protect the middle, shut the next pass',
     why: 'We just lost it, away from you. The players nearest the ball press it. After a loss the interior follows the runs through the middle and protects the defence (Coaches&rsquo; Voice): come into the space no team-mate is covering, around the height of the ball, and shut the pass to their nearest free man. Only if the press is beaten does the team drop into the block (repliegue).' }
 };
@@ -792,7 +792,7 @@ const bandOf = (z, b) => { let i = 0; while (i < b.cuts.length && z >= b.cuts[i]
 function matePos(s){
   const fin = s.ev[s.ev.length - 1].sh.own, out = {};
   for (const id in s.ev[0].sh.own){
-    if (s.turn && s.T){ const k = s.T.tr[id], b = k[k.length - 1]; out[id] = [b[1], b[2]]; }
+    if (s.turn && s.T){ out[id] = trackAt(s.T.tr[id], s.tFreeze + 100).p; }
     else out[id] = fin[id];
   }
   return out;

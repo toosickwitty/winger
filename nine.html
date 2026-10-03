@@ -1,6 +1,6 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Shape — juego de posición off the ball</title>
+<title>Nine — striker and false 9, juego de posición</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
@@ -172,7 +172,7 @@ a.iconbtn{text-decoration:none;display:inline-flex;align-items:center;white-spac
 
 <div id="bg"></div>
 <header>
-  <div class="mark">Shape<span>.</span></div>
+  <div class="mark">Nine<span>.</span></div>
   <div class="hgap"></div>
   <div class="meta" id="hmeta">Rep 0 / 16</div>
   <a class="iconbtn" id="home" href="index.html" aria-label="All drills">&lsaquo; Drills</a>
@@ -181,11 +181,11 @@ a.iconbtn{text-decoration:none;display:inline-flex;align-items:center;white-spac
 
 <div class="sides">
   <div class="side" id="sideL">
-    <div class="lab"><span>Left wing</span><b id="pctL">—</b></div>
+    <div class="lab"><span>Striker</span><b id="pctL">—</b></div>
     <div class="track"><div class="fill" id="fillL"></div></div>
   </div>
   <div class="side" id="sideR">
-    <div class="lab"><span>Right wing</span><b id="pctR">—</b></div>
+    <div class="lab"><span>False 9</span><b id="pctR">—</b></div>
     <div class="track"><div class="fill" id="fillR"></div></div>
   </div>
 </div>
@@ -205,11 +205,11 @@ a.iconbtn{text-decoration:none;display:inline-flex;align-items:center;white-spac
 
 <footer>
   <div id="panelIdle">
-    <p class="seglab">Which wing today</p>
+    <p class="seglab">Which role today</p>
     <div class="seg" id="seg">
-      <button data-side="L" aria-pressed="false">Left</button>
-      <button data-side="R" aria-pressed="true">Right</button>
-      <button data-side="alt" aria-pressed="false">Both</button>
+      <button data-side="L" aria-pressed="false">Striker</button>
+      <button data-side="R" aria-pressed="false">False 9</button>
+      <button data-side="alt" aria-pressed="true">Both</button>
     </div>
     <p class="seglab">Mode</p>
     <div class="seg" id="modeSeg">
@@ -217,7 +217,7 @@ a.iconbtn{text-decoration:none;display:inline-flex;align-items:center;white-spac
       <button data-mode="test" aria-pressed="false">Test</button>
     </div>
     <button class="cta" id="start">Start session</button>
-    <p class="note">16 reps, about five minutes. Spanish positional play (<i>juego de posici&oacute;n</i>) cuts the pitch into <b>five lanes</b>: two wide lanes, two inside lanes (<i>pasillos interiores</i>; English coaches call them half-spaces) and the middle. Spread out: no more than two team-mates in a lane and no more than three on a line, so whoever has the ball always has two or three options. A few seconds of play, then it freezes as the last pass is struck: tap where you should be.<br><br><b>We have it</b> &mdash; you are the width (<i>amplitud</i>), level with their last defender: on the touchline when the ball is on your side, pinning their full-back (<i>fijar al lateral</i>); a few metres in when it is central; at the inside edge of your lane when it is far. If your full-back takes your lane on your line, you take the half-space.<br><b>They have it</b> &mdash; you are one of the midfield four (<i>l&iacute;nea de medios</i>): level with your 8s, closing your half-space, sliding with the block (<i>basculaci&oacute;n</i>); jump to their full-back as the ball travels to him (<i>saltar al lateral</i>).<br><b>We just lost it</b> &mdash; press straight away (<i>presi&oacute;n tras p&eacute;rdida</i>): their outlet right by you, you press him; away from you, come inside, level with the ball, and shut the pass to their full-back.<br><br><b>Learn</b> paints the lanes on the grass and shows everyone on the map when you tap. <b>Test</b> takes all of that away.<br><br><b>Scan:</b> while it plays, tap the left or right half of the screen (on a computer, the &larr; &rarr; keys) to look over that shoulder &mdash; a quick 90&deg; turn of the head and straight back to the ball, about a third of a second, like a pro.</p></p></p>
+    <p class="note">16 reps, about five minutes. You are the <b>centre-forward</b> of a 4-3-3, and each rep tells you which one: the <b>striker</b> or the <b>false 9</b>. Spanish positional play (<i>juego de posici&oacute;n</i>) cuts the pitch into <b>five lanes</b> and puts players in different lanes and at different heights: no more than two team-mates in a lane, no more than three on a line. A few seconds of play, then it freezes as the last pass is struck: tap where you should be, and run there.<br><br><b>We have it, as the striker</b> &mdash; on their last line, in the middle, up against their centre-backs: pin them (<i>fijar a los centrales</i>) and stay onside for the run in behind.<br><b>We have it, as the false 9</b> &mdash; come off their centre-backs into the gap between their midfield and back line, in the middle (<i>falso nueve</i>). Your wingers start wide, ready to run in behind if a centre-back follows you.<br><b>They have it</b> &mdash; you are the front of the block, the highest man in the middle: in our block, screen the pass into their 6 (<i>tapar al pivote</i>); when we press high, press the centre-back who gets it.<br><b>We just lost it</b> &mdash; the ball near you: press it. Away from you: come back and add a man in midfield (<i>presi&oacute;n tras p&eacute;rdida</i>).<br><br><b>Learn</b> paints the lanes on the grass and shows everyone on the map when you tap. <b>Test</b> takes all of that away.</p></p></p></p>
   </div>
 
   <div id="panelAsk" class="hide">
@@ -280,14 +280,14 @@ const CFG = {
 };
 
 /* ---------------- storage ---------------- */
-const KEY = 'shape:v1';
-let stats = { L:{pts:0,max:0}, R:{pts:0,max:0}, side:'R' };
+const KEY = 'nine:v1';
+let stats = { L:{pts:0,max:0}, R:{pts:0,max:0}, side:'alt' };
 async function loadStats(){
   try{
     if (window.storage){ const r = await window.storage.get(KEY); if (r && r.value) stats = JSON.parse(r.value); }
     else if (window.localStorage){ const raw = localStorage.getItem(KEY); if (raw) stats = JSON.parse(raw); }
   }catch(e){}
-  if (!stats.side) stats.side = 'R';
+  if (!stats.side) stats.side = 'alt';
   paintSides(); paintSeg();
 }
 async function saveStats(){
@@ -321,32 +321,34 @@ const pick = a => a[Math.floor(Math.random()*a.length)];
    one is the answer. If all three are occupied, nothing is on and he comes
    back to the ball. No magnitudes to judge, no distances to estimate: a body
    is either there or it is not. */
-/* ===================== SHAPE: WHERE SHOULD YOU BE? =====================
-   Juego de posición (Spanish positional play) for a winger off the ball.
+/* ===================== NINE: WHERE SHOULD YOU BE? =====================
+   The same engine as Shape, from the centre-forward of a 4-3-3, as a striker or a
+   false 9 (each rep says which). A clip, frozen as the last pass is struck.
 
-   The pitch is cut into five vertical lanes (carriles): two wide lanes, two
-   inside lanes (pasillos interiores, the half-spaces) and the middle. At most two
-   per lane and three per line (Perarnau). With the ball, a 4-3-3 fills the front line across all five: two wingers
-   wide, the two 8s in the half-spaces, the 9 in the middle. Without it, the team
-   defends as a 4-1-4-1: the wingers join the 8s in a midfield line of four.
+   Sources (Coaches' Voice: "Los espacios intermedios", "The false nine: explained",
+   "Juego posicional" and the English positional-play page; the lanes rule as stated
+   on martiperarnau.com (Osmanbasic) and Coaches' Voice):
+     WE HAVE IT
+       striker: fijar (pin the centre-backs)        middle lane, on their centre-backs, level with their last defender
+       false 9: drop off them, between the lines    middle lane, halfway between their midfield and back line
+     THEY HAVE IT (both roles: the highest central player)
+       our block: screen the pass into their 6      on the line from the ball to their holding midfielder
+       high press: press the centre-back            in front of him, on the side of their 6
+     WE JUST LOST IT
+       near him: press                              their receiver
+       away from him: an extra man in midfield      the gap nobody covers, shutting the nearest pass
 
-   His jobs, and the reference he uses for each (never metres):
-     WE HAVE IT                                   reference
-       amplitud + fijar (ball on his side)        touchline, level with their last defender
-       amplitud (ball in the middle)              wide lane, level with their last defender
-       amplitud, connected (ball far side)        inside edge of his lane: still wider than his 8
-       one per lane (full-back overlaps)          the half-space, between their full-back and centre-back
-     THEY HAVE IT
-       salto (their full-back gets it)            goal-side and inside their full-back
-       línea de cuatro (ball in the middle)       our midfield line, same gap to his 8 as the 8s keep
-       basculación (ball far side)                our midfield line, slid into his half-space
-     WE JUST LOST IT (the first seconds)
-       presión tras pérdida, near him             press their receiver, goal-side and inside
-       presión tras pérdida, far from him         narrow and high, level with the ball: no way out inside
-
-   Right-wing coordinates: x across (his touchline at x = +34), z along the pitch
-   (we attack toward z = -52.5). Mirrored for the left wing.                          */
-const BAG_COUNT = { attNear: 2, attMid: 2, attFar: 2, attSwap: 2, defNear: 2, defMid: 2, defFar: 2, turnPress: 1, turnCover: 1 };
+   Coordinates: x across (the right touchline at x = +34), z along the pitch (we
+   attack toward z = -52.5). This drill is never mirrored.                          */
+const BAG_COUNT = { stWide: 2, stCentral: 2, f9Wide: 2, f9Central: 2, defScreen: 3, defPress: 3, turnPress: 1, turnCover: 1 };
+/* the role picked on the start screen decides the reps with the ball: striker, false 9, or both */
+const BAG_BY_ROLE = {
+  L:   { stWide: 4, stCentral: 4, defScreen: 3, defPress: 3, turnPress: 1, turnCover: 1 },
+  R:   { f9Wide: 4, f9Central: 4, defScreen: 3, defPress: 3, turnPress: 1, turnCover: 1 },
+  alt: BAG_COUNT
+};
+const roleOfKind = k => k.startsWith('st') ? 'st' : k.startsWith('f9') ? 'f9' : null;
+const ROLE_LABEL = { st: 'Striker', f9: 'False 9' };
 const HIT = 5, NEAR = 10;
 const LANE_X = [-20.16, -9.16, 9.16, 20.16];          // the lanes follow the boxes: the 18-yard box and the 6-yard box edges
 const rand = (a,b) => a + Math.random()*(b-a);
@@ -355,7 +357,8 @@ const d2 = (a, b) => Math.hypot(a[0]-b[0], a[1]-b[1]);
 function shuffleS(a){ for (let i = a.length-1; i > 0; i--){ const j = Math.floor(Math.random()*(i+1)); [a[i], a[j]] = [a[j], a[i]]; } return a; }
 function newBag(){
   let out = [];
-  for (const k in BAG_COUNT) for (let i = 0; i < BAG_COUNT[k]; i++) out.push(k);
+  const counts = BAG_BY_ROLE[(typeof stats !== 'undefined' && stats.side) || 'alt'] || BAG_COUNT;
+  for (const k in counts) for (let i = 0; i < counts[k]; i++) out.push(k);
   out = shuffleS(out).slice(0, CFG.repsPerSession);
   for (let i = 1; i < out.length; i++) if (out[i] === out[i-1]){ const j = (i + 2) % out.length; [out[i], out[j]] = [out[j], out[i]]; }
   return out;
@@ -372,13 +375,11 @@ const LANE_NAME = ['your wide lane', 'your half-space', 'the middle', 'the far h
    so we shift only a little. Their block slides a lot. Without the ball we slide
    as a block (basculación); they spread out to attack.                           */
 function attShape(Fx, D, jit, opt){
-  const ov = (opt && opt.ov) || 0;            // 1: the full-back has gone; 2: and the 8 has covered behind him
   const sx = clamp(0.15*Fx, -5, 5), L = clamp(D - 14, -40, -8);
   const o = {
-    LCB: [-10 + sx, D + 18], RCB: [10 + sx, D + 18], LB: [-22 + sx, D + 9],
-    RB: ov ? [31, L + 7] : [22 + sx, D + 9],
-    S6: [sx, D + 6], L8: [-13 + sx, D - 4], R8: ov >= 2 ? [24 + sx, D + 4] : [14 + sx, D - 4],     // when the full-back goes, the 8 covers the wide lane behind him
-    N9: [0.5*sx, L + 1], LW: [-winAtt(-Fx), L + 0.5], OGK: [0.1*Fx, clamp(D + 33, 28, 50.5)]
+    LCB: [-10 + sx, D + 18], RCB: [10 + sx, D + 18], LB: [-22 + sx, D + 9], RB: [22 + sx, D + 9],
+    S6: [sx, D + 6], L8: [-13 + sx, D - 4], R8: [14 + sx, D - 4],
+    LW: [-winAtt(-Fx), L + 0.5], RW: [winAtt(Fx), L + 0.5], OGK: [0.1*Fx, clamp(D + 33, 28, 50.5)]
   };
   const so = clamp(0.45*Fx, -12, 12), sm = clamp(0.5*Fx, -13, 13), sf = clamp(0.35*Fx, -9, 9);
   const t = {
@@ -386,10 +387,9 @@ function attShape(Fx, D, jit, opt){
     TM1: [-18 + sm, L + 10], TM2: [-6 + sm, L + 10], TM3: [6 + sm, L + 10], TM4: [18 + sm, L + 10],
     TF1: [-6 + sf, L + 22], TF2: [6 + sf, L + 22], TGK: [0.1*Fx, -51]
   };
-  const sh = jitter({ phase: 'att', own: o, opp: t, D, ov: !!ov }, jit);
-  /* with the ball every man keeps to his own lane (two per lane: full-back and winger wide,
-     centre-back and 8 in the inside lane, 6 and 9 in the middle), whatever the shift */
-  const LANE_OF = { LB: -2, LW: -2, LCB: -1, L8: -1, S6: 0, N9: 0, R8: ov >= 2 ? 2 : 1, RCB: 1, RB: 2 };
+  const sh = jitter({ phase: 'att', own: o, opp: t, D }, jit);
+  /* with the ball every man keeps to his own lane (two per lane at most), whatever the shift */
+  const LANE_OF = { LB: -2, LW: -2, LCB: -1, L8: -1, S6: 0, R8: 1, RCB: 1, RW: 2, RB: 2 };
   for (const id in LANE_OF){ const p = sh.own[id], l = LANE_OF[id];
     const lo = l === 2 ? 21.7 : l === 1 ? 10.7 : l === 0 ? -7.6 : l === -1 ? -18.7 : -32.5;
     const hi = l === 2 ? 32.5 : l === 1 ? 18.7 : l === 0 ? 7.6 : l === -1 ? -10.7 : -21.7;
@@ -398,20 +398,27 @@ function attShape(Fx, D, jit, opt){
 }
 /* his width with the ball: on the touchline / a few metres in / the inside edge of his lane */
 function winAtt(bx){ const z = zoneOf(bx); return z === 'near' ? 32 : z === 'mid' ? 29 : 22; }
-function defShape(Fx, D, jit){
-  const sx = clamp(0.45*Fx, -12, 12), B = clamp(D + 15, 8, 44), M = B - 11;
-  const o = {
-    LB: [-20 + sx, B], LCB: [-7 + sx, B], RCB: [7 + sx, B], RB: [20 + sx, B],
-    S6: [sx, M + 5], L8: [-7.5 + sx, M], R8: [7.5 + sx, M], LW: [-22 + sx, M],
-    N9: [0.3*Fx, M - 12], OGK: [0.1*Fx, 50.5]
-  };
+function defShape(Fx, D, jit, opt){
+  const high = !!(opt && opt.high);           // we are pressing high: our back line up in their half
+  const sx = clamp(0.45*Fx, -12, 12), B = high ? clamp(D + 8, -20, 44) : clamp(D + 15, 8, 44), M = B - 11;
   const t = {
     TB2: [-9 + 0.3*Fx, D - 14], TB3: [9 + 0.3*Fx, D - 14], TB1: [-27 + 0.2*Fx, D - 4], TB4: [27 + 0.2*Fx, D - 4],
     TM2: [-6 + 0.35*Fx, D - 6], TM3: [6 + 0.35*Fx, D - 6], TM1: [-20 + 0.4*Fx, D + 6], TM4: [20 + 0.4*Fx, D + 6],
     TF1: [-6 + 0.3*Fx, D + 12], TF2: [6 + 0.3*Fx, D + 12], TGK: [0.1*Fx, clamp(D - 34, -51, -30)]
   };
-  const sh = jitter({ phase: 'def', own: o, opp: t, D, M }, jit);
-  sh.rw = pitch([Math.min(22 + sx, 29), M + (jit.RW ? jit.RW[1]*0.3 : 0)]);     // his slot in the line of four
+  const o = {
+    LB: [-20 + sx, B], LCB: [-7 + sx, B], RCB: [7 + sx, B], RB: [20 + sx, B],
+    S6: [sx, M + 5], L8: [-7.5 + sx, M], R8: [7.5 + sx, M], LW: [-22 + sx, M], RW: [22 + sx, M],
+    OGK: [0.1*Fx, 50.5]
+  };
+  let nine = [0.3*Fx, M - 12];
+  if (high){                                  // the press: wingers on their full-backs, the 8s on their midfielders
+    o.RW = [t.TB4[0] - 3, t.TB4[1] + 4]; o.LW = [t.TB1[0] + 3, t.TB1[1] + 4];
+    o.R8 = [t.TM3[0] + 1, t.TM3[1] + 3]; o.L8 = [t.TM2[0] - 1, t.TM2[1] + 3];
+    nine = [0.3*Fx, D - 9];
+  }
+  const sh = jitter({ phase: 'def', own: o, opp: t, D, M, high }, jit);
+  sh.n9 = pitch([nine[0] + (jit.N9 ? jit.N9[0]*0.5 : 0), nine[1] + (jit.N9 ? jit.N9[1]*0.3 : 0)]);   // his starting slot: highest man in the middle
   return sh;
 }
 function jitter(sh, jit){
@@ -422,66 +429,76 @@ function jitter(sh, jit){
   return sh;
 }
 const lastLine = sh => Math.min(sh.opp.TB1[1], sh.opp.TB2[1], sh.opp.TB3[1], sh.opp.TB4[1]);   // their deepest defender
-const midLine = sh => (sh.own.L8[1] + sh.own.R8[1] + sh.own.LW[1]) / 3;
+const midLine = sh => sh.M;
+const oppMid = sh => (sh.opp.TM1[1] + sh.opp.TM2[1] + sh.opp.TM3[1] + sh.opp.TM4[1]) / 4;   // their midfield line
 
 /* where he should be, and the reference that tells him */
 function idealFor(kind, sh, extra){
-  if (kind.startsWith('att')){
-    const z = lastLine(sh), x = kind === 'attSwap' ? 14 : kind === 'attNear' ? 32 : kind === 'attMid' ? 29 : 22;
+  if (kind.startsWith('st')){                 // the striker: on their last line, on their centre-backs, in the middle lane
+    const z = lastLine(sh), x = clamp((sh.opp.TB2[0] + sh.opp.TB3[0])/2, -7.6, 7.6);
     return { at: pitch([x, z + 0.5]), ref: { type: 'line', z, label: 'their last defender', team: 'opp' } };
   }
-  if (kind === 'defNear'){
-    const fb = sh.opp.TB4;
-    return { at: pitch([fb[0] - 3, fb[1] + 3]), ref: { type: 'man', id: 'TB4', label: 'their full-back', how: 'goal-side and inside' } };
+  if (kind.startsWith('f9')){                 // the false 9: off them, between the lines, in the middle
+    const front = Math.max(sh.own.LW[1], sh.own.RW[1]);
+    const z = clamp(Math.max((lastLine(sh) + oppMid(sh))/2, front + 3.2), lastLine(sh) + 2, oppMid(sh) - 1.5);
+    const x = clamp((sh.opp.TB2[0] + sh.opp.TB3[0])/2, -5, 5);
+    return { at: pitch([x, z]), ref: { type: 'line', z, label: 'halfway between their midfield and their back line', text: 'between their lines', team: 'opp', between: true } };
   }
-  if (kind === 'defMid' || kind === 'defFar') return { at: sh.rw.slice(), ref: { type: 'line', z: midLine(sh), label: 'our midfield line', team: 'own' } };
+  if (kind === 'defScreen' || kind === 'defPress'){
+    const hid = extra.holder || 'TB3', h = sh.opp[hid];
+    const piv = d2(sh.opp.TM2, h) < d2(sh.opp.TM3, h) ? 'TM2' : 'TM3', p = sh.opp[piv], L = d2(h, p) || 1;
+    if (kind === 'defScreen'){
+      const k = Math.min(3, L/2)/L;           // on the line from the ball to their 6, close to the 6
+      return { at: pitch([p[0] + (h[0]-p[0])*k, p[1] + (h[1]-p[1])*k]), ref: { type: 'man', id: piv, label: 'their holding midfielder', how: 'on the line between him and the ball, close to him, so the pass into him is shut' } };
+    }
+    const k = Math.min(2.5, L/2)/L;           // in front of the ball, on the side of their 6
+    return { at: pitch([h[0] + (p[0]-h[0])*k, h[1] + (p[1]-h[1])*k]), ref: { type: 'man', id: hid, label: 'their centre-back', how: 'in front of him, on the side of their holding midfielder, so the pass into the middle is shut' } };
+  }
   const r = extra.recv;
-  if (kind === 'turnPress') return { at: pitch([r[0] - 2.5, r[1] + 2.5]), ref: { type: 'man', id: extra.role, label: 'their receiver', how: 'on his inside shoulder, shutting the pass forward and inside' } };
-  return { at: pitch([13, r[1] + 3]), ref: { type: 'line', z: r[1], label: 'the ball', text: 'level with the ball', team: 'ball' } };   // turnCover
+  if (kind === 'turnPress') return { at: pitch([r[0] + (r[0] > 0 ? -2 : 2), r[1] + 2.5]), ref: { type: 'man', id: extra.role, label: 'their receiver', how: 'goal-side of him, on his inside, shutting the pass forward and inside' } };
+  return { at: pitch([0, r[1] + 3]), ref: { type: 'line', z: r[1], label: 'the ball', text: 'level with the ball', team: 'ball' } };   // turnCover
 }
 /* the start of the clip: where he stood for the picture as it was */
-function startKind(e){
-  const z = zoneOf(e.Fx);
-  if (e.phase === 'att') return 'att' + z[0].toUpperCase() + z.slice(1);
-  return z === 'near' ? 'defMid' : 'def' + z[0].toUpperCase() + z.slice(1);
+function startKind(e, kind){
+  if (e.phase === 'att') return kind && kind.startsWith('f9') ? 'stCentral' : 'f9Central';
+  return 'defBase';
 }
 
 const PRINCIPLE = {
-  attNear: { es: 'Amplitud y profundidad &middot; fijar al lateral', title: 'Width and depth: pin their full-back',
-    why: 'We have it on your side. Stay on the touchline, level with their last defender. Your width keeps their full-back out with you &mdash; that opens the half-space inside him for your 8 &mdash; and level with their line you are onside to go in behind the moment he steps out.' },
-  attMid: { es: 'Amplitud', title: 'You are the width',
-    why: 'We have it in the middle. Stay in your wide lane, a few metres in from the line, level with their last defender. If you drift inside, two of us share a lane and their back line gets narrow and comfortable.' },
-  attFar: { es: 'Abierto, pero cerca del juego', title: 'Wide, but close to the play',
-    why: 'We have it on the far side. Come in to the inside edge of your lane &mdash; still wider than your 8, still level with their last defender. The pros stay right on the touchline so that after the switch (cambio de orientaci&oacute;n) they are alone one-on-one with the full-back; you come in until the switch is a pass your team can really play. If it gets crossed from the far side, attack the back post.' },
-  attSwap: { es: '', title: 'Two in your lane already',
-    why: 'Your full-back has overlapped up your lane and your 8 has dropped into it behind him to cover. That is two in your lane &mdash; the most. A third would break the spacing, so you go inside: the half-space, between their full-back and centre-back, level with their last defender. Now their full-back has two of you to deal with.' },
-  defNear: { es: 'Saltar al lateral', title: 'Jump to their full-back',
-    why: 'Their full-back gets it on your side. Jump as the ball is travelling to him, not after he has it, and come on a curve from the inside out, ending goal-side and inside him: your run shuts the pass inside, so he can only go down the line or back.' },
-  defMid: { es: 'L&iacute;nea de medios', title: 'One of the midfield four',
-    why: 'They have it in the middle. You are one of the four in our midfield line: level with your 8s, the same gap to your 8 as the 8s keep to each other. First job: close your half-space so nothing is played through it. Second: be ready to jump if it goes out to their full-back.' },
-  defFar: { es: 'Basculaci&oacute;n', title: 'Slide with the block',
-    why: 'They have it on the far side. The whole block slides toward the ball and you slide with it, into your half-space, level with the midfield line, so there is no gap to play through. If they switch it, you have time to get back out.' },
+  stWide: { es: 'Fijar a los centrales &middot; profundidad', title: 'Pin their centre-backs',
+    why: 'You are the striker. Stay on their last line, in the middle lane, up against their centre-backs and level with their last defender. A centre-forward can pin the nearest centre-back so he cannot step out to press, and that helps a 10 or an interior receive in the half-spaces (<i>espacios intermedios</i>) (Coaches&rsquo; Voice). Level with their line you are also onside for a run in behind, into the space for a through ball, the moment someone can play it. Stay in the middle lane: your wingers stay wide to stretch the pitch (Coaches&rsquo; Voice). The ball is out wide: do not drift over to it &mdash; the middle needs you.' },
+  stCentral: { es: 'Fijar a los centrales &middot; profundidad', title: 'Pin their centre-backs',
+    why: 'You are the striker. Stay on their last line, in the middle lane, up against their centre-backs and level with their last defender. A centre-forward can pin the nearest centre-back so he cannot step out to press, and that helps a 10 or an interior receive in the half-spaces (<i>espacios intermedios</i>) (Coaches&rsquo; Voice). Level with their line you are also onside for a run in behind, into the space for a through ball, the moment someone can play it. Stay in the middle lane: your wingers stay wide to stretch the pitch (Coaches&rsquo; Voice).' },
+  f9Wide: { es: 'Falso nueve', title: 'Drop off their centre-backs, between the lines',
+    why: 'You are the false 9. You start high, then come off their centre-backs into the gap between their midfield and back line, in the middle: a false nine moves toward the ball from a high starting position and times it to receive between the lines (Coaches&rsquo; Voice). If a centre-back follows you, a gap opens behind him for a winger to run into (Coaches&rsquo; Voice); if nobody follows, you have time to turn (general coaching). Your wingers start wide, ready to run into that gap. The ball is out wide: come off them centrally, not over to the touchline.' },
+  f9Central: { es: 'Falso nueve', title: 'Drop off their centre-backs, between the lines',
+    why: 'You are the false 9. You start high, then come off their centre-backs into the gap between their midfield and back line, in the middle: a false nine moves toward the ball from a high starting position and times it to receive between the lines (Coaches&rsquo; Voice). If a centre-back follows you, a gap opens behind him for a winger to run into (Coaches&rsquo; Voice); if nobody follows, you have time to turn (general coaching). Your wingers start wide, ready to run into that gap.' },
+  defScreen: { es: 'Tapar al pivote', title: 'Screen the pass into their 6',
+    why: 'They have it with a centre-back and we are in our block. You are the front of the block, the highest man in the middle. Coaches&rsquo; Voice says a false nine defending for long spells often takes the highest central position, screening passes into the pivots or aggressively pressing the centre-backs; for the striker it is the same job here (general coaching). In our block it is the screen: on the line from the ball to their holding midfielder, close to him, so the centre-back cannot play through the middle and has to go wide or long.' },
+  defPress: { es: 'Presi&oacute;n alta', title: 'Press the centre-back',
+    why: 'We are pressing high: our back line is up in their half. Their centre-back gets it, so you press him: aggressively pressing the centre-backs is the other half of the false nine&rsquo;s job in Coaches&rsquo; Voice, and the striker&rsquo;s job here too (general coaching). Using our block&rsquo;s height to choose between screening and pressing is this drill&rsquo;s rule of thumb. Go as the ball travels to him and arrive in front of him, on the side of their holding midfielder, so the pass into the middle is shut (that angle is general pressing coaching) and he has to go wide or long.' },
   turnPress: { es: 'Presi&oacute;n tras p&eacute;rdida', title: 'Press, straight away',
-    why: 'We just lost it, and their outlet is right by you. Do not run back &mdash; press straight away, before they can settle. Come at him from the angle that shuts his pass forward and inside, so he is pinned against the touchline (general coaching).' },
-  turnCover: { es: 'Presi&oacute;n tras p&eacute;rdida', title: 'Narrow, level with the ball',
-    why: 'We just lost it, away from you. The players nearest the ball press it. Your job: come inside to your half-space, into the space no team-mate is already covering, and get level with the ball, so the team is tight around it and you shut the pass out to their nearest free man &mdash; usually their full-back. You are not running back to defend your goal; you are helping win it back. Only if the press is beaten do you drop into the block (repliegue).' }
+    why: 'We just lost it, and their outlet is close to you. Press him straight away, before they can settle; that is presi&oacute;n tras p&eacute;rdida. For a false nine, counter-pressing is often the main defensive job (Coaches&rsquo; Voice). Come at him from goal-side and inside, so the pass forward and inside is shut (general coaching).' },
+  turnCover: { es: 'Presi&oacute;n tras p&eacute;rdida', title: 'Add a man in midfield',
+    why: 'We just lost it, away from you. The players nearest the ball press it. Your job: come back into the middle and add a man in central midfield, to help force play wide or outnumber them around the ball (Coaches&rsquo; Voice, on the false nine counter-pressing). Into the gap no team-mate is covering, around the height of the ball, shutting the nearest pass inside.' }
 };
 
 /* ---------- a clip: a chain of passes ---------- */
 const ROLES = {
-  att: ['LCB', 'RCB', 'LB', 'RB', 'S6', 'L8', 'R8', 'N9', 'LW'],
-  def: ['TB1', 'TB2', 'TB3', 'TB4', 'TM1', 'TM2', 'TM3', 'TM4', 'TF1', 'TF2']
+  att: ['LCB', 'RCB', 'LB', 'RB', 'S6', 'L8', 'R8', 'LW', 'RW'],
+  def: ['TB1', 'TB2', 'TB3', 'TB4', 'TM1', 'TM2', 'TM3', 'TM4', 'TF1', 'TF2', 'TGK']
 };
 const FINAL = {
-  attNear: ['R8', 'RB'], attMid: ['S6', 'N9', 'LCB', 'RCB'], attFar: ['L8', 'LB', 'LW'], attSwap: ['R8', 'S6', 'N9'],
-  defNear: ['TB4'], defMid: ['TB2', 'TB3', 'TM2', 'TM3'], defFar: ['TB1', 'TM1']
+  stWide: ['RW', 'LW', 'RB', 'LB'], stCentral: ['S6', 'L8', 'R8', 'LCB', 'RCB'],
+  f9Wide: ['RW', 'LW', 'RB', 'LB'], f9Central: ['S6', 'L8', 'R8', 'LCB', 'RCB'],
+  defScreen: ['TB2', 'TB3'], defPress: ['TB2', 'TB3']
 };
 const SHAPE = { att: attShape, def: defShape };
 /* the receiver's spot: his slot in the shape the ball takes him to (solved, since the shape follows the ball) */
 function receiverSpot(phase, role, D, jit, opt){
   let Fx = 0;
   for (let i = 0; i < 10; i++){ const sh = SHAPE[phase](Fx, D, jit, opt); Fx = (phase === 'att' ? sh.own : sh.opp)[role][0]; }
-  const sh = SHAPE[phase](Fx, D, jit, opt);
+  const sh = SHAPE[phase](Fx, D, jit, opt); sh.Fx = Fx;
   return { Fx, sh, at: (phase === 'att' ? sh.own : sh.opp)[role] };
 }
 function segD(q, a, b){
@@ -500,7 +517,7 @@ function pickW(a){ let t = 0; a.forEach(o => t += o.w); let r = Math.random()*t;
    `opt` (the full-back's overlap) shapes every picture after the first pass.     */
 function chain(phase, D, holder, n, finals, jit, opt){
   const out = [];
-  let h = receiverSpot(phase, holder, D, jit, null), role = holder, prevRole = null;
+  let h = receiverSpot(phase, holder, D, jit, typeof opt === 'function' ? opt(0) : opt), role = holder, prevRole = null;
   out.push({ phase, role, team: phase === 'att' ? 'own' : 'opp', at: h.at, Fx: h.Fx, D, sh: h.sh });
   for (let i = 1; i <= n; i++){
     const Dn = D + (phase === 'att' ? rand(-3, 1.5) : rand(-1.5, 3));
@@ -522,15 +539,15 @@ function chain(phase, D, holder, n, finals, jit, opt){
   return out;
 }
 function candidate(side, key){
-  const jit = { RW: [0, rand(-1.5, 1.5)] };
+  const jit = { N9: [rand(-1.5, 1.5), rand(-1.5, 1.5)] };
   ROLES.att.concat(ROLES.def).forEach(k => jit[k] = [rand(-1.5, 1.5), rand(-1.5, 1.5)]);
   const turn = key === 'turnover';
   let solved, kind = key, extra = {};
   if (!turn){
-    const phase = key.slice(0, 3);
-    const D = phase === 'att' ? rand(-8, 8) : rand(-16, 4);
-    const holders = phase === 'att' ? ['LCB', 'RCB', 'LB', 'RB', 'S6', 'L8', 'R8'] : ['TB1', 'TB2', 'TB3', 'TB4', 'TM2', 'TM3'];
-    solved = chain(phase, D, pickOne(holders), 3, FINAL[key], jit, key === 'attSwap' ? (i => ({ ov: i >= 2 ? 2 : 1 })) : null);
+    const phase = key.startsWith('def') ? 'def' : 'att';
+    const D = phase === 'att' ? rand(-8, 8) : key === 'defPress' ? rand(-26, -18) : rand(-16, 4);
+    const holders = phase === 'att' ? ['LCB', 'RCB', 'LB', 'RB', 'S6', 'L8', 'R8'] : key === 'defPress' ? ['TB1', 'TB4', 'TGK', 'TM2', 'TM3'] : ['TB1', 'TB4', 'TM1', 'TM2', 'TM3', 'TM4'];
+    solved = chain(phase, D, pickOne(holders), 3, FINAL[key], jit, key === 'defPress' ? { high: true } : null);
     if (!solved) return null;
   } else {
     /* we have it, one pass goes in, the next is cut out; they play one pass. Freeze. */
@@ -576,8 +593,9 @@ function candidate(side, key){
     t = ta + touch;
   }
   const last = ev[ev.length - 1], tFreeze = last.ts + 150;
-  const st0 = idealFor(startKind(ev[0]), ev[0].sh, {}).at, st = [Math.min(st0[0], 31.5), st0[1]];
+  const sk = startKind(ev[0], key), st0 = sk === 'defBase' ? ev[0].sh.n9 : idealFor(sk, ev[0].sh, {}).at, st = [Math.min(st0[0], 31.5), st0[1]];
   if (turn) kind = 'turnCover';                   // settled once we know who is pressing (sceneOK)
+  extra.holder = last.role;
   const I = idealFor(kind, last.sh, extra);
   return { side, key, kind, turn, ev, tFreeze, ideal: I.at, ref: I.ref, start: st, jit, extra,
            wingX: st[0], zBase: st[1], recv: [0, 0], passerAt: [0, 0], intended: kind };
@@ -785,18 +803,17 @@ function gridCheck(s, p){
 }
 /* orienting yourself: what on the pitch tells you where the spot is */
 const FIND = {
-  attNear: 'Lane: the edge of the 18-yard box, extended up the pitch, is the inside edge of your wide lane &mdash; stay outside it. Height: their last defender is the offside line; be level with him. With their full-back pinned and isolated, your 1v1 can make the difference: beating your man is <i>superioridad cualitativa</i>.',
-  attMid: 'Lane: stay outside the 18-yard-box line, extended. Height: level with their last defender. Stagger: not directly level with your 8 in the next lane &mdash; a slight diagonal gives the passer a real option.',
-  attFar: 'Lane: the inside edge of your wide lane is the 18-yard-box line, extended &mdash; come in to it, not past it. Height: level with their last defender, so the switch can go in behind.',
-  attSwap: 'Lane: the half-space runs between the 18-yard-box edge and the 6-yard-box edge, extended. Height: level with their last defender. Standing between their full-back and centre-back, behind the line pressing us, is a positional advantage (<i>superioridad posicional</i>).',
-  defNear: 'Good pressing technique (general coaching, not specifically Spanish). Reference: their full-back, not the grid. Go as the ball travels to him and finish goal-side and inside him.',
-  defMid: 'General coaching for a 4-1-4-1 block, not specifically Spanish. Height: our midfield line &mdash; level with your 8s. Lane: keep the same gap to your 8 that the 8s keep to each other; close your half-space first.',
-  defFar: 'Height: our midfield line. Lane: slide in until you are in your half-space, between the 18-yard and 6-yard box edges extended &mdash; the whole block moves together.',
+  stWide: 'Lane: the middle, between the edges of the 6-yard box, extended up the pitch. Height: their last defender is the offside line; be level with him, up against their centre-backs.',
+  stCentral: 'Lane: the middle, between the edges of the 6-yard box, extended. Height: level with their last defender, up against their centre-backs.',
+  f9Wide: 'Lane: the middle. Height: halfway between their midfielders and their defenders: off the back line, in front of it, behind their midfield.',
+  f9Central: 'Lane: the middle. Height: halfway between their midfielders and their defenders. Your wingers stay wide, ready to run into the space if a centre-back follows you.',
+  defScreen: 'Reference: their holding midfielder and the ball, not the grid. Stand on the line between them, close to him.',
+  defPress: 'Reference: their centre-back on the ball, not the grid. The trigger: our team is pressing high and the ball goes to him.',
   turnPress: 'Reference: their receiver, not the grid. In the first seconds after we lose it, the ball tells you where to be.',
-  turnCover: 'Reference: the ball, and your team-mates. Come in to your half-space, level with the ball, into the gap nobody is covering &mdash; never on top of a team-mate; the grid only matters again once we have it back or drop into the block.'
+  turnCover: 'Reference: the ball, and your team-mates. Back into the middle, into the gap nobody is covering, around the height of the ball.'
 };
-const ROLE_NAME = { R8: 'your 8', L8: 'your other 8', RB: 'your full-back', LB: 'the other full-back', S6: 'your 6', N9: 'your 9',
-                    LW: 'the other winger', RCB: 'your centre-back', LCB: 'the other centre-back', OGK: 'your keeper' };
+const ROLE_NAME = { R8: 'your right 8', L8: 'your left 8', RB: 'your right-back', LB: 'your left-back', S6: 'your 6', RW: 'your right winger',
+                    LW: 'your left winger', RCB: 'your right centre-back', LCB: 'your left centre-back', OGK: 'your keeper' };
 /* team-mates already on that spot's lane and line (where they are heading in this picture) */
 function boxMates(s, p){
   const own = matePos(s), out = [];
@@ -814,8 +831,8 @@ function sceneOK(s){
   if (!s) return false;
   const dur = s.turn ? DUR.turn : DUR.normal;
   if (s.tFreeze < dur[0] - 300 || s.tFreeze > dur[1] + 300) return false;
-  /* the play must move him */
-  if (d2(s.ideal, s.start) < 6) return false;
+  /* the play must move him (a false 9 dropping off, or a striker getting back on their line, is a few metres) */
+  if (d2(s.ideal, s.start) < (s.key && (s.key.startsWith('st') || s.key.startsWith('f9')) ? 4.5 : 6)) return false;
   const T = tracks(s);
   if (T.miss > 0.35) return false;                // every receiver meets his ball
   for (let i = 1; i < s.ev.length; i++) if (s.ev[i].len < (s.ev[i].intercept ? 6 : PASS_MIN - 1) || s.ev[i].len > PASS_MAX + 1.5) return false;
@@ -824,7 +841,7 @@ function sceneOK(s){
     /* their outlet is on his side and close: he presses it, from the outside in.
        Anywhere else, the men near it press and he closes inside */
     const r = s.extra.recv, mine = d2(s.start, r);
-    s.kind = (mine < 16 && r[0] > 9) ? 'turnPress' : 'turnCover';
+    s.kind = mine < 16 ? 'turnPress' : 'turnCover';
     const I = idealFor(s.kind, s.ev[s.ev.length-1].sh, s.extra); s.ideal = I.at; s.ref = I.ref; s.intended = s.kind;
     if (s.kind === 'turnCover'){
       /* close inside where nobody already is: the space in his half-space, around the
@@ -838,14 +855,14 @@ function sceneOK(s){
       const oppNow = {}; for (const id in s.ev[0].sh.opp){ if (id === 'TGK' || id === s.extra.role) continue; const k = T.tr[id], b = k[k.length-1]; oppNow[id] = [b[1], b[2]]; }
       const ownNow = []; for (const id in s.ev[0].sh.own){ const k = T.tr[id], b = k[k.length-1]; ownNow.push([b[1], b[2]]); }
       let free = null;
-      for (const id in oppNow){ const q = oppNow[id]; if (q[0] < 3) continue;
+      for (const id in oppNow){ const q = oppNow[id]; if (Math.abs(q[0]) > 22) continue;
         if (ownNow.some(m => d2(m, q) < 4)) continue;
         if (!free || d2(q, r) < d2(free, r)) free = q; }
       let best = null;
-      for (let x = 10; x <= 19; x += 1) for (let dz = -3; dz <= 7; dz += 1){
+      for (let x = -8; x <= 8; x += 1) for (let dz = -3; dz <= 7; dz += 1){
         const c = pitch([x, r[1] + dz]), md = Math.min(...mates.map(m => d2(m, c)));
         if (md < 7) continue;
-        const sc = free ? -segD(c, r, free).d - 0.05*d2(c, [13, r[1] + 3]) : md - 0.15*d2(c, [13, r[1] + 3]);
+        const sc = free ? -segD(c, r, free).d - 0.05*d2(c, [0, r[1] + 3]) : md - 0.15*d2(c, [0, r[1] + 3]);
         if (!best || sc > best.sc) best = { c, md, sc };
       }
       s.extra.free = free;
@@ -866,7 +883,7 @@ function sceneOK(s){
     if (!s.turn && fin[id] && d2(fin[id], s.ideal) < 6) return false;
   }
   /* nobody runs through him: he is the camera */
-  for (const id in T.tr) for (const k of T.tr[id]) if (Math.hypot(k[1] - s.start[0], k[2] - s.start[1]) < 2.6) return false;
+  for (const id in T.tr) for (const k of T.tr[id]) if (Math.hypot(k[1] - s.start[0], k[2] - s.start[1]) < (s.ev[0].sh.own[id] ? 2.6 : 1.8)) return false;   // a striker stands up against their centre-backs
   for (const k of T.ball) if (Math.hypot(k[1] - s.start[0], k[2] - s.start[1]) < 2.2) return false;
   s.T = T;
   /* while we have it, the team itself keeps the spacing at every moment the ball arrives
@@ -883,13 +900,28 @@ function sceneOK(s){
   }
   /* the answer never puts him on a team-mate's lane and line */
   if (boxMates(s, s.ideal).length) return false;
+  /* and with the ball, his spot with the team as they finish, and the one he started in:
+     no more than 2 in a lane, 3 on a line, never two in one zone */
+  if (!s.kind.startsWith('def') && !s.turn){
+    const spaced = pl => {
+      const lanes = {}; pl.forEach(p => { const l = laneOf(p[0]); lanes[l] = (lanes[l] || 0) + 1; });
+      for (const l in lanes) if (lanes[l] > 2) return false;
+      for (const p of pl) if (pl.filter(q => Math.abs(q[1] - p[1]) < 3).length > 3) return false;
+      for (let a = 0; a < pl.length; a++) for (let b = a + 1; b < pl.length; b++)
+        if (laneOf(pl[a][0]) === laneOf(pl[b][0]) && Math.abs(pl[a][1] - pl[b][1]) < 6) return false;
+      return true;
+    };
+    const ids = Object.keys(fin).filter(id => id !== 'OGK');
+    if (!spaced([s.ideal].concat(ids.map(id => fin[id])))) return false;
+    if (!spaced([s.start].concat(ids.map(id => trackAt(T.tr[id], 0).p)))) return false;
+  }
   return true;
 }
 function makeScene(side, key){
-  if (!BAG_COUNT[key]) key = 'attFar';
+  if (!BAG_COUNT[key]) key = 'stCentral';
   const turn = key.startsWith('turn');
   for (let i = 0; i < (turn ? 1500 : 900); i++){ const s = candidate(side, turn ? 'turnover' : key); if (sceneOK(s) && (!turn || s.kind === key)) return s; }
-  if (key !== 'attFar') return makeScene(side, 'attFar');
+  if (key !== 'stCentral') return makeScene(side, 'stCentral');
   for (;;){ const s = candidate(side, key); if (s){ if (sceneOK(s)) return s; } }
 }
 const OPTIONS = [];
@@ -2174,7 +2206,7 @@ function drawMap(s, reveal, tap){
   const W = s.side, P = p => [W*p[0], p[1]];
   L('rect', { x: -34, y: -52.5, width: 68, height: 105, class: 'pitch' });
   /* his lane, lightly lit; on the reveal, the lane his spot is in */
-  L('rect', { x: W === 1 ? 20.16 : -34, y: -52.5, width: 13.84, height: 105, fill: '#5aa9ff', opacity: .08 });
+  L('rect', { x: -9.16, y: -52.5, width: 18.32, height: 105, fill: '#5aa9ff', opacity: .08 });
   /* the boxes: lanes across, and the bands the defending team's lines make */
   const bands = bandsOf(s);                            // the boxes are always on the map
   const edges = [34, 20.16, 9.16, -9.16, -20.16, -34];
@@ -2189,12 +2221,12 @@ function drawMap(s, reveal, tap){
     box(s.ideal, '#c6ef2f', .16);
     /* a team-mate already on that lane and line */
     const fin = matePos(s), taken = [];
-    if (tap){ const mine = [W*tap[0], tap[1]]; boxMates(s, mine).forEach(id => taken.push(id)); }
-    if (s.kind === 'attSwap'){ ['RB', 'R8'].forEach(id => { if (!taken.includes(id)) taken.push(id); }); }
+    if (tap && s.kind !== 'turnPress'){ const mine = [W*tap[0], tap[1]]; boxMates(s, mine).forEach(id => taken.push(id)); }
+
     taken.forEach(id => { const q = P(fin[id]);
       L('circle', { cx: q[0], cy: q[1], r: 2.6, fill: 'none', stroke: '#ff8a70', 'stroke-width': .45 });
       const e = svgEl('text', { x: -q[1], y: q[0] + (q[0] > 0 ? -6.4 : 7.2), 'font-size': 1.9, 'text-anchor': 'middle', fill: '#ffc2b5' });
-      e.textContent = s.kind === 'attSwap' && (id === 'RB' || id === 'R8') ? (id === 'RB' ? 'YOUR FULL-BACK' : 'YOUR 8, COVERING') : 'SAME LANE, SAME LINE'; });
+      e.textContent = 'SAME LANE, SAME LINE'; });
   }
   LANES.forEach(x => L('line', { x1: x, y1: -52.5, x2: x, y2: 52.5, stroke: '#fff', 'stroke-width': .22, 'stroke-dasharray': '1.4 1.2', opacity: .4 }));
   if (bands) bands.cuts.forEach(z => L('line', { x1: -34, y1: z, x2: 34, y2: z, stroke: '#ffe066', 'stroke-width': .26, 'stroke-dasharray': '.8 1', opacity: .7 }));
@@ -2220,7 +2252,7 @@ function drawMap(s, reveal, tap){
   [[27.1, 'WIDE'], [14.66, 'HALF-SPACE'], [0, 'MIDDLE'], [-14.66, 'HALF-SPACE'], [-27.1, 'WIDE']].forEach(([x, n]) => txt(x, 47, n, 1.7, .4, 0.6));
   const st = P(s.start);
   L('circle', { cx: st[0], cy: st[1], r: 1.3, fill: 'none', stroke: '#5aa9ff', 'stroke-width': .5, 'stroke-dasharray': '.7 .5' });
-  txt(st[0], st[1], 'YOU WERE HERE', 2.1, .85, W === 1 ? -2.4 : 3.6);
+  txt(st[0], st[1], 'YOU WERE HERE', 2.1, .85, -2.4);
   const T = s.tFreeze, last = s.ev[s.ev.length - 1], from = P(trackAt(s.T.ball, T).p), to = P(last.at), fin = last.sh;
   const showPlayers = reveal || learning();
   if (showPlayers){
@@ -2304,16 +2336,24 @@ function paintSides(){
 
 function startSession(){ rep = 0; sPts = 0; sMax = 0; sBest = 0; bag = newBag(); nextRep(); }
 
+/* the role of each rep: the reps with the ball carry their own; the rest take turns (or follow the setting) */
+let roleNow = 'st', roleFlip = 0;
+function nextRole(){
+  const k = bag[bag.length - 1] || '';
+  const r = roleOfKind(k);
+  roleNow = r || (stats.side === 'L' ? 'st' : stats.side === 'R' ? 'f9' : (roleFlip++ % 2 ? 'f9' : 'st'));
+  return roleNow;
+}
 function nextRep(){
   replaying = false;
   seqGen++; const rb = el('replay'); if (rb){ rb.disabled = false; rb.textContent = 'Replay the clip and your run'; }
   if (rep >= CFG.repsPerSession) return endSession();
   rep++;
-  lastSide = stats.side === 'alt' ? -lastSide : (stats.side === 'R' ? 1 : -1);
+  lastSide = 1; if (!bag.length) bag = newBag();
   el('hmeta').textContent = 'Rep '+rep+' / '+CFG.repsPerSession+
-    ' · '+(lastSide === 1 ? 'Right' : 'Left');
+    ' · '+ROLE_LABEL[nextRole()];
   if (!bag.length) bag = newBag();
-  current = makeScene(lastSide, bag.pop());
+  { const k = bag.pop(); current = makeScene(lastSide, k); current.role = roleOfKind(current.kind) || roleNow; }
   ranked = scoreScene(current);
   buildScene(current);
   clearPath();
@@ -2325,7 +2365,7 @@ function nextRep(){
   el('askWord').firstChild.textContent = 'Watch';
   el('askHint').textContent = matchMedia('(hover: hover) and (pointer: fine)').matches ? 'Press ← or → to scan over that shoulder.' : 'Tap left or right to scan over that shoulder.';
   el('answers').innerHTML = '';
-  setVeil(true, (current.side === 1 ? 'Right wing' : 'Left wing') + (learning() ? ' · Learn' : ' · Test'), 'Who has it, and where is it? When it freezes: your lane, and your line.');
+  setVeil(true, ROLE_LABEL[current.role] + (learning() ? ' · Learn' : ' · Test'), current.role === 'f9' ? 'You are the false 9. Who has it? When it freezes: your lane, and your line.' : 'You are the striker. Who has it? When it freezes: your lane, and your line.');
   setTimeout(flash, CFG.cueMs);
 }
 
@@ -2358,7 +2398,7 @@ function replayLook(){
 function ask(){
   maskEl.style.display = 'none';
   el('askWord').firstChild.textContent = 'Where should you be?';
-  el('askHint').textContent = learning() ? 'Who has it? Which side? Then: your lane, and your line.' : 'Tap your spot.';
+  el('askHint').textContent = (current.role === 'f9' ? 'False 9. ' : 'Striker. ') + (learning() ? 'Who has it? Then: your lane, and your line.' : 'Tap your spot.');
   el('answers').innerHTML = '';
   drawMap(current, false, null);
   document.getElementById('radar').style.display = 'none';
@@ -2381,8 +2421,10 @@ function diagnose(c, mine){
     line = 'you were ' + d.toFixed(0) + ' m from ' + c.ref.label + ' &mdash; get to him, ' + c.ref.how;
   } else {
     const dz = mine[1] - c.ideal[1];                  // + is deeper (toward our goal)
-    if (dz > 3) line = dz.toFixed(0) + ' m too deep &mdash; get level with ' + c.ref.label;
-    else if (dz < -3) line = c.kind.startsWith('att') ? (-dz).toFixed(0) + ' m beyond their last defender &mdash; offside'
+    if (c.ref.between && dz > 3) line = dz.toFixed(0) + ' m too deep &mdash; get into the gap, ' + c.ref.label;
+    else if (c.ref.between && dz < -3) line = (-dz).toFixed(0) + ' m too high &mdash; that is still on their back line; come off it into the gap, ' + c.ref.label;
+    else if (dz > 3) line = dz.toFixed(0) + ' m too deep &mdash; get level with ' + c.ref.label;
+    else if (dz < -3) line = c.kind.startsWith('st') ? (-dz).toFixed(0) + ' m beyond their last defender &mdash; offside'
                                                      : (-dz).toFixed(0) + ' m too high &mdash; get level with ' + c.ref.label;
     else line = 'right line';
   }
@@ -2397,7 +2439,7 @@ function answerMap(tap){
   const d = mine ? Math.hypot(mine[0]-c.ideal[0], mine[1]-c.ideal[1]) : null;
   const pts = d === null ? 0 : d <= HIT ? 3 : d <= NEAR ? 1 : 0;
   sPts += pts; sMax += 3;
-  const k = c.side === 1 ? 'R' : 'L';
+  const k = c.role === 'f9' ? 'R' : 'L';
   stats[k].pts += pts; stats[k].max += 3;
   if (pts === 3) sBest++;
   paintSides(); saveStats();
@@ -2406,7 +2448,7 @@ function answerMap(tap){
     r.innerHTML = '<span class="chip ' + cls + '">' + chip + '</span><span class="wy">' + text + '</span>'; box.appendChild(r); };
   const stayed = mine && Math.hypot(mine[0]-c.start[0], mine[1]-c.start[1]) < 4 && pts < 3;
   if (d === null) row('Too slow', 't0', 'Pick your spot while the ball is still travelling &mdash; by the time it arrives you should already be moving.');
-  else { const mates = pts < 3 ? boxMates(c, mine) : [];
+  else { const mates = pts < 3 && c.kind !== 'turnPress' ? boxMates(c, mine) : [];
     row(TIER_NAME[pts], 't' + pts, diagnose(c, mine) + (stayed ? ' You stayed where you were &mdash; the play moved and you did not.' : '') +
       (mates.length ? ' ' + ROLE_NAME[mates[0]][0].toUpperCase() + ROLE_NAME[mates[0]].slice(1) + ' is already there &mdash; same lane, same line. Stagger: a different height, or a different lane.' : '')); }
   const p = PRINCIPLE[c.kind];
@@ -2414,7 +2456,7 @@ function answerMap(tap){
   r2.innerHTML = '<span class="wy"><b>' + (p.es ? '<i>' + p.es + '</i> &middot; ' : '') + p.title + '.</b> ' + p.why + '</span>';
   box.appendChild(r2);
   /* the grid: 5 lanes x 4 sections; max 2 in a lane, max 3 on a line */
-  if (c.kind.startsWith('att')){ const g = gridCheck(c, c.ideal), nm = id => ROLE_NAME[id] || id;
+  if (c.kind.startsWith('st') || c.kind.startsWith('f9')){ const g = gridCheck(c, c.ideal), nm = id => ROLE_NAME[id] || id;
     const laneTxt = g.lane.length === 0 ? 'nobody else is in this lane'
       : g.lane.length === 1 ? nm(g.lane[0].id) + ' is in it, ' + (g.lane[0].dz > 0 ? 'lower down' : 'higher up') + ' &mdash; 2 in a lane is the most'
       : g.lane.map(x => nm(x.id)).join(' and ') + ' are in it too';
@@ -2427,7 +2469,7 @@ function answerMap(tap){
     r3.innerHTML = '<span class="wy"><b>The grid.</b> Five lanes, four sections; no more than 2 team-mates in a lane, no more than 3 on a line, so the man on the ball always has 2&ndash;3 options. At your spot: ' + laneTxt + '; ' + lineTxt + '.' + warn + '</span>';
     box.appendChild(r3); }
   else if (!c.turn){ const r3 = document.createElement('div'); r3.className = 'row';
-    r3.innerHTML = '<span class="wy"><b>The grid.</b> The 2-in-a-lane, 3-on-a-line rule of thumb is for when we have the ball &mdash; it keeps passing options open. Without it, we defend in lines: you are one of four across the midfield line.</span>';
+    r3.innerHTML = '<span class="wy"><b>The grid.</b> The 2-in-a-lane, 3-on-a-line rule of thumb is for when we have the ball &mdash; it keeps passing options open. Without it, we defend in lines: you are the front of the block, ahead of the midfield four.</span>';
     box.appendChild(r3); }
   { const r4 = document.createElement('div'); r4.className = 'row';
     r4.innerHTML = '<span class="wy"><b>Find it on the pitch.</b> ' + (FIND[c.kind] || '') + '</span>';
