@@ -218,7 +218,7 @@ a.iconbtn{text-decoration:none;display:inline-flex;align-items:center;white-spac
       <button data-mode="test" aria-pressed="false">Test</button>
     </div>
     <button class="cta" id="start">Start session</button>
-    <p class="note">16 reps, about five minutes. You are the <b>centre-forward</b> of a 4-3-3, and each rep tells you which one: the <b>striker</b> or the <b>false 9</b>. Spanish positional play (<i>juego de posici&oacute;n</i>) cuts the pitch into <b>five lanes</b> and puts players in different lanes and at different heights: no more than two team-mates in a lane, no more than three on a line. A few seconds of play, then it freezes as the last pass is struck: tap where you should be, and run there.<br><br><b>We have it, as the striker</b> &mdash; on their last line, in the middle, up against their centre-backs: pin them (<i>fijar a los centrales</i>) and stay onside for the run in behind.<br><b>We have it, as the false 9</b> &mdash; come off their centre-backs into the gap between their midfield and back line, in the middle (<i>falso nueve</i>). Your wingers start wide, ready to run in behind if a centre-back follows you.<br><b>They have it</b> &mdash; you are the front of the block, the highest man in the middle: in our block, screen the pass into their 6 (<i>tapar al pivote</i>); when we press high, press the centre-back who gets it.<br><b>We just lost it</b> &mdash; the ball near you: press it. Away from you: come back and add a man in midfield (<i>presi&oacute;n tras p&eacute;rdida</i>).<br><br><b>Learn</b> paints the lanes on the grass and shows everyone on the map when you tap. <b>Test</b> takes all of that away.</p></p></p></p>
+    <p class="note">16 reps, about five minutes. You are the <b>centre-forward</b> of a 4-3-3, and each rep tells you which one: the <b>striker</b> or the <b>false 9</b>. Spanish positional play (<i>juego de posici&oacute;n</i>) cuts the pitch into <b>five lanes</b> and puts players in different lanes and at different heights: no more than two team-mates in a lane, no more than three on a line. A few seconds of play, then it freezes as the last pass is struck: tap where you should be, and run there.<br><br><b>We have it, as the striker</b> &mdash; on their last line, in the middle, up against their centre-backs: pin them (<i>fijar a los centrales</i>) and stay onside for the run in behind.<br><b>We have it, as the false 9</b> &mdash; come off their centre-backs into the gap between their midfield and back line, in the middle (<i>falso nueve</i>). Your wingers start wide, ready to run in behind if a centre-back follows you.<br><b>They have it</b> &mdash; you are the front of the block, the highest man in the middle: in our block, screen the pass into their 6 (<i>tapar al pivote</i>); when we press high, press the centre-back who gets it.<br><b>We just lost it</b> &mdash; the ball near you: press it. Away from you: do not chase it, shut the pass to the man nearest you (<i>presi&oacute;n tras p&eacute;rdida</i>).<br><br><b>Learn</b> paints the lanes on the grass and shows everyone on the map when you tap. <b>Test</b> takes all of that away.</p></p></p></p>
   </div>
 
   <div id="panelAsk" class="hide">
@@ -337,7 +337,7 @@ const pick = a => a[Math.floor(Math.random()*a.length)];
        high press: press the centre-back            in front of him, on the side of their 6
      WE JUST LOST IT
        near him: press                              their receiver
-       away from him: an extra man in midfield      the gap nobody covers, shutting the nearest pass
+       away from him: the nearest potential receiver  on the line from the ball to him
 
    Coordinates: x across (the right touchline at x = +34), z along the pitch (we
    attack toward z = -52.5). This drill is never mirrored.                          */
@@ -480,8 +480,8 @@ const PRINCIPLE = {
     why: 'We are pressing high: our back line is up in their half. Their centre-back gets it, so you press him: aggressively pressing the centre-backs is the other half of the false nine&rsquo;s job in Coaches&rsquo; Voice, and the striker&rsquo;s job here too (general coaching). Using our block&rsquo;s height to choose between screening and pressing is this drill&rsquo;s rule of thumb. Go as the ball travels to him and arrive in front of him, on the side of their holding midfielder, so the pass into the middle is shut (that angle is general pressing coaching) and he has to go wide or long.' },
   turnPress: { es: 'Presi&oacute;n tras p&eacute;rdida', title: 'Press, straight away',
     why: 'We just lost it, and their outlet is close to you. Press him straight away, before they can settle; that is presi&oacute;n tras p&eacute;rdida. For a false nine, counter-pressing is often the main defensive job (Coaches&rsquo; Voice). Come at him from goal-side and inside, so the pass forward and inside is shut (general coaching).' },
-  turnCover: { es: 'Presi&oacute;n tras p&eacute;rdida', title: 'Add a man in midfield',
-    why: 'We just lost it, away from you. The players nearest the ball press it. Your job: come back into the middle and add a man in central midfield, to help force play wide or outnumber them around the ball (Coaches&rsquo; Voice, on the false nine counter-pressing). Into the gap no team-mate is covering, around the height of the ball, shutting the nearest pass inside.' }
+  turnCover: { es: 'Presi&oacute;n tras p&eacute;rdida', title: 'Shut the next pass, near you',
+    why: 'We just lost it, away from you. The players nearest the ball press it; the ones further away mark the nearest man who could get the next pass, or cover the passing lines (Coaches&rsquo; Voice). For a false nine counter-pressing is often the main defensive job (Coaches&rsquo; Voice), and here that means this: you do not chase the ball, you take the man of theirs nearest you who could receive next &mdash; often their holding midfielder or a centre-back &mdash; and get on the line from the ball to him, a couple of metres off him, so that pass is shut.' }
 };
 
 /* ---------- a clip: a chain of passes ---------- */
@@ -811,7 +811,7 @@ const FIND = {
   defScreen: 'Reference: their holding midfielder and the ball, not the grid. Stand on the line between them, close to him.',
   defPress: 'Reference: their centre-back on the ball, not the grid. The trigger: our team is pressing high and the ball goes to him.',
   turnPress: 'Reference: their receiver, not the grid. In the first seconds after we lose it, the ball tells you where to be.',
-  turnCover: 'Reference: the ball, and your team-mates. Back into the middle, into the gap nobody is covering, around the height of the ball.'
+  turnCover: 'Reference: the man nearest you who could get the next pass, and the ball. Stand on the line between them, close to him, ball side.'
 };
 const ROLE_NAME = { R8: 'your right 8', L8: 'your left 8', RB: 'your right-back', LB: 'your left-back', S6: 'your 6', RW: 'your right winger',
                     LW: 'your left winger', RCB: 'your right centre-back', LCB: 'your left centre-back', OGK: 'your keeper' };
@@ -845,33 +845,28 @@ function sceneOK(s){
     s.kind = mine < 16 ? 'turnPress' : 'turnCover';
     const I = idealFor(s.kind, s.ev[s.ev.length-1].sh, s.extra); s.ideal = I.at; s.ref = I.ref; s.intended = s.kind;
     if (s.kind === 'turnCover'){
-      /* close inside where nobody already is: the space in his half-space, around the
-         ball's height, furthest from team-mates (where they are and where they are heading) */
-      const mates = [];
-      for (const id in s.ev[0].sh.own){ if (id === 'OGK') continue; const k = T.tr[id], a = k[k.length-2], b = k[k.length-1];
-        const p = [b[1], b[2]], v = [(b[1]-a[1])/((b[0]-a[0])/1000), (b[2]-a[2])/((b[0]-a[0])/1000)];
-        mates.push(p, [p[0] + v[0], p[1] + v[1]]); }
-      /* the others close the passing lines (Coaches' Voice): shut the line from the ball to
-         their nearest free man on his side, usually their full-back */
-      const oppNow = {}; for (const id in s.ev[0].sh.opp){ if (id === 'TGK' || id === s.extra.role) continue; const k = T.tr[id], b = k[k.length-1]; oppNow[id] = [b[1], b[2]]; }
+      /* Presión tras pérdida (Coaches' Voice): the men nearest the ball press it; the ones
+         further away mark the nearest potential receiver or cover the passing lines. Far
+         from the ball he does not chase it: he takes the man of theirs nearest him who could
+         get the next pass, and gets on the line from the ball to him, a couple of metres
+         off him, ball side. */
       const ownNow = []; for (const id in s.ev[0].sh.own){ const k = T.tr[id], b = k[k.length-1]; ownNow.push([b[1], b[2]]); }
-      let free = null;
-      for (const id in oppNow){ const q = oppNow[id]; if (Math.abs(q[0]) > 22) continue;
-        if (ownNow.some(m => d2(m, q) < 4)) continue;
-        if (!free || d2(q, r) < d2(free, r)) free = q; }
-      let best = null;
-      for (let x = -8; x <= 8; x += 1) for (let dz = -3; dz <= 7; dz += 1){
-        const c = pitch([x, r[1] + dz]), md = Math.min(...mates.map(m => d2(m, c)));
-        if (md < 7) continue;
-        const sc = free ? -segD(c, r, free).d - 0.05*d2(c, [0, r[1] + 3]) : md - 0.15*d2(c, [0, r[1] + 3]);
-        if (!best || sc > best.sc) best = { c, md, sc };
+      let man = null, manId = null;
+      for (const id in s.ev[0].sh.opp){
+        if (id === 'TGK' || id === s.extra.role) continue;
+        const k = T.tr[id], b = k[k.length-1], q = [b[1], b[2]];
+        if (ownNow.some(m => d2(m, q) < 4)) continue;                    // already marked
+        if (d2(q, s.start) > 22) continue;                                 // not his: too far away
+        if (!man || d2(q, s.start) < d2(man, s.start)){ man = q; manId = id; }
       }
-      s.extra.free = free;
-      if (!best || best.md < 7) return false;
-      s.ideal = best.c;
-      /* if that gap is right on their receiver, he is the nearest man: it is a press */
-      if (d2(best.c, r) < 7){ s.kind = s.intended = 'turnPress'; const Ip = idealFor('turnPress', s.ev[s.ev.length-1].sh, s.extra); s.ideal = Ip.at; s.ref = Ip.ref; }
+      if (!man) return false;
+      const L = d2(man, r) || 1, kk = Math.min(2.5, L/2)/L;
+      s.ideal = pitch([man[0] + (r[0]-man[0])*kk, man[1] + (r[1]-man[1])*kk]);
+      s.ref = { type: 'man', id: manId, label: 'the nearest man who could get the next pass', how: 'on the line from the ball to him, a couple of metres off him, so the pass to him is shut' };
+      s.extra.free = man; s.extra.cover = manId;
+      if (ownNow.some(m => d2(m, s.ideal) < 5)) return false;           // a team-mate already has him
     }
+    if (d2(s.ideal, s.start) > 22) return false;                         // nobody sprints half the pitch back to press
     if (d2(s.ideal, s.start) < 6) return false;
   }
   /* his spot is his: no team-mate on it, where they are and where they are going */
@@ -2295,7 +2290,7 @@ function drawMap(s, reveal, tap){
     L('line', { x1: -34, y1: ref.z, x2: 34, y2: ref.z, stroke: col, 'stroke-width': .35, 'stroke-dasharray': '2 1', opacity: .9 });
     txt(W === 1 ? -31 : 31, ref.z, (ref.text || ref.label).toUpperCase(), 1.9, .95, 0, col);
   } else {
-    const k = s.T.tr[ref.id], p = P(trackAt(k, T).p), endp = P(fin.opp[ref.id] || p);
+    const k = s.T.tr[ref.id], p = P(trackAt(k, T).p), endp = s.turn ? p : P(fin.opp[ref.id] || p);
     const m = ref.id === s.extra.role ? to : endp;
     L('circle', { cx: m[0], cy: m[1], r: 2.4, fill: 'none', stroke: '#ff8a70', 'stroke-width': .4 });
     txt(m[0], m[1], ref.label.toUpperCase(), 1.9, .95, W === 1 ? 4.6 : -3.6, '#ff8a70');
@@ -2378,13 +2373,40 @@ stage.addEventListener('pointerup', e => {
   answerMap(p);
 });
 stage.addEventListener('pointercancel', () => { if (aim) aim.down = null; });
+/* the arrow keys: hold to turn. The head speeds up smoothly when a key goes down and
+   eases to a stop when it comes up, so nothing jerks; a quick tap is a small nudge. */
+const KEYTURN = { yawMax: 1.9, pitchMax: 0.9, accel: 7, decel: 9 };     // rad/s, rad/s per second
+const keysHeld = new Set();
+let keyVel = [0, 0], keyLoop = 0, keyLast = 0;
+function keyStep(now){
+  keyLoop = 0;
+  const dt = Math.min(0.05, (now - keyLast)/1000); keyLast = now;
+  if (!mapOpen || !aim){ keysHeld.clear(); keyVel = [0, 0]; return; }
+  const want = [(keysHeld.has('ArrowLeft') ? 1 : 0) - (keysHeld.has('ArrowRight') ? 1 : 0),
+                (keysHeld.has('ArrowUp') ? 1 : 0) - (keysHeld.has('ArrowDown') ? 1 : 0)];
+  const max = [KEYTURN.yawMax, KEYTURN.pitchMax];
+  for (let i = 0; i < 2; i++){
+    const target = want[i]*max[i], v = keyVel[i];
+    const rate = (target !== 0 && Math.sign(target) === Math.sign(v || target) && Math.abs(target) > Math.abs(v)) ? KEYTURN.accel*max[i]/KEYTURN.yawMax : KEYTURN.decel*max[i]/KEYTURN.yawMax;
+    keyVel[i] = target > v ? Math.min(target, v + rate*dt) : Math.max(target, v - rate*dt);
+  }
+  if (keyVel[0] || keyVel[1]){ aim.yaw += keyVel[0]*dt; aim.pitch += keyVel[1]*dt; clearHover(); aimLook(); }
+  if (keysHeld.size || keyVel[0] || keyVel[1]) keyLoop = requestAnimationFrame(keyStep);
+}
 addEventListener('keydown', e => {
   if (!mapOpen || !aim) return;
-  const turn = { ArrowLeft: [0.12, 0], ArrowRight: [-0.12, 0], ArrowUp: [0, 0.07], ArrowDown: [0, -0.07] }[e.key];
-  if (!turn) return;
+  if (!['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown'].includes(e.key)) return;
   e.preventDefault();
-  aim.yaw += turn[0]; aim.pitch += turn[1]; clearHover(); aimLook();
+  if (!keysHeld.has(e.key)) keyDownAt[e.key] = performance.now();
+  keysHeld.add(e.key);
+  if (!keyLoop){ keyLast = performance.now(); keyLoop = requestAnimationFrame(keyStep); }
 });
+const keyDownAt = {};
+addEventListener('keyup', e => {                     // a quick tap still turns him a few degrees
+  const held = performance.now() - (keyDownAt[e.key] || 0), k = e.key;
+  if (held < 130) setTimeout(() => keysHeld.delete(k), 130 - held); else keysHeld.delete(k);
+});
+addEventListener('blur', () => keysHeld.clear());
 document.getElementById('map').addEventListener('pointerdown', e => {
   if (!mapOpen) return;
   e.preventDefault();
