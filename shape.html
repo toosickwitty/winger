@@ -227,7 +227,7 @@ a.iconbtn{text-decoration:none;display:inline-flex;align-items:center;white-spac
 
   <div id="panelFeedback" class="hide">
     <div class="rank" id="rank"></div>
-    <button class="cta ghost" id="replay">Replay the clip</button>
+    <button class="cta ghost" id="replay">Replay the clip and your run</button>
     <button class="cta" id="next">Next rep</button>
   </div>
 
@@ -606,7 +606,7 @@ function tracks(s){
     retime(s);
   }
   for (let i = 1; i < s.ev.length; i++) s.ev[i].from = T.from[i] || s.ev[i-1].at;
-  return T;
+  return simulate(s);                       // the tracks for the passes exactly as they are played
 }
 /* The ball stops in front of the man who takes it, on the line of his next pass
    (or, for the last man, toward where it came from): he gets there while it travels. */
@@ -622,7 +622,7 @@ function simulate(s){
   const P = {}, V = {}, tr = {};
   ids.forEach(id => { P[id] = posIn(ev[0].sh, id).slice(); V[id] = 0; tr[id] = [[0, P[id][0], P[id][1]]]; });
   const ball = [[0, ev[0].at[0], ev[0].at[1]]];
-  const tEnd = s.tFreeze + 100;
+  const tEnd = s._tEnd || s.tFreeze + 100;
   const ci = ev.findIndex(e => e.intercept);
   const u0 = uOf(ev, 0);
   let pressers = null, miss = 0, bp = [ev[0].at[0] + FOOT*u0[0], ev[0].at[1] + FOOT*u0[1]];
@@ -741,7 +741,7 @@ function passFacing(s, id, T){
    faster. Worked out once per clip, at 10 ms steps, so a replay is identical.     */
 const TURN_RATE = 6.5;                                        // rad/s
 function bodyYaws(s){
-  const out = {}, end = s.tFreeze + 200, dt = 10;
+  const out = {}, end = (s._tEnd || s.tFreeze) + 200, dt = 10;
   for (const id in s.T.tr){
     const n = Math.ceil(end/dt) + 1, arr = new Float32Array(n);
     const want = T => { const pf = passFacing(s, id, T); return pf ? pf.a : freeYaw(s, id, T); };
@@ -1960,7 +1960,68 @@ function mixYP(a, b, q){
      ~0.35 wind ..      he checks inside while the ball is still at that man's feet
      wind .. recv       the pass rolls to him; his eyes come back and follow it in
      recv .. +flash     first touch inside, then the 45-degree carry, head up    */
-function seqTimes(){ return { end: current ? current.tFreeze : 5000 }; }
+function seqTimes(){ return { end: current ? (current.run ? current.run.tEnd : current.tFreeze) : 5000 }; }
+/* His run to the spot he picked: he goes the moment he picks it, accelerating like a
+   player (5 m/s per second up to 7 m/s, the same as everyone else in the clip),
+   slowing into the spot and going round anyone in his way. Eyes on the ball all the way. */
+const RUN_V = 7.0, RUN_A = 5.0, RUN_HOLD = 600;
+function at100(k, T){                                     // a track (100 ms samples) at T, quickly
+  const i = Math.max(0, Math.min(k.length - 2, Math.floor(T/100))), a = k[i], b = k[i+1];
+  if (!b) return [a[1], a[2]];
+  const f = Math.max(0, Math.min(1, (T - a[0])/Math.max(1, b[0] - a[0])));
+  return [a[1] + (b[1]-a[1])*f, a[2] + (b[2]-a[2])*f];
+}
+function planRun(s, spot){
+  const me = [s.side*s.start[0], s.start[1]];
+  const to = [Math.max(-33, Math.min(33, spot[0])), Math.max(-51.5, Math.min(51.5, spot[1]))];
+  const d0 = Math.hypot(to[0] - me[0], to[1] - me[1]);
+  /* the rest of the play runs on while he gets there */
+  let simEnd = s.tFreeze + (d0/RUN_V + 2*RUN_V/RUN_A)*1000 + 2500;
+  for (let pass = 0; pass < 2; pass++){
+    s._tEnd = simEnd; s.T = simulate(s);
+    /* his run, a step at a time: toward the spot, round anyone in the way (he does not run
+       through people), up to speed and easing into the spot */
+    const DTR = 50, tr = [[s.tFreeze, me[0], me[1]]];
+    let p = me.slice(), v = 0, t = s.tFreeze, arrived = null, stuck = 0;
+    const tMax = (d0/RUN_V + RUN_V/RUN_A)*1000 + 2500;           // never longer than a detour could take
+    while (t < simEnd - DTR){
+      t += DTR;
+      const dx = to[0] - p[0], dz = to[1] - p[1], dist = Math.hypot(dx, dz);
+      if (dist < 0.05 || (dist < 4 && stuck > 5) || t > s.tFreeze + tMax){ arrived = arrived || t; tr.push([t, p[0], p[1]]); if (t > arrived + RUN_HOLD) break; continue; }
+      let hx = dx/dist, hz = dz/dist;
+      if (dist > 1.2){
+        const fx = hx, fz = hz;                                  // straight at the spot
+        for (const id in s.T.tr){
+          const q = at100(s.T.tr[id], t), rx = s.side*q[0] - p[0], rz = q[1] - p[1], rd = Math.hypot(rx, rz);
+          if (rd > 4 || rd < 1e-3 || rd > dist + 1) continue;
+          const ahead = (rx*fx + rz*fz)/rd;                      // how much he is in the way
+          if (ahead > 0.2){
+            const cross = fx*rz - fz*rx;                         // which side of my line he is on
+            const nx = cross > 0 ? fz : -fz, nz = cross > 0 ? -fx : fx;   // the perpendicular away from him
+            const k = (4 - rd)/4*1.6*ahead; hx += nx*k; hz += nz*k;
+          }
+        }
+      }
+      for (const id in s.T.tr){                                  // and never into anyone, even at the spot
+        const q = at100(s.T.tr[id], t), rx = s.side*q[0] - p[0], rz = q[1] - p[1], rd = Math.hypot(rx, rz);
+        if (rd < 1.4 && rd > 1e-3){ const k = (1.4 - rd)/1.4*3; hx -= rx/rd*k; hz -= rz/rd*k; }
+      }
+      const hl = Math.hypot(hx, hz) || 1; hx /= hl; hz /= hl;
+      const want = Math.min(RUN_V, Math.sqrt(2*RUN_A*dist));
+      v = want > v ? Math.min(want, v + RUN_A*DTR/1000) : want;
+      const st = Math.min(dist, v*DTR/1000);
+      const np = [p[0] + hx*st, p[1] + hz*st];
+      stuck = Math.hypot(np[0] - to[0], np[1] - to[1]) > dist - 0.05 ? stuck + 1 : 0;   // a man is standing on the spot: he stops next to him
+      p = np; tr.push([t, p[0], p[1]]);
+    }
+    if (arrived && t > arrived + RUN_HOLD - 1 || pass === 1){
+      const r = { from: me, to, d: d0, tr, t0: s.tFreeze, ms: (arrived || t) - s.tFreeze, tEnd: Math.min(t, simEnd - 100) };
+      s._yaw = bodyYaws(s);
+      s.run = r; return r;
+    }
+    simEnd += 6000;
+  }
+}
 function seqFrame(s, T){
   const wx = p => [s.side*p[0], p[1]];
   const bt = trackAt(s.T.ball, T), B = wx(bt.p);
@@ -1984,17 +2045,24 @@ function seqFrame(s, T){
   if (carrierRing){ carrierRing.visible = !!hid; if (hid){ const q = wx(trackAt(s.T.tr[hid], T).p); carrierRing.position.set(q[0], 0.03, q[1]); } }
   /* his eyes: he stands still and keeps the ball in the middle of his picture,
      with the little lag a head has, so the play reads */
-  const me = wx(s.start);
+  let me = wx(s.start), runK = 0, bob = 0;
+  if (s.run && T > s.run.t0){
+    const r = s.run, k = trackAt(r.tr, T), v = Math.hypot(k.v[0], k.v[1]);
+    me = k.p;
+    runK = Math.min(1, (T - r.t0)/350);                    // his head settles onto the ball as he sets off
+    bob = Math.sin(k.dist/1.7*Math.PI)*0.035*Math.min(1, v/4);   // a little bounce in the stride, with his speed
+  }
   const lag = wx(trackAt(s.T.ball, Math.max(0, T - 220)).p);
   const home = ypTo(me[0], me[1], me[0] - s.side*14, 1.4, me[1] - 22);
   const onBall = ypTo(me[0], me[1], lag[0], 0.6, lag[1]); onBall[1] = Math.max(onBall[1], -0.3);
-  const yp = mixYP(home, onBall, 0.88);
+  const yp = mixYP(home, onBall, 0.88 + 0.12*runK);         // running: square to the ball
   const sc = scanNow();
   if (sc){ yp[0] += sc.dir*Math.PI/2*sc.k; yp[1] = yp[1] + (-0.06 - yp[1])*sc.k; }      // left is +yaw
   camYP(me[0], me[1], yp[0], yp[1]);
+  if (bob) camera.position.y += bob;
 }
-function runSequence(done){
-  const t0 = performance.now(), end = seqTimes().end, gen = ++seqGen;
+function runSequence(done, from){
+  const t0 = performance.now() - (from || 0), end = seqTimes().end, gen = ++seqGen;
   seqLive = true; scan = null;
   (function step(now){
     if (gen !== seqGen) return;
@@ -2238,7 +2306,7 @@ function startSession(){ rep = 0; sPts = 0; sMax = 0; sBest = 0; bag = newBag();
 
 function nextRep(){
   replaying = false;
-  seqGen++; const rb = el('replay'); if (rb){ rb.disabled = false; rb.textContent = 'Replay the clip'; }
+  seqGen++; const rb = el('replay'); if (rb){ rb.disabled = false; rb.textContent = 'Replay the clip and your run'; }
   if (rep >= CFG.repsPerSession) return endSession();
   rep++;
   lastSide = stats.side === 'alt' ? -lastSide : (stats.side === 'R' ? 1 : -1);
@@ -2276,12 +2344,14 @@ function replayLook(){
   if (replaying || !current) return;
   replaying = true;
   const btn = el('replay'); btn.disabled = true; btn.textContent = 'Watching…';
+  show(pAsk); el('askWord').firstChild.textContent = 'Watch'; el('askHint').textContent = current.run ? 'The play, then your run.' : 'The play again.'; el('answers').innerHTML = '';
   document.getElementById('mapwrap').style.display = 'none';
   runSequence(() => setTimeout(() => {
     if (!replaying) return;
     document.getElementById('mapwrap').style.display = 'flex';
+    show(pFeed);
     replaying = false;
-    btn.disabled = false; btn.textContent = 'Replay the clip';
+    btn.disabled = false; btn.textContent = 'Replay the clip and your run';
   }, 450));
 }
 
@@ -2331,7 +2401,6 @@ function answerMap(tap){
   stats[k].pts += pts; stats[k].max += 3;
   if (pts === 3) sBest++;
   paintSides(); saveStats();
-  drawMap(c, true, tap);
   const box = el('rank'); box.innerHTML = '';
   const row = (chip, cls, text) => { const r = document.createElement('div'); r.className = 'row picked';
     r.innerHTML = '<span class="chip ' + cls + '">' + chip + '</span><span class="wy">' + text + '</span>'; box.appendChild(r); };
@@ -2363,7 +2432,14 @@ function answerMap(tap){
   { const r4 = document.createElement('div'); r4.className = 'row';
     r4.innerHTML = '<span class="wy"><b>Find it on the pitch.</b> ' + (FIND[c.kind] || '') + '</span>';
     box.appendChild(r4); }
-  setTimeout(() => show(pFeed), 300);
+  const reveal = () => { drawMap(c, true, tap); document.getElementById('mapwrap').style.display = 'flex'; show(pFeed); };
+  if (!tap){ drawMap(c, true, tap); setTimeout(() => show(pFeed), 300); return; }
+  /* he picked it: straight back to his eyes, and he runs there while the play goes on */
+  planRun(c, tap);
+  document.getElementById('mapwrap').style.display = 'none';
+  el('askWord').firstChild.textContent = 'Go';
+  el('askHint').textContent = 'Get to your spot. Eyes on the ball.';
+  runSequence(() => { if (current === c) reveal(); }, c.tFreeze);
 }
 function answer(choice, btn){
   clearTimeout(answerTimer);
