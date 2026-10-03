@@ -821,6 +821,27 @@ function holderAt(s, T){
   return s.ev[i].role;
 }
 const DUR = { normal: [4300, 6500], turn: [3800, 6000] };
+/* every pass has a clean line: nobody of the passer's side within 2.5 m of the ball while it
+   travels (it would be his ball, and it reads as meant for him), nobody of the other side
+   within 1.3 m (he would cut it out); the pass that is cut out is the exception */
+function lanesClean(s){
+  const last = s.ev[s.ev.length - 1], own = id => !!s.ev[0].sh.own[id];
+  s._tEnd = last.ta + 100; const L = simulate(s); s._tEnd = undefined;
+  for (let i = 1; i < s.ev.length; i++){
+    const e = s.ev[i], pr = s.ev[i-1].role, ours = own(pr);
+    for (const id in L.tr){
+      if (id === pr || id === e.role || id === e.meant) continue;
+      const mate = own(id) === ours;
+      if (!mate && e.intercept) continue;
+      const lim = mate ? 2.5 : 1.3;
+      for (let t = e.ts + 100; t <= e.ta - 100; t += 50){
+        const b = trackAt(L.ball, t).p, q = trackAt(L.tr[id], t).p;
+        if (Math.hypot(b[0] - q[0], b[1] - q[1]) < lim) return false;
+      }
+    }
+  }
+  return true;
+}
 function sceneOK(s){
   if (!s) return false;
   const dur = s.turn ? DUR.turn : DUR.normal;
@@ -829,6 +850,7 @@ function sceneOK(s){
   if (d2(s.ideal, s.start) < 6) return false;
   const T = tracks(s);
   if (T.miss > 0.35) return false;                // every receiver meets his ball
+  if (!lanesClean(s)) return false;                // a clean line for every pass
   { const last = s.ev[s.ev.length - 1];
     if (last.phase !== 'att' || s.turn){
       s._tEnd = last.ta + 100; const Lg = simulate(s); s._tEnd = undefined;
