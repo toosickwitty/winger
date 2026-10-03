@@ -2343,7 +2343,7 @@ stage.addEventListener('pointerup', e => {
 stage.addEventListener('pointercancel', () => { if (aim) aim.down = null; });
 /* the arrow keys: hold to turn. The head speeds up smoothly when a key goes down and
    eases to a stop when it comes up, so nothing jerks; a quick tap is a small nudge. */
-const KEYTURN = { yawMax: 2.618, pitchMax: 0.9, accel: 9.7, decel: 13 };   // rad/s (150 deg/s turning), rad/s per second
+const KEYTURN = { yawMax: 3.491, pitchMax: 0.9, accel: 12.9, decel: 17.5 };   // rad/s (200 deg/s turning), rad/s per second
 const keysHeld = new Set();
 let keyVel = [0, 0], keyLoop = 0, keyLast = 0;
 function keyStep(now){
