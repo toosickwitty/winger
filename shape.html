@@ -825,6 +825,14 @@ function sceneOK(s){
   if (d2(s.ideal, s.start) < 6) return false;
   const T = tracks(s);
   if (T.miss > 0.35) return false;                // every receiver meets his ball
+  { const last = s.ev[s.ev.length - 1];
+    if (last.phase !== 'att' || s.turn){
+      s._tEnd = last.ta + 100; const Lg = simulate(s); s._tEnd = undefined;
+      s._atTa = {}; for (const id in Lg.tr) s._atTa[id] = trackAt(Lg.tr[id], last.ta).p;
+      for (const id in last.sh.opp) if (Lg.tr[id]) last.sh.opp[id] = trackAt(Lg.tr[id], last.ta).p;
+      if (s.turn) s.extra.recv = trackAt(Lg.tr[last.role], last.ta).p;
+      else { const I = idealFor(s.kind, last.sh, s.extra); s.ideal = I.at; s.ref = I.ref; }
+    } }
   for (let i = 1; i < s.ev.length; i++) if (s.ev[i].len < (s.ev[i].intercept ? 6 : PASS_MIN - 1) || s.ev[i].len > PASS_MAX + 1.5) return false;
   if (s.tFreeze < dur[0] || s.tFreeze > dur[1]) return false;
   if (s.turn){
@@ -839,11 +847,11 @@ function sceneOK(s){
          from the ball he does not chase it: he takes the man of theirs nearest him who could
          get the next pass, and gets on the line from the ball to him, a couple of metres
          off him, ball side. */
-      const ownNow = []; for (const id in s.ev[0].sh.own){ const k = T.tr[id], b = k[k.length-1]; ownNow.push([b[1], b[2]]); }
+      const ownNow = []; for (const id in s.ev[0].sh.own) ownNow.push(s._atTa[id]);      // everyone as the ball arrives
       let man = null, manId = null;
       for (const id in s.ev[0].sh.opp){
         if (id === 'TGK' || id === s.extra.role) continue;
-        const k = T.tr[id], b = k[k.length-1], q = [b[1], b[2]];
+        const q = s._atTa[id];
         if (ownNow.some(m => d2(m, q) < 4)) continue;                    // already marked
         if (d2(q, s.start) > 22) continue;                                 // not his: too far away
         if (!man || d2(q, s.start) < d2(man, s.start)){ man = q; manId = id; }
@@ -862,6 +870,7 @@ function sceneOK(s){
   const fin = s.ev[s.ev.length-1].sh.own;
   for (const id in s.ev[0].sh.own){
     const k = T.tr[id], p = [k[k.length-1][1], k[k.length-1][2]];
+    if (s.kind === 'turnPress' && T.pressers && T.pressers.includes(id)){ if (d2(p, s.ideal) < 3) return false; continue; }
     if (d2(p, s.ideal) < 6) return false;
     const pf = trackAt(T.tr[id], s.tFreeze).p;                       // as he is in the frozen picture
     if (id !== 'OGK' && laneOf(pf[0]) === laneOf(s.ideal[0]) && Math.abs(pf[1] - s.ideal[1]) < 6) return false;
@@ -905,7 +914,9 @@ function sceneOK(s){
 function makeScene(side, key){
   if (!BAG_COUNT[key]) key = 'attFar';
   const turn = key.startsWith('turn');
-  for (let i = 0; i < (turn ? 1500 : 900); i++){ const s = candidate(side, turn ? 'turnover' : key); if (sceneOK(s) && (!turn || s.kind === key)) return s; }
+  for (let i = 0; i < (turn ? 1500 : 900); i++){ const s = candidate(side, turn ? 'turnover' : key);
+    if (turn && s && (key === 'turnPress' ? !(d2(s.start, s.extra.recv) < 15 && s.extra.recv[0] > 6) : d2(s.start, s.extra.recv) < 13)) continue;
+    if (sceneOK(s) && (!turn || s.kind === key)) return s; }
   if (key !== 'attFar') return makeScene(side, 'attFar');
   for (;;){ const s = candidate(side, key); if (s){ if (sceneOK(s)) return s; } }
 }
@@ -2416,6 +2427,13 @@ function paintSides(){
 
 function startSession(){ rep = 0; sPts = 0; sMax = 0; sBest = 0; bag = newBag(); nextRep(); }
 
+let prefetched = null;
+function nextSideGuess(){ return stats.side === 'alt' ? -lastSide : (stats.side === 'R' ? 1 : -1); }
+function prefetchNext(){
+  if (prefetched || !bag.length || rep >= CFG.repsPerSession) return;
+  const key = bag[bag.length - 1], side = nextSideGuess();
+  prefetched = { key, side, s: makeScene(side, key) };
+}
 function nextRep(){
   replaying = false;
   seqGen++; const rb = el('replay'); if (rb){ rb.disabled = false; rb.textContent = 'Replay the clip and your run'; }
@@ -2425,7 +2443,7 @@ function nextRep(){
   el('hmeta').textContent = 'Rep '+rep+' / '+CFG.repsPerSession+
     ' · '+(lastSide === 1 ? 'Right' : 'Left');
   if (!bag.length) bag = newBag();
-  current = makeScene(lastSide, bag.pop());
+  { const k = bag.pop(); current = (prefetched && prefetched.key === k && prefetched.side === lastSide) ? prefetched.s : makeScene(lastSide, k); prefetched = null; }
   ranked = scoreScene(current);
   buildScene(current);
   clearPath();
@@ -2548,7 +2566,7 @@ function answerMap(tap){
   { const r4 = document.createElement('div'); r4.className = 'row';
     r4.innerHTML = '<span class="wy"><b>Find it on the pitch.</b> ' + (FIND[c.kind] || '') + '</span>';
     box.appendChild(r4); }
-  const reveal = () => { drawMap(c, true, tap); document.getElementById('mapwrap').style.display = 'flex'; show(pFeed); };
+  const reveal = () => { drawMap(c, true, tap); document.getElementById('mapwrap').style.display = 'flex'; show(pFeed); setTimeout(prefetchNext, 400); };
   if (!tap){ reveal(); return; }
   /* he picked it: straight back to his eyes, and he runs there while the play goes on */
   planRun(c, tap);
