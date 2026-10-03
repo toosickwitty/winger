@@ -126,6 +126,7 @@ footer{flex:0 0 auto;border-top:1px solid var(--line);background:var(--turf);col
 #mapwrap{position:absolute;inset:0;z-index:30;display:none;align-items:center;justify-content:center;
   background:rgba(8,16,11,.94);padding:8px}
 #map{height:100%;width:100%;touch-action:manipulation;cursor:crosshair}
+#stage{touch-action:none}
 #map .pitch{fill:#2f7d3b}
 #map .pitch{fill:#2f7d3b} #map .ln{stroke:#dfe8e0;stroke-width:.3;fill:none;opacity:.8}
 #map .cone{stroke:#c6ef2f;stroke-width:.25;stroke-dasharray:1.2 1;opacity:.7}
@@ -2316,6 +2317,74 @@ function mapPoint(evt){
   return [p.x, p.y];
 }
 let mapOpen = false;
+/* ---------------- picking the spot on the pitch ----------------
+   The play is paused on the frozen picture, seen from his eyes. He can look around
+   (drag or swipe the picture, or the arrow keys) and taps the grass where he is going. */
+let aim = null, aimMarker = null, hoverMarker = null;
+function startAim(){
+  const c = seqCam || [0, 0, 0, 0];
+  aim = { px: c[0], pz: c[1], yaw: c[2], pitch: c[3], down: null };
+}
+function aimLook(){
+  if (!aim) return;
+  aim.pitch = clamp(aim.pitch, -1.3, 0.25);
+  camYP(aim.px, aim.pz, aim.yaw, aim.pitch);
+}
+/* the point on the grass under the finger (null if it is the sky) */
+function groundAt(clientX, clientY){
+  const r = renderer.domElement.getBoundingClientRect();
+  const v = new THREE.Vector3(((clientX - r.left)/r.width)*2 - 1, -((clientY - r.top)/r.height)*2 + 1, 0.5).unproject(camera);
+  const o = camera.position.clone(), d = v.sub(o).normalize();
+  if (d.y > -0.004) return null;
+  const k = -o.y/d.y;
+  return [clamp(o.x + d.x*k, -33.5, 33.5), clamp(o.z + d.z*k, -52, 52)];
+}
+function ringAt(p, color, opacity){
+  const m = new THREE.Mesh(new THREE.RingGeometry(0.55, 0.85, 40),
+    new THREE.MeshBasicMaterial({ color, transparent: true, opacity, depthWrite: false, side: THREE.DoubleSide }));
+  m.rotation.x = -Math.PI/2; m.position.set(p[0], 0.04, p[1]); actors.add(m); return m;
+}
+function clearHover(){ if (hoverMarker){ actors.remove(hoverMarker); hoverMarker = null; } }
+stage.addEventListener('pointerdown', e => {
+  if (!mapOpen || !aim) return;
+  e.preventDefault();
+  aim.down = { x: e.clientX, y: e.clientY, yaw: aim.yaw, pitch: aim.pitch, moved: false };
+  try { stage.setPointerCapture(e.pointerId); } catch (_) {}
+});
+stage.addEventListener('pointermove', e => {
+  if (!mapOpen || !aim) return;
+  if (!aim.down){                                    // a mouse: show where a click would land
+    if (e.pointerType !== 'mouse') return;
+    const p = groundAt(e.clientX, e.clientY);
+    if (!p){ clearHover(); return; }
+    if (!hoverMarker) hoverMarker = ringAt(p, 0xffffff, 0.55); else hoverMarker.position.set(p[0], 0.04, p[1]);
+    return;
+  }
+  const dx = e.clientX - aim.down.x, dy = e.clientY - aim.down.y;
+  if (!aim.down.moved && Math.hypot(dx, dy) > 8) aim.down.moved = true;
+  if (!aim.down.moved) return;
+  const k = (camera.fov*Math.PI/180)/Math.max(1, stage.clientHeight);   // the picture follows the finger
+  aim.yaw = aim.down.yaw + dx*k; aim.pitch = aim.down.pitch + dy*k;
+  clearHover(); aimLook();
+});
+stage.addEventListener('pointerup', e => {
+  if (!mapOpen || !aim || !aim.down) return;
+  const tapped = !aim.down.moved; aim.down = null;
+  if (!tapped) return;
+  const p = groundAt(e.clientX, e.clientY);
+  if (!p) return;                                       // tapped the sky: nothing
+  clearHover();
+  aimMarker = ringAt(p, 0xc6ef2f, 0.9);
+  answerMap(p);
+});
+stage.addEventListener('pointercancel', () => { if (aim) aim.down = null; });
+addEventListener('keydown', e => {
+  if (!mapOpen || !aim) return;
+  const turn = { ArrowLeft: [0.12, 0], ArrowRight: [-0.12, 0], ArrowUp: [0, 0.07], ArrowDown: [0, -0.07] }[e.key];
+  if (!turn) return;
+  e.preventDefault();
+  aim.yaw += turn[0]; aim.pitch += turn[1]; clearHover(); aimLook();
+});
 document.getElementById('map').addEventListener('pointerdown', e => {
   if (!mapOpen) return;
   e.preventDefault();
@@ -2415,9 +2484,12 @@ function ask(){
   el('askWord').firstChild.textContent = 'Where should you be?';
   el('askHint').textContent = (current.role === 'f9' ? 'False 9. ' : 'Striker. ') + (learning() ? 'Who has it? Then: your lane, and your line.' : 'Tap your spot.');
   el('answers').innerHTML = '';
-  drawMap(current, false, null);
   document.getElementById('radar').style.display = 'none';
-  document.getElementById('mapwrap').style.display = 'flex';
+  document.getElementById('mapwrap').style.display = 'none';
+  el('askHint').textContent += matchMedia('(hover: hover) and (pointer: fine)').matches
+    ? ' Click the grass where you are going. Drag or use the arrow keys to look around.'
+    : ' Tap the grass where you are going. Swipe to look around.';
+  startAim();
   mapOpen = true;
   timer.style.display = 'block';
   timer.style.transition = 'none'; timer.style.width = '100%';
@@ -2448,6 +2520,7 @@ function diagnose(c, mine){
 function answerMap(tap){
   if (!mapOpen) return;
   mapOpen = false;
+  aim = null; clearHover();
   clearTimeout(answerTimer);
   timer.style.display = 'none';
   const c = current, mine = tap ? [c.side*tap[0], tap[1]] : null;     // into right-wing metres
@@ -2490,7 +2563,7 @@ function answerMap(tap){
     r4.innerHTML = '<span class="wy"><b>Find it on the pitch.</b> ' + (FIND[c.kind] || '') + '</span>';
     box.appendChild(r4); }
   const reveal = () => { drawMap(c, true, tap); document.getElementById('mapwrap').style.display = 'flex'; show(pFeed); };
-  if (!tap){ drawMap(c, true, tap); setTimeout(() => show(pFeed), 300); return; }
+  if (!tap){ reveal(); return; }
   /* he picked it: straight back to his eyes, and he runs there while the play goes on */
   planRun(c, tap);
   document.getElementById('mapwrap').style.display = 'none';
