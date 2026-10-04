@@ -1547,28 +1547,28 @@ function buildScene(s){
   /* the 9 works across the shoulder of their last man, ready to spin in behind: he stays in his
      own zone, clear of the 10 behind him, instead of running through the 10's patch */
   place('own', s.nine[0], s.nine[1], s, s.nine[0] + 6, s.nine[1] - 0.6,
-    'your 9 · on the shoulder, ready to go in behind', { speed:0.3, mps:0.7, watch:true, watchAt:[0,0] });
+    'your 9 · on the shoulder, ready to go in behind', { speed:0.45, mps:1.8, watch:true, watchAt:[0,0] });   // walking the line, across their last man
   place('own', s.wide[0], s.wide[1], s, s.wide[0] + 3, s.wide[1] - 8,
     'your far winger · running in behind', { speed:0.8, mps:3.6 });
   place('own', s.ten[0], s.ten[1], s, s.ten[0] - 0.4, s.ten[1] - 1.2,
-    s.cover.ten ? 'your 10 · marked tight' : 'your 10 · on his own', { speed:0.3, mps:0.8, watch:true, watchAt:[0,0] });
+    s.cover.ten ? 'your 10 · marked tight' : 'your 10 · on his own', { speed:0.4, mps:1.5, watch:true, watchAt:[0,0] });   // easing into the pocket
 
   /* the defenders who decide it */
   const O = s.opp, fbn = s.side === 1 ? { near:'left-back', far:'right-back' } : { near:'right-back', far:'left-back' };
   if (s.cover.nine)                                   // dropping with the run, goal-side
     place('opp', O.cbA[0], O.cbA[1], s, O.cbA[0] + 0.3, O.cbA[1] - 6,
-      'their centre-back · goal-side of your 9', Object.assign({ speed:0.3, mps:0.9 }, ball));   // dropped off him, holding goal-side
+      'their centre-back · goal-side of your 9', Object.assign({ speed:0.45, mps:1.6, backpedal:true }, ball));   // dropping off him, chest to the ball
   else
     place('opp', O.cbA[0], O.cbA[1], s, drift(O.cbA)[0], drift(O.cbA)[1],
-      'their centre-backs · flat and split', Object.assign({ speed:0.2, mps:0.5 }, ball));
+      'their centre-backs · flat and split', Object.assign({ speed:0.35, mps:1.3 }, ball));   // shuffling across with the ball
   if (s.cover.wide)
     place('opp', O.rb[0], O.rb[1], s, O.rb[0] + 1.5, O.rb[1] - 6,
       'their ' + fbn.far + ' · goal-side of your far winger', Object.assign({ speed:0.75, mps:3.4 }, ball));
   else
     place('opp', O.rb[0], O.rb[1], s, drift(O.rb)[0], drift(O.rb)[1],
-      'their ' + fbn.far + ' · tucked in, watching the ball', Object.assign({ speed:0.2, mps:0.6 }, ball));
+      'their ' + fbn.far + ' · tucked in, watching the ball', Object.assign({ speed:0.4, mps:1.5 }, ball));
   place('opp', O.dm[0], O.dm[1], s, s.cover.ten ? O.dm[0] - 0.4 : drift(O.dm)[0], s.cover.ten ? O.dm[1] - 1.2 : drift(O.dm)[1],
-    s.cover.ten ? 'their 6 · on your 10’s back' : null, Object.assign({ speed:0.3, mps:0.8 }, ball));
+    s.cover.ten ? 'their 6 · on your 10’s back' : null, Object.assign({ speed:0.4, mps:1.5 }, ball));
 
   /* the rest of their shape */
   if (s.cover.overlap)                                // gone with the overlap, goal-side of him
@@ -1576,9 +1576,9 @@ function buildScene(s){
       'their ' + fbn.near + ' · gone with your full-back', Object.assign({ speed:0.8, mps:4.2 }, ball));
   else
     place('opp', O.lb[0], O.lb[1], s, O.lb[0] - 1.5, O.lb[1] + 0.5,
-      'their ' + fbn.near + ' · tucked in with your carry', Object.assign({ speed:0.3, mps:1.2 }, ball));
+      'their ' + fbn.near + ' · tucked in with your carry', Object.assign({ speed:0.45, mps:1.7 }, ball));
   [O.cbB, O.cm].forEach(p => place('opp', p[0], p[1], s, drift(p)[0], drift(p)[1], null,
-    Object.assign({ speed:0.2, mps:0.5 }, ball)));
+    Object.assign({ speed:0.35, mps:1.3 }, ball)));                               // the block sliding toward the ball
   place('opp', O.presser[0], O.presser[1], s, O.presser[0]*0.6, O.presser[1]*0.6,
     'closing you down', Object.assign({ speed:0.5, mps:2.2 }, ball));
   place('gk', O.keeper[0], O.keeper[1], s, O.keeper[0], O.keeper[1] + 0.6,
