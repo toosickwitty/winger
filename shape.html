@@ -281,7 +281,7 @@ const CFG = {
   hFov: 100,                        // HORIZONTAL degrees: a winger's picture, both lines and the ball
   vFovMax: 76,
   look: { ox: -21.03, oz: -15.28 },  // across the pitch toward goal, from his half-space
-  colors: { own: 0x5b9dff, opp: 0xff5c44, skin: 0xe8c9a0 }
+  colors: { own: 0x5b9dff, opp: 0xff5c44, skin: 0xe8c9a0, ownGK: 0xf5d42a, oppGK: 0x9b5de5 }
 };
 
 /* ---------------- storage ---------------- */
@@ -1786,29 +1786,46 @@ function setFov(){
 
 
 const lineMat = new THREE.MeshBasicMaterial({ color: 0xdfe8e0 });
+/* The whole pitch, both ends, to the Laws of the Game (Law 1), in metres: 105 x 68;
+   lines 12 cm wide, part of the areas they bound (measured to their outside edges);
+   goal area 5.5 m out and 5.5 m either side of the posts (18.32 x 5.5); penalty area
+   16.5 m out and 16.5 m either side (40.32 x 16.5); penalty mark 11 m; arcs and centre
+   circle 9.15 m; corner arcs 1 m; goals 7.32 m between the posts, 2.44 m to the bar,
+   posts and bar 12 cm, on the goal line.                                              */
+const LW = 0.12, HL = 52.5, HW = 34;
 function stripe(x,z,w,d){ const m = new THREE.Mesh(new THREE.BoxGeometry(w,0.02,d), lineMat);
   m.position.set(x,0.02,z); scene.add(m); }
-stripe(-34,0,0.2,160); stripe(34,0,0.2,160);   // touchlines
-stripe(0,0,68,0.2);                            // halfway
-stripe(0,-52.5,68,0.2);                        // byline
-stripe(0,-36,40.3,0.2);                                          // 18-yard front
-stripe(-20.15,-44.25,0.2,16.5); stripe(20.15,-44.25,0.2,16.5);   // 18-yard sides
-stripe(0,-47,18.32,0.2);                                         // 6-yard front
-stripe(-9.16,-49.75,0.2,5.5); stripe(9.16,-49.75,0.2,5.5);       // 6-yard sides
-stripe(0,-41.5,0.35,0.35);
-(function arcs(){                                                  // 9.15 m from the spot, outside the box only
-  const seg = (x0, z0, x1, z1) => { const L = Math.hypot(x1-x0, z1-z0), m = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.02, L), lineMat);
-    m.position.set((x0+x1)/2, 0.011, (z0+z1)/2); m.rotation.y = Math.atan2(x1-x0, z1-z0); scene.add(m); };
-  const lim = Math.acos(5.5/9.15);
-  for (let i = 0; i < 16; i++){ const a0 = -lim + 2*lim*i/16, a1 = -lim + 2*lim*(i+1)/16;
-    seg(9.15*Math.sin(a0), -41.5 + 9.15*Math.cos(a0), 9.15*Math.sin(a1), -41.5 + 9.15*Math.cos(a1)); }
-  for (let i = 0; i < 48; i++){ const a0 = 2*Math.PI*i/48, a1 = 2*Math.PI*(i+1)/48;
-    seg(9.15*Math.sin(a0), 9.15*Math.cos(a0), 9.15*Math.sin(a1), 9.15*Math.cos(a1)); }
-  stripe(0, 0, 0.3, 0.3);                                        // centre spot
-})();                                       // penalty spot
+function lineSeg(x0, z0, x1, z1){ const L = Math.hypot(x1-x0, z1-z0), m = new THREE.Mesh(new THREE.BoxGeometry(LW, 0.02, L + 0.01), lineMat);
+  m.position.set((x0+x1)/2, 0.021, (z0+z1)/2); m.rotation.y = Math.atan2(x1-x0, z1-z0); scene.add(m); }
+function arc(cx, cz, r, a0, a1, n){ for (let i = 0; i < n; i++){ const p = a0 + (a1-a0)*i/n, q = a0 + (a1-a0)*(i+1)/n;
+  lineSeg(cx + r*Math.sin(p), cz + r*Math.cos(p), cx + r*Math.sin(q), cz + r*Math.cos(q)); } }
+const IN = HL - LW/2, SX = HW - LW/2;                        // centre of the goal lines and touchlines
+stripe(-SX, 0, LW, 2*HL); stripe(SX, 0, LW, 2*HL);           // touchlines
+stripe(0, 0, 2*HW, LW);                                      // halfway line
+arc(0, 0, 9.15 - LW/2, 0, 2*Math.PI, 64);                    // centre circle
+stripe(0, 0, 0.24, 0.24);                                    // centre mark
+[-1, 1].forEach(d => {                                       // d = -1: the end we attack; +1: our end
+  const gl = d*IN, inward = -d;                              // the goal line, and the way into the pitch
+  stripe(0, gl, 2*HW, LW);                                   // goal line
+  const box = (half, depth) => {                             // an area: its front line and its two sides
+    const zf = d*HL + inward*(depth - LW/2), zm = d*HL + inward*depth/2;
+    stripe(0, zf, 2*half, LW);
+    stripe(-(half - LW/2), zm, LW, depth); stripe(half - LW/2, zm, LW, depth);
+  };
+  box(3.66 + 16.5, 16.5);                                    // penalty area: 40.32 x 16.5
+  box(3.66 + 5.5, 5.5);                                      // goal area: 18.32 x 5.5
+  const spot = d*HL + inward*11;
+  stripe(0, spot, 0.24, 0.24);                               // penalty mark, 11 m
+  const lim = Math.acos((16.5 - 11)/9.15);                   // the arc: 9.15 m from the mark, outside the area only
+  arc(0, spot, 9.15 - LW/2, d < 0 ? -lim : Math.PI - lim, d < 0 ? lim : Math.PI + lim, 20);
+  [-1, 1].forEach(sx => {                                    // corner arcs, 1 m
+    const a = Math.atan2(-sx, inward);
+    arc(sx*SX, gl, 1 - LW/2, a - Math.PI/4, a + Math.PI/4, 8);
+  });
+});
 
-/* The goal itself — the single best reference he has for judging
-   how far up the pitch everything is. */
+/* The goals — the best reference he has for judging how far up the pitch everything is,
+   and which way he is facing. */
 function netTexture(rx, ry){
   const c = document.createElement('canvas'); c.width = c.height = 64;
   const g = c.getContext('2d');
@@ -1826,22 +1843,22 @@ function netPanel(w, h, rx, ry){
     map: netTexture(rx,ry), transparent:true, opacity:0.5,
     side: THREE.DoubleSide, depthWrite:false }));
 }
-const GOAL_Z = -52.5, GOAL_D = 2.1, POST = 3.66, BAR = 2.44;
+const GOAL_Z = -HL, GOAL_D = 2.0, POST = 3.66, BAR = 2.44, PR = 0.06;   // 7.32 between the posts, 2.44 under the bar, 12 cm frame
 const frameMat = new THREE.MeshLambertMaterial({ color: 0xf5f8f3 });
-[-POST, POST].forEach(px => {
-  const post = new THREE.Mesh(new THREE.CylinderGeometry(0.11,0.11,BAR,10), frameMat);
-  post.position.set(px, BAR/2, GOAL_Z); scene.add(post);
-});
-const crossbar = new THREE.Mesh(new THREE.CylinderGeometry(0.11,0.11,POST*2+0.22,10), frameMat);
-crossbar.rotation.z = Math.PI/2; crossbar.position.set(0, BAR, GOAL_Z); scene.add(crossbar);
-
-const netBack = netPanel(POST*2, BAR, 8, 3);
-netBack.position.set(0, BAR/2, GOAL_Z - GOAL_D); scene.add(netBack);
-const netTop = netPanel(POST*2, GOAL_D, 8, 2);
-netTop.rotation.x = -Math.PI/2; netTop.position.set(0, BAR, GOAL_Z - GOAL_D/2); scene.add(netTop);
-[-POST, POST].forEach(px => {
-  const side = netPanel(GOAL_D, BAR, 2, 3);
-  side.rotation.y = Math.PI/2; side.position.set(px, BAR/2, GOAL_Z - GOAL_D/2); scene.add(side);
+[-1, 1].forEach(d => {
+  const gz = d*(HL - PR), back = d;                          // the frame sits on the goal line; the net behind it
+  [-1, 1].forEach(sx => {
+    const post = new THREE.Mesh(new THREE.CylinderGeometry(PR, PR, BAR + 2*PR, 12), frameMat);
+    post.position.set(sx*(POST + PR), (BAR + 2*PR)/2, gz); scene.add(post);
+  });
+  const crossbar = new THREE.Mesh(new THREE.CylinderGeometry(PR, PR, 2*(POST + 2*PR), 12), frameMat);
+  crossbar.rotation.z = Math.PI/2; crossbar.position.set(0, BAR + PR, gz); scene.add(crossbar);
+  const nb = netPanel(POST*2, BAR, 8, 3); nb.position.set(0, BAR/2, d*(HL + GOAL_D)); scene.add(nb);
+  const nt = netPanel(POST*2, GOAL_D, 8, 2); nt.rotation.x = -Math.PI/2; nt.position.set(0, BAR, d*(HL + GOAL_D/2)); scene.add(nt);
+  [-1, 1].forEach(sx => {
+    const sd = netPanel(GOAL_D, BAR, 2, 3);
+    sd.rotation.y = Math.PI/2; sd.position.set(sx*POST, BAR/2, d*(HL + GOAL_D/2)); scene.add(sd);
+  });
 });
 
 const actors = new THREE.Group(); scene.add(actors);
@@ -1871,7 +1888,7 @@ function place(kind, ox, oz, s, moveOx, moveOz, tag, opt){
   let mps = opt.mps === undefined ? speed * CFG.mps.sprint : opt.mps;
   if (mps < 1.2) mps = 0;                                  // slower than a walk: he holds his position
   if (opt.pre === undefined) opt.pre = mps >= 2.4 ? 1.4 : (mps >= 1.2 ? 1.3 : 0);
-  const p = makePlayer(kind === 'own' ? CFG.colors.own : CFG.colors.opp, mps,
+  const p = makePlayer(opt.color || (kind === 'own' ? CFG.colors.own : CFG.colors.opp), mps,
     { skin: pick(SKINS), hair: pick(HAIRS), boot: pick(BOOTS), back: !!opt.backpedal, pre: opt.pre });
 
   const wa = opt.watchAt || [0,0];
@@ -1930,6 +1947,8 @@ function setPhase(k, tSec){
   });
 }
 
+const GK_COL = { OGK: 0xf5d42a, TGK: 0x9b5de5 };                       // our keeper yellow, theirs purple
+const GK_CSS = { OGK: '#f5d42a', TGK: '#9b5de5' };
 function buildScene(s){
   while (actors.children.length) actors.remove(actors.children[0]);
   placed = []; passerRig = null; ACT = {};
@@ -1937,7 +1956,7 @@ function buildScene(s){
   Object.keys(s.T.tr).forEach(id => {
     const own = !!s.ev[0].sh.own[id], kind = (id === 'TGK' || id === 'OGK') ? 'gk' : own ? 'own' : 'opp';
     const p0 = s.T.tr[id][0];
-    place(kind, p0[1] - s.wingX, p0[2] - s.zBase, s, p0[1] - s.wingX, p0[2] - s.zBase - 1, null, { speed: 0.6, mps: 3.47, pre: 0 });
+    place(kind, p0[1] - s.wingX, p0[2] - s.zBase, s, p0[1] - s.wingX, p0[2] - s.zBase - 1, null, { speed: 0.6, mps: 3.47, pre: 0, color: GK_COL[id] });
     const e = placed[placed.length - 1]; e.custom = true; ACT[id] = e;
   });
   const bl = new THREE.Mesh(new THREE.SphereGeometry(0.115, 24, 16), LOOK.ballMaterial());
@@ -1963,7 +1982,7 @@ function buildRadar(s){
   LANES.forEach(x => svgEl('line', { x1: x, y1: -52.5, x2: x, y2: 52.5, stroke: '#fff', 'stroke-width': .4, 'stroke-dasharray': '2 1.6', opacity: .45 }, g));
   const dots = {};
   Object.keys(s.T.tr).forEach(id => {
-    const own = !!s.ev[0].sh.own[id], col = (id === 'TGK' || id === 'OGK') ? '#e7b93a' : own ? '#5aa9ff' : '#ff5a3c';
+    const own = !!s.ev[0].sh.own[id], col = GK_CSS[id] ? GK_CSS[id] : own ? '#5aa9ff' : '#ff5a3c';
     dots[id] = svgEl('circle', { r: 1.9, fill: col, stroke: own ? '#fff' : '#300', 'stroke-width': .35 }, g);
   });
   const me = svgEl('circle', { cx: s.side*s.start[0], cy: s.start[1], r: 2.2, fill: 'none', stroke: '#5aa9ff', 'stroke-width': .9 }, g);
@@ -2342,7 +2361,7 @@ function drawMap(s, reveal, tap){
   if (showPlayers){
     /* everyone where they were when it froze (on the reveal, with where they were heading) */
     Object.keys(s.T.tr).forEach(id => {
-      const p = P(trackAt(s.T.tr[id], T).p), own = !!s.ev[0].sh.own[id], col = (id === 'TGK' || id === 'OGK') ? '#e7b93a' : own ? '#5aa9ff' : '#ff5a3c';
+      const p = P(trackAt(s.T.tr[id], T).p), own = !!s.ev[0].sh.own[id], col = GK_CSS[id] ? GK_CSS[id] : own ? '#5aa9ff' : '#ff5a3c';
       const gp = own ? fin.own[id] : fin.opp[id];
       if (reveal && gp && id !== last.role && !(s.turn && own)){ const goal = P(gp);     // pressing men are not heading for a shape
         if (Math.hypot(goal[0]-p[0], goal[1]-p[1]) > 2.5)
@@ -2378,7 +2397,7 @@ function drawMap(s, reveal, tap){
     clip['clip-path'] = 'url(#onside)';
     if (!(ref.type === 'line' && ref.label === 'their last defender') && s.ideal[1] - NEAR < s.offLine){
       L('line', { x1: -34, y1: s.offLine, x2: 34, y2: s.offLine, stroke: '#ff8a70', 'stroke-width': .3, 'stroke-dasharray': '1.2 1', opacity: .7 });
-      txt(W === 1 ? -31 : 31, s.offLine, 'OFFSIDE LINE', 1.7, .8, 0, '#ff8a70'); }
+      txt(W === 1 ? 31 : -31, s.offLine, 'OFFSIDE LINE', 1.7, .8, 0, '#ff8a70'); }
   }
   L('circle', Object.assign({ cx: f[0], cy: f[1], r: NEAR, fill: 'none', stroke: '#e7b93a', 'stroke-width': .25, 'stroke-dasharray': '.8 .6', opacity: .7 }, clip));
   L('circle', Object.assign({ cx: f[0], cy: f[1], r: HIT, fill: 'rgba(198,239,47,.14)', stroke: '#c6ef2f', 'stroke-width': .45 }, clip));
