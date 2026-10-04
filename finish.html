@@ -198,7 +198,7 @@ a.iconbtn{text-decoration:none;display:inline-flex;align-items:center;white-spac
       <button data-side="alt" aria-pressed="false">Both</button>
     </div>
     <button class="cta" id="start">Start session</button>
-    <p class="note">16 reps, about six minutes. You have cut inside and are carrying it across the edge of the box. Head up and ask two questions: is anyone blocking my shot &mdash; and if not, which post has the keeper left me? If a defender has stepped out to block you, he has left someone: your 9 in the middle, or your runner down the side of the box. Nobody is ever free in there: someone is sprinting at you and you have about a second. When the shot is on, one shift past his lunge and hit it.</p>
+    <p class="note">16 reps, about six minutes. You have cut inside and are carrying it across the edge of the box. Head up and ask two questions. Is one corner open &mdash; a clear line past every body, about a metre past the nearest leg? Nobody ever sees the whole goal from here; bodies in the way are normal. And is the man closing you set? Still a few metres off: shoot before he arrives. Set but off your line: one touch out of his lunge, then hit it. If a defender has stepped out square in front of you, both corners are shut and he has left someone: your 9 in the middle, or your runner down the side of the box. You have about a second.</p>
   </div>
 
   <div id="panelAsk" class="hide">
@@ -306,11 +306,13 @@ const pick = a => a[Math.floor(Math.random()*a.length)];
    He has cut inside from the right and is carrying the ball across the
    edge of the box. Head up: two questions, in this order.
 
-     Is anyone blocking my shot?
-       no  -> shoot, into the side the keeper has left:
-              keeper cheating to his near post  -> far post
-              keeper shading toward the far one -> near post
-       yes -> whoever stepped out to block left a man:
+     Is one corner open? Nobody ever sees the whole goal from here: there are bodies
+     between the ball and the posts. A shot is on when the line to ONE corner passes a
+     metre or more from the nearest leg, and the man closing him is not set yet (shoot
+     early) or is set but off the line (one touch out of his lunge).
+       far post  -> a body shuts the near side; the keeper is set in the middle
+       near post -> a body covers the far side and the keeper has gone across with him
+     Is a man set square in front of him, shutting both corners? He has left a man:
               their centre-back left your 9      -> square it
               their full-back left your runner   -> reverse ball down the side of the box
 
@@ -434,20 +436,43 @@ function buildCandidate(side, answer){
   const keeper = keeperSpot(W, on === 'near' ? -rand(0.9, 1.25) : on === 'far' ? rand(0, 0.45) : rand(-0.15, 0.3));
 
   /* the rest of their shape */
-  const cbB = drop(taken, gap(() => [rand(-5.5, -3), rand(-48, -46)]), 2.4);
+  /* their other centre-back. When the shot is on he has got across into the line to one
+     corner (6-10 m in front of you), so that corner is shut and the window is the other one;
+     otherwise he is covering deep at the far post */
+  let cbB;
+  if (shotOn){
+    const shut = on === 'far' ? T.near : T.far, Ls = Math.hypot(shut[0]-W[0], shut[1]-W[1]);
+    const us = [(shut[0]-W[0])/Ls, (shut[1]-W[1])/Ls], ps = [-us[1], us[0]];
+    cbB = drop(taken, () => { const d = rand(6, 10.5), lat = rand(-0.35, 0.35); return [W[0] + us[0]*d + ps[0]*lat, W[1] + us[1]*d + ps[1]*lat]; }, 1.5);
+  } else cbB = drop(taken, gap(() => [rand(-5.5, -3), rand(-48, -46)]), 2.4);
   const rb  = drop(taken, () => [farW[0] + rand(0.3, 0.9), farW[1] - rand(0.8, 1.4)], 0.6);
   /* nobody is ever free on the edge of the box: someone is scrambling at him at full speed.
      When the shot is on, he arrives tight (about 2 m) but off the line of it, lunging — one
      shift past him and the shot is there. When someone has stepped out to block, this man
      is a stride behind him. */
-  const sgn = Math.random() < 0.5 ? 1 : -1;
-  const pd = shotOn ? rand(1.7, 2.3) : rand(3.2, 4.2), pa = sgn * (shotOn ? (sgn > 0 ? rand(0.6, 0.95) : rand(0.6, 0.72)) : (sgn > 0 ? rand(0.5, 0.95) : rand(0.5, 0.7)));
+  /* when the shot is on, either he is still 3-4.5 m off and sprinting, coming from the shut
+     side (not set: shoot before he gets there), or he is set about 2 m off you but off the
+     line (one touch out of his lunge, then shoot) */
+  const press = shotOn ? (Math.random() < 0.5 ? 'early' : 'shift') : 'block';
+  const sgn = press === 'early' ? (on === 'far' ? 1 : -1) : (Math.random() < 0.5 ? 1 : -1);
+  const pd = press === 'early' ? rand(3.0, 4.5) : press === 'shift' ? rand(1.7, 2.3) : rand(3.2, 4.2);
+  const pa = press === 'early' ? sgn*rand(0.05, 0.4)
+           : sgn * (press === 'shift' ? (sgn > 0 ? rand(0.6, 0.95) : rand(0.6, 0.72)) : (sgn > 0 ? rand(0.5, 0.95) : rand(0.5, 0.7)));
   const rot = (d, a) => [W[0] + (u[0]*Math.cos(a) - u[1]*Math.sin(a))*d, W[1] + (u[0]*Math.sin(a) + u[1]*Math.cos(a))*d];
   const presser = rot(pd, pa); taken.push(presser);
-  const presserFrom = rot(pd + rand(7, 8.5), pa + sgn*rand(0.1, 0.3));     // sprinting in from 7-8 m further out
+  const presserFrom = rot(pd + (press === 'early' ? rand(4.5, 6) : rand(7, 8.5)), pa + sgn*rand(0.1, 0.3));     // sprinting in from further out
   /* their midfielder, recovering behind him at a sprint */
-  const cm  = drop(taken, gap(() => [W[0] - rand(3.5, 5.5), W[1] + rand(1.5, 3.5)]), 2.4);
-  const cmFrom = [cm[0] - rand(1, 2), cm[1] + rand(6.5, 8)];
+  let cm, cmFrom, cmScreen = false;
+  if (shotOn && typeof Wf === 'undefined' && Math.random() < 0.5){
+    const shut = on === 'far' ? T.near : T.far, Ls = Math.hypot(shut[0]-W[0], shut[1]-W[1]);
+    const us = [(shut[0]-W[0])/Ls, (shut[1]-W[1])/Ls], ps = [-us[1], us[0]], out = on === 'far' ? 1 : -1;   // ps*out: away from the open corner
+    cm = drop(taken, () => { const d = rand(3.6, 5.6), lat = out*rand(0, 0.5); return [W[0] + us[0]*d + ps[0]*lat, W[1] + us[1]*d + ps[1]*lat]; }, 1.5);
+    cmFrom = [cm[0] - ps[0]*out*rand(2.5, 3.5), cm[1] - ps[1]*out*rand(2.5, 3.5) + rand(0.5, 1.5)];   // shuffled across into the line
+    cmScreen = true;
+  } else {
+    cm = drop(taken, gap(() => [W[0] - rand(3.5, 5.5), W[1] + rand(1.5, 3.5)]), 2.4);
+    cmFrom = [cm[0] - rand(1, 2), cm[1] + rand(6.5, 8)];
+  }
 
   const opp = { cbA, lb, cbB, rb, presser, cm, keeper };
   const from = { presser: presserFrom, cm: cmFrom };
@@ -459,6 +484,7 @@ function buildCandidate(side, answer){
     opp: Object.fromEntries(Object.entries(opp).map(([k, p]) => [k, O(p)])),
     blocker: on === 'square' ? 'cbA' : on === 'reverse' ? 'lb' : null,
     from: Object.fromEntries(Object.entries(from).map(([k, p]) => [k, O(p)])), sgn,
+    press, screen: shotOn ? 'cbB' : null, cmScreen, posts: [O([ZONE.post, ZONE.goalZ]), O([-ZONE.post, ZONE.goalZ])],
     intended: answer
   };
 }
@@ -478,6 +504,22 @@ function shotStateAll(s){
   const g = gaps(s);
   return { farLane: lanes[0], nearLane: lanes[1], farGap: g.far, nearGap: g.near };
 }
+/* his shooting window: how far the line to the open corner passes from the nearest body,
+   who shuts the other corner, and how many bodies stand between the ball and the posts */
+function windowOf(s){
+  const shutK = s.on === 'near' ? 'far' : 'near', openK = shutK === 'far' ? 'near' : 'far';
+  const open = s.target[openK], shut = s.target[shutK], [pn, pf] = s.posts;
+  const side = (a, b, p) => (b[0]-a[0])*(p[1]-a[1]) - (b[1]-a[1])*(p[0]-a[0]);
+  const inTri = p => { const d1 = side([0,0], pn, p), d2 = side(pn, pf, p), d3 = side(pf, [0,0], p);
+    return !((d1 < 0 || d2 < 0 || d3 < 0) && (d1 > 0 || d2 > 0 || d3 > 0)); };
+  let clear = 99, by = null, shutD = 99, shutBy = null, inCone = 0;
+  for (const k in s.opp){ if (k === 'keeper') continue; const q = s.opp[k];
+    const d = distToLane(q, [0,0], open); if (d < clear){ clear = d; by = k; }
+    const e = distToLane(q, [0,0], shut); if (e < shutD){ shutD = e; shutBy = k; }
+    if (Math.hypot(q[0], q[1]) > 1.0 && inTri(q)) inCone++; }
+  if (s.screen && distToLane(s.opp[s.screen], [0,0], shut) <= 0.6){ shutBy = s.screen; }   // name the man who got across, not whoever brushes the line
+  return { open: openK, clear, by, shut: shutD, shutBy, inCone, closer: Math.hypot(s.opp.presser[0], s.opp.presser[1]) };
+}
 function passState(s, k){
   const tgt = s.target[k], blk = s.blocker ? s.opp[s.blocker] : null;
   const others = field(s).filter(q => q !== blk);
@@ -490,9 +532,16 @@ function passState(s, k){
 }
 function sceneOK(s){
   const sh = shotState(s);
-  if (s.blocker ? sh.closerD < 3 : (sh.closerD > 2.4 || sh.closer < 0.9)) return false;   // tight, lunging, but not in the shot
-  if (s.on === 'far'  && !(sh.farLane >= 1.5 && sh.nearLane >= 1.5 && sh.farGap >= sh.nearGap)) return false;
-  if (s.on === 'near' && !(sh.farLane >= 1.5 && sh.nearLane >= 1.5 && sh.nearGap >= sh.farGap*1.6)) return false;
+  if (s.blocker){ if (sh.closerD < 3) return false; }
+  else {
+    const w = windowOf(s);
+    if (s.press === 'early' ? (w.closer < 3.0 || w.closer > 4.6) : (w.closer < 1.6 || w.closer > 2.4)) return false;
+    if (w.clear < 1.0 || w.clear > 2.4) return false;     // a metre past the nearest leg; never a wide-open goal
+    if (w.shut > 0.6) return false;                       // the other corner really is shut by a body
+    if (w.inCone < 1 || w.inCone > 3) return false;       // bodies between the ball and the posts, as there always are
+    if (s.on === 'far'  && !(sh.farGap >= sh.nearGap)) return false;
+    if (s.on === 'near' && !(sh.nearGap >= sh.farGap*1.2)) return false;
+  }
   if (s.blocker && !(sh.farLane <= 0.6 && sh.nearLane <= 0.6)) return false;          // the shot really is blocked
   for (const k of ['square', 'reverse']){
     const st = passState(s, k);
@@ -511,7 +560,7 @@ function inPlay(s){
   const blk = s.blocker ? s.opp[s.blocker] : null;
   if (field(s).some(q => q !== blk && q !== s.opp.presser && distToLane(q, s.recv, [0,0]) < 2.2)) return false;   // the man closing him is allowed to be on him
   const must = [s.nine, s.runner, s.target.square, s.target.reverse, s.target.far, s.target.near, s.opp.keeper, s.opp.cbA, s.opp.lb, s.opp.presser];
-  return must.every(p => inArc(p, LOOK_DEG, ARC_SAFE));
+  return must.concat(s.screen ? [s.opp[s.screen]] : []).every(p => inArc(p, LOOK_DEG, ARC_SAFE));
 }
 function makeScene(side, answer){
   let last = null;
@@ -535,20 +584,39 @@ const FB = s => s.side === 1 ? 'left-back' : 'right-back';
 function scoreScene(s){
   const fb = FB(s), blocked = !!s.blocker;
   const who = s.blocker === 'cbA' ? 'their centre-back' : 'their ' + fb;
-  const ON = {
-    far:     'nobody has got into your shooting lane yet, and their keeper is set square in the middle of his goal. One shift away from the man lunging at you, then far post, low: the default finish, and a save spills into the middle for a tap-in',
-    near:    'nobody has got into your shooting lane yet, and their keeper has taken a step across to read the curler. One shift away from the man lunging at you, then the near post: that gap is now the bigger one',
-    square:  'their centre-back has left your 9 to block your shot — square it, your 9 is free',
-    reverse: 'their ' + fb + ' has stepped inside to block your shot — slip your runner in behind him'
-  };
-  const OFF = {
-    far:     blocked ? who + ' is standing in your shooting lane — it hits him'
-                     : 'their keeper has stepped across to cover the far post — that is the shot he is waiting for',
-    near:    blocked ? who + ' is standing in your shooting lane — it hits him'
-                     : 'their keeper is set and his near post is covered — far post is the bigger target, and a save spills into the middle',
-    square:  'their centre-back is tight on your 9 — the pass gets cut out',
-    reverse: 'their ' + fb + ' is goal-side of your runner — he gets there first'
-  };
+  const NAME = { cbA: 'their centre-back', cbB: 'their other centre-back', lb: 'their ' + fb, rb: 'their far-side full-back', cm: 'their midfielder', presser: 'the man closing you' };
+  const cap = t => t.charAt(0).toUpperCase() + t.slice(1), m = v => v.toFixed(1).replace(/\.0$/, '');
+  let ON, OFF;
+  if (!blocked){
+    const w = windowOf(s), shutBy = NAME[w.shutBy] || 'a defender', by = NAME[w.by] || 'the nearest man';
+    const how = s.press === 'early'
+      ? 'The man closing you is still ' + m(w.closer) + ' m away and not set: hit it now, before he gets there.'
+      : 'The man closing you is set, but off your line: one touch out of his lunge, then hit it.';
+    ON = {
+      far:  cap(shutBy) + ' is in the line to the near post, so that corner is shut. The far corner is your window: the line to it passes ' + m(w.clear) + ' m from ' + by + ', and their keeper is set in the middle, so low into the far corner is beyond his reach. ' + how,
+      near: cap(shutBy) + ' is covering the far corner and their keeper has gone across with him: two of them on the same side. The near post is your window, ' + m(w.clear) + ' m past ' + by + '. ' + how,
+      square: '', reverse: ''
+    };
+    OFF = {
+      far:  cap(shutBy) + ' is in the line to the far corner and their keeper has gone across behind him: that corner is shut twice over',
+      near: cap(shutBy) + ' is standing in the line to the near post: it hits him',
+      square:  'you had a shooting window: their centre-back is still tight on your 9, so the pass gets cut out',
+      reverse: 'you had a shooting window: their ' + fb + ' is goal-side of your runner, so he gets there first'
+    };
+  } else {
+    const d = m(Math.hypot(s.opp[s.blocker][0], s.opp[s.blocker][1]));
+    ON = {
+      far: '', near: '',
+      square:  'their centre-back has stepped out square in front of you, ' + d + ' m off, so both corners are shut. He has left your 9: square it',
+      reverse: 'their ' + fb + ' has stepped inside, square in front of you, ' + d + ' m off, so both corners are shut. He has left your runner: slip him in behind'
+    };
+    OFF = {
+      far:  who + ' is set square in front of you, ' + d + ' m off: both corners are shut, it hits him',
+      near: who + ' is set square in front of you, ' + d + ' m off: both corners are shut, it hits him',
+      square:  'their centre-back is tight on your 9: the pass gets cut out',
+      reverse: 'their ' + fb + ' is goal-side of your runner: he gets there first'
+    };
+  }
   const list = OPTIONS.map(o => {
     const tier = o.id === s.on ? 3 : 0;
     return { id: o.id, label: o.label, tier, v: 1 + tier, why: [tier ? ON[o.id] : OFF[o.id]] };
@@ -1351,8 +1419,8 @@ function drawPath3D(s){
       m.position.set(a[0] + dx/L*(d + 0.27), 0.05, a[1] + dz/L*(d + 0.27)); m.rotation.y = yaw; pathGroup.add(m); } };
   const r = recvPoint(s.intended, s);
   let start = [0, 0];
-  if (!s.blocker){
-    /* one shift, away from the man lunging at him, then the shot */
+  if (!s.blocker && s.press !== 'early'){
+    /* one shift, away from the man lunging at him, then the shot (not set yet: no touch, hit it) */
     const p = s.opp.presser, L = Math.hypot(p[0], p[1]) || 1;
     const t = Math.hypot(r[0], r[1]) || 1, side = [-r[1]/t, r[0]/t], away = (side[0]*p[0] + side[1]*p[1]) > 0 ? -1 : 1;
     start = [side[0]*away*1.3 + r[0]/t*0.5, side[1]*away*1.3 + r[1]/t*0.5];
@@ -1552,15 +1620,15 @@ function buildScene(s){
   /* the keeper: watch him shift, that shift is the answer when nobody blocks */
   const kFrom = [O.keeper[0] - (s.wingX + O.keeper[0])*0.55, O.keeper[1]];
   mover('gk', O.keeper, kFrom,
-    s.on === 'far' ? 'their keeper · cheating to his near post'
-  : s.on === 'near' ? 'their keeper · shading to his far post' : 'their keeper', ball);
+    s.on === 'far' ? 'their keeper · set in the middle'
+  : s.on === 'near' ? 'their keeper · gone across with his centre-back' : 'their keeper', ball);
 
   /* the rest */
   mover('opp', O.presser, s.from.presser,
-    s.blocker ? 'closing you down · a stride behind' : 'scrambling at you · lunging, not in your shot yet', ball);
-  mover('opp', O.cbB, [O.cbB[0] - 1.2, O.cbB[1] + 3.5], null, ball);          // everyone scrambling goal-side
+    s.blocker ? 'closing you down · a stride behind' : s.press === 'early' ? 'sprinting at you · not set yet' : 'set on you · but off your line', ball);
+  mover('opp', O.cbB, [O.cbB[0] - 1.2, O.cbB[1] + 3.5], s.screen ? 'their other centre-back · in the line to the ' + (s.on === 'far' ? 'near' : 'far') + ' post' : null, ball);          // everyone scrambling goal-side
   mover('opp', O.rb, [O.rb[0] - 0.8, O.rb[1] + 4.0], null, ball);
-  mover('opp', O.cm, s.from.cm, 'their midfielder · sprinting back', ball);
+  mover('opp', O.cm, s.from.cm, s.cmScreen ? 'their 6 · screening the edge of the box' : 'their midfielder · sprinting back', ball);
 
   const bl = new THREE.Mesh(new THREE.SphereGeometry(0.115, 24, 16), LOOK.ballMaterial());
   bl.castShadow = true;
