@@ -1922,14 +1922,22 @@ function place(kind, ox, oz, s, moveOx, moveOz, tag, opt){
   const W = s.wingX || CFG.wingX;
   const x = s.side*(W + ox), z = s.zBase + oz;      // where he ENDS the look
   let mps = opt.mps === undefined ? speed * CFG.mps.sprint : opt.mps;
-  if (mps < 1.2) mps = 0;                                  // slower than a walk: he holds his position
+  /* Nobody at this level stands still while the ball is live. Slower than a walk would look like
+     slow-motion skating, so he adjusts at a real walk (1.3-1.7 m/s) instead: along his own line if he
+     has one, otherwise toward the ball. Only the keeper and a man told to hold (feet set) stay put. */
+  let driftToBall = false;
+  if (kind !== 'gk' && !opt.hold && mps < 1.3){
+    if (speed <= 0.05 || Math.hypot(moveOx - ox, moveOz - oz) < 0.05) driftToBall = true;
+    mps = 1.3 + Math.random()*0.4;
+  }
+  if (opt.hold) mps = 0;
   if (opt.pre === undefined) opt.pre = mps >= 2.4 ? 1.4 : (mps >= 1.2 ? 1.3 : 0);
   const p = makePlayer(opt.color || (kind === 'own' ? CFG.colors.own : CFG.colors.opp), mps,
     { skin: pick(SKINS), hair: pick(HAIRS), boot: pick(BOOTS), back: !!opt.backpedal, pre: opt.pre });
 
   const wa = opt.watchAt || [0,0];
   const toRec = Math.atan2(s.side*(W + wa[0]) - x, (s.zBase + wa[1]) - z);
-  const moveYaw = speed > 0.05
+  const moveYaw = !driftToBall && speed > 0.05
     ? Math.atan2(s.side*(W + moveOx) - x, (s.zBase + moveOz) - z)
     : toRec;
   /* A backpedalling defender travels one way and faces another: chest stays

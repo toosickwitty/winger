@@ -648,6 +648,59 @@ function plan(s, tap){
   } else key('LB', [[0, ...s.LB]]);
   key('M6', (s.kase === 'pocket' || stay) ? [[0, s.M6[0] - 1, s.M6[1] - 2], [s.t_pass - 1100, s.M6[0] - 1, s.M6[1] - 2], [s.t_pass - 600, ...s.M6]] : [[0, ...s.M6]]);
 
+  /* Nobody at this level stands still while the ball is live. Before the pass, everyone off the
+     ball is already adjusting at a walk into the spot the pass finds him in. Whoever holds his
+     ground shuffles across with the ball, sideways only, so the height of their line (and with
+     it offside) is exactly as it was. And once the move is decided, they keep going.
+     Every rep is still checked against these tracks (both passes on, the run in stride). */
+  {
+    const WALK = 1.3, SHUF = 0.8, tFar = s.t_pass + 7000, toward = Math.sign(s.Brecv[0]);
+    const pair = s.cbFollows || s.kase === 'set';            // their centre-back on the second man: he moves with him, not on his own
+    for (const id of ['CBf', 'RB', 'farW', 'eight', 'LB', 'CBn', 'M6', 'M8']){
+      if (id === 'CBn' && pair) continue;
+      const k = tr[id]; if (!k || !k.length) continue;
+      const p = [k[0][1], k[0][2]];
+      if (k.length === 1){                                   // held his ground the whole clip
+        const sx = Math.sign(s.Brecv[0] - p[0]) || toward || 1, pre = WALK*Math.min(s.t_pass, 3000)/1000;
+        const mid = s.t_recv + 900, a = SHUF*(mid - s.t_pass)/1000;
+        tr[id] = [[0, p[0] - sx*pre, p[1]], [s.t_pass, p[0], p[1]], [mid, p[0] + sx*a, p[1]], [tFar, p[0] + sx*(a + 0.9*(tFar - mid)/1000), p[1]]];
+        continue;
+      }
+      const hold = Math.hypot(k[1][1] - p[0], k[1][2] - p[1]) < 0.05 ? k[1][0] : 0;
+      const nx = k[hold ? 2 : 1];
+      let u = null;
+      if (nx){ const dx = nx[1] - p[0], dz = nx[2] - p[1], L = Math.hypot(dx, dz); if (L > 0.3) u = [dx/L, dz/L]; }
+      if (!u) u = [Math.sign(s.Brecv[0] - p[0]) || 1, 0];
+      if (hold > 300){ const a = WALK*Math.min(hold, 3000)/1000; k[0] = [0, p[0] - u[0]*a, p[1] - u[1]*a]; }
+      const last = k[k.length - 1], prev = k[k.length - 2];
+      const dx = last[1] - prev[1], dz = last[2] - prev[2], dl = Math.hypot(dx, dz);
+      const w = dl > 0.2 ? [dx/dl, dz/dl] : u;
+      if (last[0] < tFar) k.push([tFar, last[1] + w[0]*0.9*(tFar - last[0])/1000, last[2] + w[1]*0.9*(tFar - last[0])/1000]);
+    }
+    /* the man closing the first man: he comes in from further out, and once the ball has gone
+       past him he turns and chases it toward the second man */
+    { const k = tr.P, p = [k[0][1], k[0][2]], e = k[k.length - 1], d0 = d2(p, s.A) || 1;
+      if (k.length > 1 && k[1][0] > 300){ const a = 1.6*Math.min(k[1][0], 3000)/1000; k[0] = [0, p[0] - (s.A[0]-p[0])/d0*a, p[1] - (s.A[1]-p[1])/d0*a]; }
+      const db = d2([e[1], e[2]], s.Brecv) || 1, t0 = Math.max(e[0], s.t_pass + 250);
+      if (t0 < tFar){ if (t0 > e[0]) k.push([t0, e[1], e[2]]); k.push([tFar, e[1] + (s.Brecv[0]-e[1])/db*Math.min(db - 3, 2.2*(tFar - t0)/1000), e[2] + (s.Brecv[1]-e[2])/db*Math.min(db - 3, 2.2*(tFar - t0)/1000)]); } }
+    /* the second man checks: he has come short into the spot he drops from, at a walk (and the
+       man tight on him came with him) */
+    { const tD = tr.B[1][0], a = 1.3*Math.min(tD, 2500)/1000;
+      if (tD > 300){ tr.B[0] = [0, s.B0[0], s.B0[1] - a];
+        if (pair && tr.CBn && tr.CBn.length){ const c = tr.CBn[0]; tr.CBn[0] = [0, c[1], c[2] - a]; if (tr.CBn.length === 1) tr.CBn.push([tD, c[1], c[2]]); } } }
+    /* the second man, once he has laid it off, spins and follows the play forward */
+    if (!stay){ const t0 = s.t_recv + 500; tr.B.push([t0, ...s.Brecv], [tFar, s.Brecv[0], s.Brecv[1] - 1.5*(tFar - t0)/1000]); }
+    /* the first man has carried it a few metres before he plays it */
+    s._aPre = [0, 1.5*Math.min(s.t_pass, 2000)/1000];
+    tr.A[0] = [0, s.A[0] + s._aPre[0], s.A[1] + s._aPre[1]];
+    if (tr.A.length === 1) tr.A.push([s.t_pass, ...s.A]);
+    /* their keeper moves across with the ball */
+    { const k0 = tr.keeper[0], sx = Math.sign(s.Brecv[0] - k0[1]) || 1;
+      tr.keeper = [[0, k0[1] - sx*1.0, k0[2]], [s.t_pass, k0[1], k0[2]], [tFar, k0[1] + sx*0.8, k0[2]]]; }
+    /* the first man, once he has played it and stayed, follows the play at a walk */
+    if (!s.overlap && tr.A.length === 2){ const d = d2(s.A, s.Brecv) || 1, t0 = s.t_pass + 300;
+      tr.A = [tr.A[0], [s.t_pass, ...s.A], [t0, ...s.A], [tFar, s.A[0] + (s.Brecv[0]-s.A[0])/d*1.3*(tFar - t0)/1000, s.A[1] + (s.Brecv[1]-s.A[1])/d*1.3*(tFar - t0)/1000]]; }
+  }
   /* him */
   let me = [[0, ...s.W]], arrive = null;
   if (tap){
@@ -656,7 +709,7 @@ function plan(s, tap){
     me = [[0, ...s.W], [tap.t, ...s.W], [arrive, ...z]];
   }
   let t_lay = null, result, stealer = null, intercept = null, offside = false;
-  const ball = [[0, s.A[0] - 0.4, s.A[1] - 0.5], [s.t_pass, s.A[0] - 0.4, s.A[1] - 0.5], [s.t_recv, ...s.Brecv]];
+  const ball = [[0, s.A[0] - 0.4 + s._aPre[0], s.A[1] - 0.5 + s._aPre[1]], [s.t_pass, s.A[0] - 0.4, s.A[1] - 0.5], [s.t_recv, ...s.Brecv]];   // at his feet as he carries it
   let tEnd;
 
   if (stay){
@@ -1677,14 +1730,22 @@ function place(kind, ox, oz, s, moveOx, moveOz, tag, opt){
   const W = s.wingX || CFG.wingX;
   const x = s.side*(W + ox), z = s.zBase + oz;      // where he ENDS the look
   let mps = opt.mps === undefined ? speed * CFG.mps.sprint : opt.mps;
-  if (mps < 1.2) mps = 0;                                  // slower than a walk: he holds his position
+  /* Nobody at this level stands still while the ball is live. Slower than a walk would look like
+     slow-motion skating, so he adjusts at a real walk (1.3-1.7 m/s) instead: along his own line if he
+     has one, otherwise toward the ball. Only the keeper and a man told to hold (feet set) stay put. */
+  let driftToBall = false;
+  if (kind !== 'gk' && !opt.hold && mps < 1.3){
+    if (speed <= 0.05 || Math.hypot(moveOx - ox, moveOz - oz) < 0.05) driftToBall = true;
+    mps = 1.3 + Math.random()*0.4;
+  }
+  if (opt.hold) mps = 0;
   if (opt.pre === undefined) opt.pre = mps >= 2.4 ? 1.4 : (mps >= 1.2 ? 1.3 : 0);
   const p = makePlayer(kind === 'own' ? CFG.colors.own : CFG.colors.opp, mps,
     { skin: pick(SKINS), hair: pick(HAIRS), boot: pick(BOOTS), back: !!opt.backpedal, pre: opt.pre });
 
   const wa = opt.watchAt || [0,0];
   const toRec = Math.atan2(s.side*(W + wa[0]) - x, (s.zBase + wa[1]) - z);
-  const moveYaw = speed > 0.05
+  const moveYaw = !driftToBall && speed > 0.05
     ? Math.atan2(s.side*(W + moveOx) - x, (s.zBase + moveOz) - z)
     : toRec;
   /* A backpedalling defender travels one way and faces another: chest stays
