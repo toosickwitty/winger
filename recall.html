@@ -2771,7 +2771,10 @@ function drawRecall(c){
   const g = document.getElementById('world'); if (!g || !c.truth) return;
   const W = c.side, P = p => [W*p[0], p[1]];
   ITEMS.forEach((it, i) => { const t = c.taps[i], tr = P(c.truth[it.key]);
-    svgEl('circle', { cx: tr[0], cy: tr[1], r: HIT, fill: ITEM_COL[it.key], 'fill-opacity': .12, stroke: ITEM_COL[it.key], 'stroke-width': .3, 'stroke-dasharray': '.8 .6' }, g);
+    /* the 5 m tolerance: a thin dashed ring, no fill (a filled white disc read as a giant ball) */
+    svgEl('circle', { cx: tr[0], cy: tr[1], r: HIT, fill: 'none', stroke: ITEM_COL[it.key], 'stroke-width': .22, 'stroke-dasharray': '.7 .7', opacity: .75 }, g);
+    { const e = svgEl('text', { x: -tr[1], y: tr[0] + (W === 1 ? -HIT - 0.9 : HIT + 2.2), 'font-size': 1.7, 'text-anchor': 'middle', fill: ITEM_COL[it.key], opacity: .95 }, document.getElementById('world').parentNode);
+      e.textContent = it.key === 'ball' ? 'BALL' : it.key === 'opp' ? 'NEAREST OPPONENT' : 'NEAREST TEAM-MATE'; }
     if (!t) return;
     markTap(t, it.key);
     svgEl('line', { x1: t[0], y1: t[1], x2: tr[0], y2: tr[1], stroke: ITEM_COL[it.key], 'stroke-width': .25, 'stroke-dasharray': '.6 .5', opacity: .8 }, g);
