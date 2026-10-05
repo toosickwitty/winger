@@ -52,10 +52,16 @@ a.card:active{background:#1d3c27}
 .note p{margin:0 0 10px}
 .note p:last-child{margin:0}
 
-.jump{display:flex;flex-wrap:wrap;gap:7px;margin:-10px 0 26px}
-.jump a{font-family:'Barlow Condensed',sans-serif;font-size:14px;letter-spacing:.11em;text-transform:uppercase;
-  color:var(--go);text-decoration:none;border:1px solid var(--line);border-radius:5px;padding:5px 11px}
-.jump a:active{background:#1d3c27}
+.menu{display:grid;gap:12px;margin:0 0 26px}
+.menu a{display:block;text-decoration:none;color:inherit;background:var(--card);border:1px solid var(--line);border-radius:12px;padding:18px 18px 16px}
+.menu a:active{background:#1d3c27}
+.mname{display:block;font-family:'Barlow Condensed',sans-serif;font-size:26px;letter-spacing:.1em;text-transform:uppercase;color:var(--go);line-height:1}
+.msub{display:block;color:var(--dim);font-size:14px;line-height:1.5;margin-top:7px}
+.pos{display:none}
+body.in .menu{display:none}
+body.in .pos.open{display:block}
+.back{display:inline-flex;align-items:center;gap:6px;font-family:'Barlow Condensed',sans-serif;font-size:15px;letter-spacing:.11em;text-transform:uppercase;color:var(--go);text-decoration:none;margin:0 0 14px}
+.back:active{opacity:.7}
 .pos{margin-bottom:30px;scroll-margin-top:16px}
 .poshead{display:flex;flex-direction:column;gap:4px;border-bottom:1px solid var(--line);padding-bottom:10px;margin-bottom:14px}
 .posname{font-family:'Barlow Condensed',sans-serif;font-weight:600;font-size:22px;letter-spacing:.14em;text-transform:uppercase;color:var(--go)}
@@ -65,13 +71,19 @@ a.card:active{background:#1d3c27}
 
 <div class="wrap">
   <h1 class="mark">Winger<span>.</span></h1>
-  <p class="tag">Thirteen decision drills, played from the player's own eye level, grouped by position. Pick a side, watch a
+  <p class="tag">Fifteen decision drills, played from the player's own eye level. Pick your position, then a drill: a side, a
      moment of live play, then choose. The winger drills track the left and right wing separately, so a
      weaker side shows up on its own.</p>
 
-  <nav class="jump"><a href="#winger">Winger</a><a href="#cam">Attacking mid</a><a href="#nine">Striker &amp; false 9</a><a href="#all">Every position</a></nav>
+  <nav class="menu" id="menu">
+    <a href="#winger" data-sec="winger"><span class="mname">Winger</span><span class="msub">Receiving, the pocket, the byline, the box &middot; 9 drills</span></a>
+    <a href="#cam" data-sec="cam"><span class="mname">Attacking midfielder</span><span class="msub">The 8 and the 10, between the lines &middot; 3 drills</span></a>
+    <a href="#nine" data-sec="nine"><span class="mname">Striker &amp; false 9</span><span class="msub">On the last line, or dropping off it &middot; 1 drill</span></a>
+    <a href="#all" data-sec="all"><span class="mname">Every position</span><span class="msub">Vision and the picture in the head &middot; 2 drills</span></a>
+  </nav>
 
   <section class="pos" id="winger">
+    <a class="back" href="#">&lsaquo; All positions</a>
     <div class="poshead"><span class="posname">Winger</span><span class="possub">Wide, in a 4-3-3: receiving on the touchline, the pocket, the byline, the box.</span></div>
   <a class="card" href="shoulder.html">
     <div class="row"><span class="name">Shoulder</span><span class="kind">Receiving from the back</span></div>
@@ -214,7 +226,34 @@ a.card:active{background:#1d3c27}
   </section>
 
   <section class="pos" id="cam">
+    <a class="back" href="#">&lsaquo; All positions</a>
     <div class="poshead"><span class="posname">Attacking midfielder</span><span class="possub">The 8 and the 10: between the lines, in the half-space, the interior of a 4-3-3.</span></div>
+  <a class="card" href="pared.html">
+    <div class="row"><span class="name">Pared</span><span class="kind">Pass, then where?</span></div>
+    <p class="desc">You are the 8, ball at your feet, and you play it into your 9, your 10 or your winger. While it travels, call where you go: give and go (<i>pared</i>), hold the angle, drag your marker away for the third man, or drop for the bounce. The read is the man on his back, the man on yours (a look over the inside shoulder) and whether a second man is closing him.</p>
+    <div class="meta">
+      <span class="pill">Call as you pass</span>
+      <span class="pill">16 reps</span>
+      <span class="pill">Left or right</span>
+    </div>
+    <div class="go">Start
+      <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2"
+           stroke-linecap="round" stroke-linejoin="round"><path d="M3 8h10M9 4l4 4-4 4"/></svg>
+    </div>
+  </a>
+  <a class="card" href="third8.html">
+    <div class="row"><span class="name">Third Man 8</span><span class="kind">The interior&rsquo;s run</span></div>
+    <p class="desc">Third Man from the 8&rsquo;s spot. Your 6, centre-back or full-back plays it into your 9, your 10 or your winger; tap the space you run into the moment you go: the channel inside their full-back, the gap your 9 opened, the pocket in front of a deep line, or onto the set. Free to turn? Hold your angle.</p>
+    <div class="meta">
+      <span class="pill">One tap: where + when</span>
+      <span class="pill">16 reps</span>
+      <span class="pill">Phone sideways</span>
+    </div>
+    <div class="go">Start
+      <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2"
+           stroke-linecap="round" stroke-linejoin="round"><path d="M3 8h10M9 4l4 4-4 4"/></svg>
+    </div>
+  </a>
   <a class="card" href="interior.html">
     <div class="row"><span class="name">Interior</span><span class="kind">Off the ball, from the 8</span></div>
     <p class="desc">Shape, from the attacking midfielder&rsquo;s spot: the right interior of a 4-3-3. Come short
@@ -234,6 +273,7 @@ a.card:active{background:#1d3c27}
   </section>
 
   <section class="pos" id="nine">
+    <a class="back" href="#">&lsaquo; All positions</a>
     <div class="poshead"><span class="posname">Striker &amp; false 9</span><span class="possub">On the last line pinning centre-backs, or dropping off them into the gap.</span></div>
   <a class="card" href="nine.html">
     <div class="row"><span class="name">Nine</span><span class="kind">Striker &amp; false 9</span></div>
@@ -254,6 +294,7 @@ a.card:active{background:#1d3c27}
   </section>
 
   <section class="pos" id="all">
+    <a class="back" href="#">&lsaquo; All positions</a>
     <div class="poshead"><span class="posname">Every position</span><span class="possub">Vision and the picture in the head. Play these whatever shirt you are in.</span></div>
   <a class="card" href="snap.html">
     <div class="row"><span class="name">Snap</span><span class="kind">Breaking the lines</span></div>
@@ -296,3 +337,15 @@ a.card:active{background:#1d3c27}
     <p>Needs an internet connection to load.</p>
   </div>
 </div>
+<script>
+(function(){
+  const secs = ['winger','cam','nine','all'];
+  function route(){
+    const id = location.hash.replace('#','');
+    document.querySelectorAll('.pos').forEach(p => p.classList.toggle('open', p.id === id));
+    document.body.classList.toggle('in', secs.includes(id));
+    if (secs.includes(id)) window.scrollTo(0, 0);
+  }
+  addEventListener('hashchange', route); route();
+})();
+</script>
