@@ -1820,9 +1820,13 @@ const LOOK = (() => {
     /* the drill sets the height; remember it, so the grown ball still sits on the grass */
     if (b.userData.setY === undefined || Math.abs(b.position.y - b.userData.setY) > 1e-6) b.userData.baseY = b.position.y;
     const d = camera.position.distanceTo(b.position);
-    const k = Math.min(1.5, Math.max(1, d/20));
+    /* far away the ball grows a little so it can still be found, but never past a fifth: at 1.5x
+       with a thick outline it reached the players' knees. The ring under the man on the ball does
+       the finding; the ball itself stays a ball. */
+    const far = Math.min(1, Math.max(0, (d - 15)/25));
+    const k = 1 + 0.2*far;
     b.scale.setScalar(k);
-    b.userData.hull.scale.setScalar(1 + 0.28*Math.min(1, d/20));      // a fine outline up close, a firm one far away
+    b.userData.hull.scale.setScalar(1 + 0.1 + 0.08*far);                 // a fine outline up close, a firmer one far away
     const y = b.userData.baseY < 0.3 ? b.userData.baseY + BALL_R*(k - 1) : b.userData.baseY;
     b.position.y = y; b.userData.setY = y;
   }
