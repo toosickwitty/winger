@@ -3239,9 +3239,12 @@ function seqFrame(s, T){
     o.mesh.position.set(p[0], 0, p[1]); o.ex = p[0]; o.ez = p[1];
     let ya;
     if (id === 'P') ya = Math.atan2(s.u[0], s.u[1]);
-    else if (sp > 1.5) ya = Math.atan2(t.v[0], t.v[1]);
+    else if (sp > 2.2) ya = Math.atan2(t.v[0], t.v[1]);
     else ya = Math.atan2(bt.p[0] - t.p[0], bt.p[1] - t.p[1]);
-    o.mesh.rotation.y = Math.atan2(s.side*Math.sin(ya), Math.cos(ya));
+    /* the heading settles rather than snaps: a man moving slowly keeps facing the ball, and a turn takes a few frames */
+    const yaW = Math.atan2(s.side*Math.sin(ya), Math.cos(ya));
+    if (o.yaw === undefined || Math.abs(T - (o.yawT || 0)) > 400) o.yaw = yaW; else o.yaw += wrapA(yaW - o.yaw)*0.18;
+    o.yawT = T; o.mesh.rotation.y = o.yaw;
     const pg = o.mesh.userData.poseGait;
     if (sp > 0.6){ const name = sp > 2.3 ? 'run' : 'walk'; if (pg) pg(name, t.dist/(name === 'run' ? 3.47 : 1.67)); }
     else if (pg) pg('idle', T/1000);
