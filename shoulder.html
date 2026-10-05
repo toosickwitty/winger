@@ -144,7 +144,7 @@ footer{flex:0 0 auto;border-top:1px solid var(--line);background:var(--turf);col
   body:has(#panelFeedback:not(.hide)) #stage{grid-column:1;grid-row:3}
   body:has(#panelFeedback:not(.hide)) footer{grid-column:2;grid-row:2 / 4;overflow-y:auto;border-top:0;border-left:1px solid var(--line);padding:12px}
 }
-
+.ans .sub b{color:var(--go);font-weight:600}
 @media (orientation:landscape) and (max-height:500px){
   /* a phone on its side: every pixel of height goes to the pitch */
   header{padding:4px 12px;gap:10px} .mark{font-size:17px} .meta{font-size:13px}
@@ -3049,8 +3049,10 @@ const runS = (t, v, a) => { if (t <= 0) return 0; const ta = v/a; return t < ta 
 const runT = (d, v, a) => { const ta = v/a, da = a*ta*ta/2; return d <= da ? Math.sqrt(2*d/a) : ta + (d - da)/v; };
 const RC_BAG = { hold: 4, jump: 7, tight: 5 };                    // every ball is played to him
 const KEY_NAME = { hold: 'holding off', jump: 'jumping to intercept', tight: 'tight on your back', width: 'holding off; the ball was for your full-back' };
-const CALLS = [['open', '●', 'Receive open', 'stay, half-turned, take it facing play'], ['meet', '↓', 'Come to it', 'go and meet the ball'],
-               ['shield', '↑', 'Shield, set it back', 'body between; first time to the man facing play'], ['feint', '⇅', 'Check away, then come', 'drag him, then come short']];
+const CALLS = [['open','●','Receive open','<b>Far and still.</b> Stay, half-turned, take it facing play'],
+               ['meet','↓','Come to it','<b>Far and going.</b> Go and meet the ball, win the race'],
+               ['shield','↑','Shield, set it back','<b>On your back.</b> Body between; first time to the man facing play'],
+               ['feint','⇅','Check away, then come','<b>Close, watching you.</b> Drag him a step, then come short']];
 const CALL_NAME = { open: 'receive open', meet: 'come to it', shield: 'shield and set it back', feint: 'check away, then come' };
 function newBag(){
   const n = CFG.repsPerSession, ids = Object.keys(RC_BAG), tot = ids.reduce((a, k) => a + RC_BAG[k], 0);
@@ -3341,6 +3343,7 @@ function finish(){
   const gcls = { Correct: 't3', Workable: 't1', Incorrect: 't0' };
   row('Call · ' + v.callGrade, gcls[v.callGrade], '<b>Your call: ' + (c.action ? CALL_NAME[c.action] : 'none') + '.</b> ' + v.text);
   row('Scan · ' + v.lookGrade, gcls[v.lookGrade], '<b>Your scans</b> (<i>mirar antes de recibir</i>). ' + v.look);
+  row(null, '', '<b>The cues.</b> Far and still → receive open. Far and going → come to it. On your back → shield, set it back. Close and watching you → check away, then come.');
   row(null, '', '<b>Receiving from the back, the Spanish way.</b> Take the ball half-turned (<i>de perfil</i>) so the first touch goes forward. Man coming from behind: go to the ball (<i>desmarque de apoyo</i>), he cannot get past you to it. Man on your back: receive back to goal and play first time to the man facing play (<i>de espaldas, juega de cara</i>); or drag him with a step away and come short (<i>fintar y salir</i>). Look as it is struck and again as it travels.');
   const nm = v2 => v2.toFixed(1) + ' s';
   row(['Turnover', 'Workable', 'Good', 'Best'][pts], 't' + pts, '<b>The clock</b> (from the strike). He was ' + KEY_NAME[c.key] + (c.key === 'jump' ? ', went at ' + nm(c.ts) : '') + ' · your looks: ' + (c.scans.length ? c.scans.map(nm).join(', ') : 'none') + ' · your call: ' + (c.action ? CALL_NAME[c.action] + ' at ' + nm(c.td) : 'none') + ' · the ball arrived at ' + nm(c.Tb) + '.');
