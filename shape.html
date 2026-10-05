@@ -1464,6 +1464,7 @@ const LOOK = (() => {
                 upLeg: [bn('RightUpLeg'), bn('LeftUpLeg')], leg: [bn('RightLeg'), bn('LeftLeg')] };
     let tNow = 0;
     function apply(){
+      if (passCtl.k !== null){ gaitNow = gaitClip('idle'); tNow = 0; }   // passing: planted, the gait does not play
       sample(tNow);                                    // the captured pose at this instant...
       const wy = upperCtl.rotation.y, wx = upperCtl.rotation.x, hy = headCtl.rotation.y;
       B.spine.forEach(b => { if (wy) b.rotateY(wy/3); if (wx) b.rotateX(wx/3); });   // ...his twist...
@@ -1473,7 +1474,58 @@ const LOOK = (() => {
         if (l.leg.rotation.x)  B.upLeg[i].rotateX(LEGSIGN[0] * l.leg.rotation.x);
         if (l.knee.rotation.x) B.leg[i].rotateX(LEGSIGN[1] * l.knee.rotation.x);
       });
+      if (passCtl.k !== null) applyPass();
     }
+    /* ---- the pass: a real passer's cues, in order, driven by the pass itself ----
+       k: -1 the approach (eyes on the ball, then a glance up at the target, then back down),
+       0 the plant foot lands beside the ball with the toes on the target and the hips open,
+       0.55 the top of the backswing, 0.7 contact, 1 the follow-through, 1.2 settled.
+       o.foot 'R'|'L'; o.power 0..1 (backswing and follow-through); o.open 0..1 (how far the
+       hips open: an inside-foot pass opens, a driven ball stays squarer); o.look 0..1 (how
+       clear the glance at the target is: 0 is a disguised pass, eyes never leave the ball).
+       Every cue is a function of k, so a replay is identical and an occlusion cut is honest. */
+    const passCtl = { k: null, o: {} };
+    /* o.feint -1|0|1: a disguised pass. The glance goes the other way (or, with look 0, never
+       leaves the ball) while the plant foot and the hips still tell the truth: that is what a
+       pro reads through a disguise */
+    const PASS_KF = (pw, open, lk, ft) => ({
+      headY:  [[-1, 0], [-0.75, 0], [-0.55, 1.2*ft], [-0.4, 1.2*ft], [-0.2, 0], [1.2, 0]],
+      headX:  [[-1, 0.4], [-0.75, 0.4], [-0.55, -0.2*lk + 0.4*(1-lk)], [-0.4, -0.2*lk + 0.4*(1-lk)], [-0.2, 0.4], [0.7, 0.45], [1.0, 0.0], [1.2, 0.1]],
+      hipsY:  [[-1, 0], [-0.3, 0], [0, -0.5*open], [0.55, -0.55*open], [0.7, -0.35*open], [1.0, 0.05], [1.2, 0]],
+      spineY: [[-1, 0], [-0.3, 0], [0, 0.3*open], [0.55, 0.35*open], [0.7, 0.2*open], [1.0, -0.05], [1.2, 0]],
+      hipsX:  [[-1, 0.02], [0, 0.08], [0.55, 0.16], [0.7, 0.12], [1.0, -0.04], [1.2, 0.02]],
+      plZ:    [[-1, 0], [-0.3, 0], [0, 0.3], [0.7, 0.3], [1.0, 0.2], [1.2, 0]],
+      plX:    [[-1, 0], [-0.3, 0], [0, 0.28], [0.7, 0.28], [1.0, 0.15], [1.2, 0]],
+      plY:    [[-1, 0], [-0.3, 0], [0, 0.45*open], [0.7, 0.45*open], [1.0, 0.2*open], [1.2, 0]],
+      plKnee: [[-1, 0.1], [0, 0.6], [0.55, 0.7], [0.7, 0.55], [1.0, 0.3], [1.2, 0.1]],
+      kX:     [[-1, 0], [-0.3, 0], [0, -0.45], [0.55, -0.95*pw - 0.25], [0.7, 0.15], [1.0, 0.45*pw + 0.35], [1.2, 0.05]],
+      kKnee:  [[-1, 0.1], [0, 0.4], [0.55, 1.35*pw + 0.3], [0.7, 0.2], [1.0, 0.35], [1.2, 0.1]],
+      kY:     [[-1, 0], [0, 0.1*open], [0.55, 0.25*open], [0.7, 0.75*open], [1.0, 0.5*open], [1.2, 0]],
+      kFoot:  [[-1, 0], [0.55, 0.2], [0.7, -0.35], [1.0, -0.3], [1.2, 0]],
+      armPl:  [[-1, 0.05], [0, 0.55], [0.55, 0.85], [0.7, 0.75], [1.0, 0.4], [1.2, 0.05]],
+      armK:   [[-1, 0.05], [0, 0.2], [0.55, 0.1], [0.7, 0.3], [1.0, 0.5], [1.2, 0.05]],
+      drop:   [[-1, 0], [-0.3, 0], [0, 7], [0.55, 9], [0.7, 7], [1.0, 3], [1.2, 0]],
+      armPlX: [[-1, 0], [0, -0.2], [0.55, -0.5], [0.7, -0.3], [1.0, 0.3], [1.2, 0]]
+    });
+    const PB = { hips: bn('Hips'), head: bn('Head'), up: { Right: bn('RightUpLeg'), Left: bn('LeftUpLeg') }, lo: { Right: bn('RightLeg'), Left: bn('LeftLeg') },
+                 foot: { Right: bn('RightFoot'), Left: bn('LeftFoot') }, arm: { Right: bn('RightArm'), Left: bn('LeftArm') } };
+    function applyPass(){
+      const k = passCtl.k, o = passCtl.o, foot = o.foot || 'R', sg = foot === 'R' ? 1 : -1;
+      const KF = PASS_KF(o.power === undefined ? 0.6 : o.power, o.open === undefined ? 0.6 : o.open, o.look === undefined ? 1 : o.look, o.feint || 0);
+      const K = foot === 'R' ? 'Right' : 'Left', PL = foot === 'R' ? 'Left' : 'Right';
+      const S = (a, b, t) => { t = Math.max(0, Math.min(1, t)); t = t*t*(3 - 2*t); return a + (b - a)*t; };
+      const at = ch => { const kf = KF[ch]; if (k <= kf[0][0]) return kf[0][1];
+        for (let i = 1; i < kf.length; i++) if (k <= kf[i][0]) return S(kf[i-1][1], kf[i][1], (k - kf[i-1][0])/(kf[i][0] - kf[i-1][0]));
+        return kf[kf.length-1][1]; };
+      PB.hips.position.z -= at('drop');
+      PB.head.rotateX(at('headX')); if (KF.headY[2][1]){ const hy = at('headY'); B.neck.rotateY(hy*0.4); PB.head.rotateY(hy*0.6); }
+      PB.hips.rotateY(sg*at('hipsY')); PB.hips.rotateX(at('hipsX'));
+      B.spine.forEach(b => b.rotateY(sg*at('spineY')/3));
+      PB.up[PL].rotateZ(sg*at('plZ')); PB.up[PL].rotateX(at('plX')); PB.up[PL].rotateY(-sg*at('plY')); PB.lo[PL].rotateX(at('plKnee'));
+      PB.up[K].rotateX(at('kX')); PB.lo[K].rotateX(at('kKnee')); PB.up[K].rotateY(sg*at('kY')); PB.foot[K].rotateX(at('kFoot'));
+      PB.arm[PL].rotateZ(-sg*at('armPl')); PB.arm[PL].rotateX(at('armPlX')); PB.arm[K].rotateZ(sg*at('armK'));
+    }
+    P.userData.pass = (k, o) => { passCtl.k = (k === null || k === undefined) ? null : k; if (o) passCtl.o = o; };
     P.userData.head  = headCtl;
     P.userData.upper = upperCtl;
     P.userData.legs  = legs;
@@ -2020,16 +2072,16 @@ const laneLines = new THREE.Group();
 scene.add(laneLines);
 
 /* k runs 0 to 1: he plants, draws the kicking leg back and leans over it */
+/* k runs 0 to 1 up to the strike: the kit plays the real pass (a glance at the target, the plant
+   foot beside the ball, hips open, backswing, contact); after it, the follow-through */
+let windLast = 0;
 function windUp(k){
-  if (!passerRig) return;
-  const draw = Math.max(0, (k - 0.45) / 0.55);
-  const legs = passerRig.userData.legs || [];
-  legs.forEach(({ leg, knee }, i) => {
-    if (i === 0){ leg.rotation.x = -draw*0.75; knee.rotation.x = draw*0.95; }
-    else { leg.rotation.x = draw*0.22; knee.rotation.x = 0.12; }
-  });
-  passerRig.userData.upper.rotation.x = draw*0.16;
-  passerRig.rotation.z = -draw*0.05;
+  if (!passerRig || !passerRig.userData.pass) return;
+  const r = (typeof current !== 'undefined' && current && current.zBase !== undefined) ? ((Math.abs(current.zBase)*7919) % 100)/100 : 0.5;   // disguise: about one rep in four
+  const dis = r < 0.25, feint = r < 0.12 ? (r < 0.06 ? 1 : -1) : 0;
+  if (k > 0){ passerRig.userData.pass(-1 + 1.7*Math.min(1, k), { foot: 'R', power: 0.6, open: 0.7, look: dis ? 0 : 1, feint }); windLast = k >= 1 ? performance.now() : 0; }
+  else { const e = performance.now() - windLast;
+    if (windLast && e < 450) passerRig.userData.pass(0.7 + 0.5*Math.min(1, e/450)); else { windLast = 0; passerRig.userData.pass(null); } }
 }
 
 /* the camera is his eyes: where he stands, and a yaw and pitch for his head */
@@ -2165,6 +2217,21 @@ function planRun(s, spot){
     simEnd += 6000;
   }
 }
+/* where a passer is in his pass at T: k from -1 (900 ms out: eyes on the ball, then the glance)
+   through 0 (the plant, 300 ms out), 0.7 (contact, at the strike) to 1.2 (settled, 500 ms after) */
+const footOf = id => { let h = 0; for (const c of id) h = (h*31 + c.charCodeAt(0)) % 97; return h % 4 === 0 ? 'L' : 'R'; };
+function passPhase(s, id, T){
+  for (let i = 1; i < s.ev.length; i++){
+    if (s.ev[i-1].role !== id) continue;
+    const u = T - s.ev[i].ts;
+    if (u < -900 || u > 500) continue;
+    const k = u <= -300 ? -1 + (u + 900)/600 : u <= 0 ? (u + 300)/300*0.7 : 0.7 + u/500*0.5;
+    const r = ((s.ev[i].ts*7919) % 100)/100;                 // disguise: about one pass in four, fixed per pass
+    const dis = r < 0.25, feint = r < 0.12 ? (r < 0.06 ? 1 : -1) : 0;
+    return { k, o: { foot: footOf(id), power: Math.min(1, s.ev[i].len/26), open: s.ev[i].len > 22 ? 0.35 : 0.7, look: dis ? 0 : 1, feint } };
+  }
+  return { k: null };
+}
 function seqFrame(s, T){
   const wx = p => [s.side*p[0], p[1]];
   let meTL = null;
@@ -2179,6 +2246,7 @@ function seqFrame(s, T){
     /* the body turns at a human rate toward where he is looking to play (worked out per clip);
        the legs do what the feet are doing: run, walk, stand, or step back */
     const ya = s._yaw ? yawAt(s, id, T) : (passFacing(s, id, T) || { a: freeYaw(s, id, T) }).a;
+    if (o.mesh.userData.pass){ const pp = passPhase(s, id, T); o.mesh.userData.pass(pp.k, pp.o); }
     o.mesh.rotation.y = Math.atan2(s.side*Math.sin(ya), Math.cos(ya));
     if (sp > 0.6){
       const back = (Math.sin(ya)*t.v[0] + Math.cos(ya)*t.v[1]) / sp < -0.3;       // moving against the way he faces
