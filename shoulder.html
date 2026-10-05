@@ -3316,6 +3316,12 @@ function verdict(c){
   }
   /* the look: mirar antes de recibir */
   const callGrade = c.late ? 'Incorrect' : tier === 3 ? 'Correct' : tier > 0 ? 'Workable' : 'Incorrect';
+  /* the ladder: what he did decides the call */
+  const LADDER = { hold: ['not moving, ' + m(c.d0) + ' off', 'receive open', 'take it facing play'],
+                   jump: ['launching at ' + nm(c.ts || 0) + ' from ' + m(c.d0) + ' off', 'come to it', 'win the race'],
+                   tight: ['already on your back', 'shield and set it back', 'keep the ball'],
+                   width: ['not moving, and the ball was for your full-back', 'receive open', 'hold the width'] }[key];
+  text = '<b>He was ' + LADDER[0] + ' → the call: ' + LADDER[1] + ', ' + LADDER[2] + '.</b> ' + text;
   const sc = c.scans.filter(t => c.td === null || t <= c.td), after = c.scans.length - sc.length, informative = key === 'jump' ? sc.some(t => t >= c.ts) : sc.length > 0;
   let look, lookGrade;
   if (!c.scans.length){ look = 'You never looked. The call was a guess whatever it was.'; lookGrade = 'Incorrect'; }
@@ -3323,7 +3329,7 @@ function verdict(c){
   else if (key === 'jump' && !informative){ look = 'You looked at ' + sc.map(nm).join(', ') + ': all before he went (' + nm(c.ts) + '), so you saw a man standing still. Too early. One more look as the ball travelled would have shown him coming.'; lookGrade = 'Workable'; }
   else { look = 'You looked at ' + sc.map(nm).join(', ') + (key === 'jump' ? ' and saw him go.' : key === 'width' ? '. Here the read was the line of the pass, not the man behind you.' : ' and saw where he was.') + (after ? ' (' + after + ' more after the call.)' : ''); lookGrade = 'Correct'; }
   if (tier === 3 && !informative && key !== 'width'){ tier = 2; look += ' Right call, but a guess: mirar antes de recibir. Check as it is struck and again as it travels.'; }
-  if (c.late){ tier = 0; text = 'No call before it arrived. ' + text; }
+  if (c.late){ tier = 0; text = text.replace('</b> ', '</b> No call before it arrived. '); }
   return { tier, text, look, callGrade, lookGrade };
 }
 function finish(){
