@@ -3315,14 +3315,16 @@ function verdict(c){
          : 'The ball was for your full-back. The feint pulled you off your line for nothing; hold the width.';
   }
   /* the look: mirar antes de recibir */
-  const sc = c.scans.filter(t => c.td === null || t <= c.td), informative = key === 'jump' ? sc.some(t => t >= c.ts) : sc.length > 0;
-  let look;
-  if (!sc.length) look = 'You never looked.';
-  else if (key === 'jump' && !informative) look = 'You looked at ' + sc.map(nm).join(', ') + ': all before he went (' + nm(c.ts) + '), so you saw a man standing still. One more look as the ball travelled would have shown him coming.';
-  else look = 'You looked at ' + sc.map(nm).join(', ') + (key === 'jump' ? ' and saw him go.' : key === 'width' ? '. Here the read was the line of the pass, not the man behind you.' : '.');
+  const callGrade = c.late ? 'Incorrect' : tier === 3 ? 'Correct' : tier > 0 ? 'Workable' : 'Incorrect';
+  const sc = c.scans.filter(t => c.td === null || t <= c.td), after = c.scans.length - sc.length, informative = key === 'jump' ? sc.some(t => t >= c.ts) : sc.length > 0;
+  let look, lookGrade;
+  if (!c.scans.length){ look = 'You never looked. The call was a guess whatever it was.'; lookGrade = 'Incorrect'; }
+  else if (!sc.length){ look = 'You looked only after you had called (' + c.scans.map(nm).join(', ') + '). A look that comes after the decision cannot inform it.'; lookGrade = 'Incorrect'; }
+  else if (key === 'jump' && !informative){ look = 'You looked at ' + sc.map(nm).join(', ') + ': all before he went (' + nm(c.ts) + '), so you saw a man standing still. Too early. One more look as the ball travelled would have shown him coming.'; lookGrade = 'Workable'; }
+  else { look = 'You looked at ' + sc.map(nm).join(', ') + (key === 'jump' ? ' and saw him go.' : key === 'width' ? '. Here the read was the line of the pass, not the man behind you.' : ' and saw where he was.') + (after ? ' (' + after + ' more after the call.)' : ''); lookGrade = 'Correct'; }
   if (tier === 3 && !informative && key !== 'width'){ tier = 2; look += ' Right call, but a guess: mirar antes de recibir. Check as it is struck and again as it travels.'; }
   if (c.late){ tier = 0; text = 'No call before it arrived. ' + text; }
-  return { tier, text, look };
+  return { tier, text, look, callGrade, lookGrade };
 }
 function finish(){
   const c = current, v = verdict(c), pts = v.tier;
@@ -3330,11 +3332,12 @@ function finish(){
   paintSides(); saveStats();
   const box = el('rank'); box.innerHTML = '';
   const row = (chip, cls, html) => { const r = document.createElement('div'); r.className = 'row' + (cls ? ' picked' : ''); r.innerHTML = (chip ? '<span class="chip ' + cls + '">' + chip + '</span>' : '') + '<span class="wy">' + html + '</span>'; box.appendChild(r); };
-  row(['Turnover', 'Workable', 'Good', 'Best'][pts], 't' + pts, v.text);
-  row(null, '', '<b>The look</b> (<i>mirar antes de recibir</i>). ' + v.look);
+  const gcls = { Correct: 't3', Workable: 't1', Incorrect: 't0' };
+  row('Call · ' + v.callGrade, gcls[v.callGrade], '<b>Your call: ' + (c.action ? CALL_NAME[c.action] : 'none') + '.</b> ' + v.text);
+  row('Scan · ' + v.lookGrade, gcls[v.lookGrade], '<b>Your scans</b> (<i>mirar antes de recibir</i>). ' + v.look);
   row(null, '', '<b>Receiving from the back, the Spanish way.</b> Hold your width (<i>amplitud</i>) and take the ball half-turned (<i>de perfil</i>) so the first touch goes forward. Man coming from behind: go to the ball (<i>desmarque de apoyo</i>), he cannot get past you to it. Man on your back: receive back to goal and play first time to the man facing play (<i>de espaldas, juega de cara</i>); or drag him with a step away and come short (<i>fintar y salir</i>). And read the line of the pass: a ball to your full-back underneath you is his, not yours. Look as it is struck and again as it travels.');
   const nm = v2 => v2.toFixed(1) + ' s';
-  row(null, '', '<b>The clock</b> (from the strike). He was ' + KEY_NAME[c.key] + (c.key === 'jump' ? ', went at ' + nm(c.ts) : '') + ' · your looks: ' + (c.scans.length ? c.scans.map(nm).join(', ') : 'none') + ' · your call: ' + (c.action ? CALL_NAME[c.action] + ' at ' + nm(c.td) : 'none') + ' · the ball arrived at ' + nm(c.Tb) + '.');
+  row(['Turnover', 'Workable', 'Good', 'Best'][pts], 't' + pts, '<b>The clock</b> (from the strike). He was ' + KEY_NAME[c.key] + (c.key === 'jump' ? ', went at ' + nm(c.ts) : '') + ' · your looks: ' + (c.scans.length ? c.scans.map(nm).join(', ') : 'none') + ' · your call: ' + (c.action ? CALL_NAME[c.action] + ' at ' + nm(c.td) : 'none') + ' · the ball arrived at ' + nm(c.Tb) + '.');
   drawBoard(c); document.getElementById('mapwrap').style.display = 'flex'; show(pFeed);
 }
 function drawBoard(s){
