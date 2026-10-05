@@ -3135,9 +3135,27 @@ function tracksFor(s, action, td){
   const tTake = tInt !== null ? tInt : tMeet, pTake = tInt !== null ? pInt : pMeet;
   /* the lay-off: shield and set it back goes first time to the full-back */
   const layOff = !width && action === 'shield' && tInt === null, tLay = tTake + 0.35, layT = 0.9;
+  /* bodies. Nobody runs through anybody: once the ball is taken he pulls up within a stride; if his
+     path reaches a body (a defender who got there first, a team-mate) he stops short of it and stays
+     there; a man carrying the ball past him goes round, a body's width away. */
+  const BODY = 1.1;
+  let mPrev = you.slice(), blocked = false;
+  const clearOf = (q, from) => { const dx = q[0] - from[0], dz = q[1] - from[1], d = Math.hypot(dx, dz); if (d >= BODY) return q;
+    const px = -ub[1], pz = ub[0], sgn = (dx*px + dz*pz) >= 0 ? 1 : -1, need = Math.sqrt(Math.max(0, BODY*BODY - Math.pow(dx*ub[0] + dz*ub[1], 2))) - (dx*px + dz*pz)*sgn;
+    return [q[0] + px*sgn*need, q[1] + pz*sgn*need]; };
   for (let T = 0; T <= tEnd + 1e-6; T += DT){
     const t = (T - strike)/1000;
-    const m = meAt(t); me.push([T, m[0], m[1]]);
+    let m = meAt(Math.min(t, tTake + 0.2));
+    let ddRaw = (tInt !== null && t > tInt) ? [defAt(tInt)[0] + ub[0]*4.5*Math.min(1, (t - tInt)/1.2), defAt(tInt)[1] + ub[1]*4.5*Math.min(1, (t - tInt)/1.2)] : defAt(t);
+    const dd = s.key === 'tight' ? ddRaw : clearOf(ddRaw, mPrev);          // a running man goes round a body, never through it
+    if (!blocked && d2(m, mPrev) > 1e-6){
+      const bodies = [dd, ...s.others.map(o => o.at)];
+      if (bodies.some(q => d2(q, m) < BODY)){                                 // he pulls up a body's width short, and stays there
+        let lo = 0, hi = 1; for (let i = 0; i < 12; i++){ const f = (lo + hi)/2, q = [mPrev[0] + (m[0]-mPrev[0])*f, mPrev[1] + (m[1]-mPrev[1])*f]; if (bodies.some(b => d2(b, q) < BODY)) hi = f; else lo = f; }
+        m = [mPrev[0] + (m[0]-mPrev[0])*lo, mPrev[1] + (m[1]-mPrev[1])*lo]; blocked = true; } }
+    else if (blocked) m = mPrev;
+    mPrev = m;
+    me.push([T, m[0], m[1]]);
     let bp;
     if (t <= 0) bp = [s.passer[0] + u[0]*0.6, s.passer[1] + u[1]*0.6];
     else if (t <= tTake) bp = [s.passer[0] + u[0]*ballS(t), s.passer[1] + u[1]*ballS(t)];
@@ -3146,7 +3164,6 @@ function tracksFor(s, action, td){
     else if (layOff && t > tLay){ const k = Math.min(1, (t - tLay)/layT); bp = [pTake[0] + (s.RB[0] - pTake[0])*k, pTake[1] + (s.RB[1] - pTake[1])*k]; }
     else bp = [m[0] + 0.35*toward[0], m[1] + 0.35*toward[1]];
     ball.push([T, bp[0], bp[1]]);
-    const dd = (tInt !== null && t > tInt) ? [defAt(tInt)[0] + ub[0]*4.5*Math.min(1, (t - tInt)/1.2), defAt(tInt)[1] + ub[1]*4.5*Math.min(1, (t - tInt)/1.2)] : defAt(t);
     (tr.D = tr.D || []).push([T, dd[0], dd[1]]);
     (tr.P = tr.P || []).push([T, s.passer[0], s.passer[1]]);
     for (const o of s.others){
