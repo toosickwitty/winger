@@ -51,15 +51,28 @@ a.card:active{background:#1d3c27}
 .note b{color:var(--flood);font-weight:500}
 .note p{margin:0 0 10px}
 .note p:last-child{margin:0}
+
+.jump{display:flex;flex-wrap:wrap;gap:7px;margin:-10px 0 26px}
+.jump a{font-family:'Barlow Condensed',sans-serif;font-size:14px;letter-spacing:.11em;text-transform:uppercase;
+  color:var(--go);text-decoration:none;border:1px solid var(--line);border-radius:5px;padding:5px 11px}
+.jump a:active{background:#1d3c27}
+.pos{margin-bottom:30px;scroll-margin-top:16px}
+.poshead{display:flex;flex-direction:column;gap:4px;border-bottom:1px solid var(--line);padding-bottom:10px;margin-bottom:14px}
+.posname{font-family:'Barlow Condensed',sans-serif;font-weight:600;font-size:22px;letter-spacing:.14em;text-transform:uppercase;color:var(--go)}
+.possub{color:var(--dim);font-size:14px;line-height:1.5}
 @media (min-width:560px){ .wrap{padding-top:52px} .mark{font-size:34px} }
 </style>
 
 <div class="wrap">
   <h1 class="mark">Winger<span>.</span></h1>
-  <p class="tag">Ten decision drills, played from a winger's own eye level. Pick a side, watch a
-     moment of live play, then choose. All of them track the left and right wing separately, so a
+  <p class="tag">Thirteen decision drills, played from the player's own eye level, grouped by position. Pick a side, watch a
+     moment of live play, then choose. The winger drills track the left and right wing separately, so a
      weaker side shows up on its own.</p>
 
+  <nav class="jump"><a href="#winger">Winger</a><a href="#cam">Attacking mid</a><a href="#nine">Striker &amp; false 9</a><a href="#all">Every position</a></nav>
+
+  <section class="pos" id="winger">
+    <div class="poshead"><span class="posname">Winger</span><span class="possub">Wide, in a 4-3-3: receiving on the touchline, the pocket, the byline, the box.</span></div>
   <a class="card" href="shoulder.html">
     <div class="row"><span class="name">Shoulder</span><span class="kind">Receiving from the back</span></div>
     <p class="desc">A ball from your defensive line, 17-26 m. Look over your shoulder while it travels
@@ -77,7 +90,6 @@ a.card:active{background:#1d3c27}
            stroke-linecap="round" stroke-linejoin="round"><path d="M3 8h10M9 4l4 4-4 4"/></svg>
     </div>
   </a>
-
   <a class="card" href="movement.html">
     <div class="row"><span class="name">Pocket</span><span class="kind">Movement</span></div>
     <p class="desc">One player per lane, the way Guardiola and Flick coach it. Two blue shirts
@@ -93,7 +105,6 @@ a.card:active{background:#1d3c27}
            stroke-linecap="round" stroke-linejoin="round"><path d="M3 8h10M9 4l4 4-4 4"/></svg>
     </div>
   </a>
-
   <a class="card" href="cross.html">
     <div class="row"><span class="name">Byline</span><span class="kind">Crossing</span></div>
     <p class="desc">You are at the byline with the ball and three runners attacking the box.
@@ -109,7 +120,6 @@ a.card:active{background:#1d3c27}
            stroke-linecap="round" stroke-linejoin="round"><path d="M3 8h10M9 4l4 4-4 4"/></svg>
     </div>
   </a>
-
   <a class="card" href="through.html">
     <div class="row"><span class="name">Through</span><span class="kind">Final pass</span></div>
     <p class="desc">Your full-back finds you in the channel. Check inside, take it, and carry
@@ -126,7 +136,6 @@ a.card:active{background:#1d3c27}
            stroke-linecap="round" stroke-linejoin="round"><path d="M3 8h10M9 4l4 4-4 4"/></svg>
     </div>
   </a>
-
   <a class="card" href="finish.html">
     <div class="row"><span class="name">Finish</span><span class="kind">Shoot or slip</span></div>
     <p class="desc">You have cut inside and are carrying it across the edge of the box. Is anyone
@@ -142,7 +151,6 @@ a.card:active{background:#1d3c27}
            stroke-linecap="round" stroke-linejoin="round"><path d="M3 8h10M9 4l4 4-4 4"/></svg>
     </div>
   </a>
-
   <a class="card" href="backpost.html">
     <div class="row"><span class="name">Back Post</span><span class="kind">Arriving in the box</span></div>
     <p class="desc">The ball is on the other wing and you are the far winger. Read the crosser, then
@@ -158,23 +166,6 @@ a.card:active{background:#1d3c27}
            stroke-linecap="round" stroke-linejoin="round"><path d="M3 8h10M9 4l4 4-4 4"/></svg>
     </div>
   </a>
-
-  <a class="card" href="snap.html">
-    <div class="row"><span class="name">Snap</span><span class="kind">Breaking the lines</span></div>
-    <p class="desc">0.7 of a second from the wing or the 10, everyone moving. Find the one ball that
-       breaks their lines — ruptura, a la espalda, entre líneas, apoyo del 9 or cambio de
-       orientación — and tap where it has to go.</p>
-    <div class="meta">
-      <span class="pill">0.7 s scan</span>
-      <span class="pill">16 reps</span>
-      <span class="pill">Phone sideways</span>
-    </div>
-    <div class="go">Start
-      <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2"
-           stroke-linecap="round" stroke-linejoin="round"><path d="M3 8h10M9 4l4 4-4 4"/></svg>
-    </div>
-  </a>
-
   <a class="card" href="thirdman.html">
     <div class="row"><span class="name">Third Man</span><span class="kind">Timing the run</span></div>
     <p class="desc">Your 6, centre-back or full-back plays it into your 9 or 10. Man on his back? Go —
@@ -205,7 +196,6 @@ a.card:active{background:#1d3c27}
            stroke-linecap="round" stroke-linejoin="round"><path d="M3 8h10M9 4l4 4-4 4"/></svg>
     </div>
   </a>
-
   <a class="card" href="shape.html">
     <div class="row"><span class="name">Shape</span><span class="kind">Off the ball</span></div>
     <p class="desc">Juego de posici&oacute;n off the ball. Five seconds of play, often nowhere near you;
@@ -222,7 +212,10 @@ a.card:active{background:#1d3c27}
            stroke-linecap="round" stroke-linejoin="round"><path d="M3 8h10M9 4l4 4-4 4"/></svg>
     </div>
   </a>
+  </section>
 
+  <section class="pos" id="cam">
+    <div class="poshead"><span class="posname">Attacking midfielder</span><span class="possub">The 8 and the 10: between the lines, in the half-space, the interior of a 4-3-3.</span></div>
   <a class="card" href="interior.html">
     <div class="row"><span class="name">Interior</span><span class="kind">Off the ball, from the 8</span></div>
     <p class="desc">Shape, from the attacking midfielder&rsquo;s spot: the right interior of a 4-3-3. Come short
@@ -239,23 +232,10 @@ a.card:active{background:#1d3c27}
            stroke-linecap="round" stroke-linejoin="round"><path d="M3 8h10M9 4l4 4-4 4"/></svg>
     </div>
   </a>
+  </section>
 
-  <a class="card" href="recall.html">
-    <div class="row"><span class="name">Recall</span><span class="kind">The picture in your head</span></div>
-    <p class="desc">Scanning is for building a picture that survives the ball arriving. The clip freezes, holds
-       a moment, and goes dark; on an empty board you place the ball, the opponent nearest you and your
-       nearest team-mate from memory. Three in a row and the hold shortens, down to a glance.</p>
-    <div class="meta">
-      <span class="pill">Tap the board</span>
-      <span class="pill">16 reps</span>
-      <span class="pill">Phone sideways</span>
-    </div>
-    <div class="go">Start
-      <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2"
-           stroke-linecap="round" stroke-linejoin="round"><path d="M3 8h10M9 4l4 4-4 4"/></svg>
-    </div>
-  </a>
-
+  <section class="pos" id="nine">
+    <div class="poshead"><span class="posname">Striker &amp; false 9</span><span class="possub">On the last line pinning centre-backs, or dropping off them into the gap.</span></div>
   <a class="card" href="nine.html">
     <div class="row"><span class="name">Nine</span><span class="kind">Striker &amp; false 9</span></div>
     <p class="desc">Shape, from the centre-forward. Each rep tells you the role. As the striker, pin their
@@ -272,6 +252,41 @@ a.card:active{background:#1d3c27}
            stroke-linecap="round" stroke-linejoin="round"><path d="M3 8h10M9 4l4 4-4 4"/></svg>
     </div>
   </a>
+  </section>
+
+  <section class="pos" id="all">
+    <div class="poshead"><span class="posname">Every position</span><span class="possub">Vision and the picture in the head. Play these whatever shirt you are in.</span></div>
+  <a class="card" href="snap.html">
+    <div class="row"><span class="name">Snap</span><span class="kind">Breaking the lines</span></div>
+    <p class="desc">0.7 of a second from the wing or the 10, everyone moving. Find the one ball that
+       breaks their lines — ruptura, a la espalda, entre líneas, apoyo del 9 or cambio de
+       orientación — and tap where it has to go.</p>
+    <div class="meta">
+      <span class="pill">0.7 s scan</span>
+      <span class="pill">16 reps</span>
+      <span class="pill">Phone sideways</span>
+    </div>
+    <div class="go">Start
+      <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2"
+           stroke-linecap="round" stroke-linejoin="round"><path d="M3 8h10M9 4l4 4-4 4"/></svg>
+    </div>
+  </a>
+  <a class="card" href="recall.html">
+    <div class="row"><span class="name">Recall</span><span class="kind">The picture in your head</span></div>
+    <p class="desc">Scanning is for building a picture that survives the ball arriving. The clip freezes, holds
+       a moment, and goes dark; on an empty board you place the ball, the opponent nearest you and your
+       nearest team-mate from memory. Three in a row and the hold shortens, down to a glance.</p>
+    <div class="meta">
+      <span class="pill">Tap the board</span>
+      <span class="pill">16 reps</span>
+      <span class="pill">Phone sideways</span>
+    </div>
+    <div class="go">Start
+      <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2"
+           stroke-linecap="round" stroke-linejoin="round"><path d="M3 8h10M9 4l4 4-4 4"/></svg>
+    </div>
+  </a>
+  </section>
 
   <div class="note">
     <p><b>On a phone or tablet</b>, open this page in the browser and use <b>Add to Home
