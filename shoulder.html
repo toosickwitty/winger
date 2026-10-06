@@ -3035,11 +3035,28 @@ const SCAN_TURN = 105*Math.PI/180;        // the check: head 105 degrees from th
 /* the check itself: 0.10 s out, 0.10 s there, 0.10 s back onto the ball, 0.30 s in all, the time a
    top 12-14-year-old's own check takes (the shell's glance is 0.35 s) */
 const SH_OUT = 100, SH_HOLD = 100, SH_BACK = 100;
+/* the head turns the way he tapped - over that shoulder - even when the other way round would be shorter (up to 250 degrees) */
+function turnBy(from, to, dir){ let d = wrapA(to - from); if (Math.sign(d) !== dir && Math.abs(d + dir*2*Math.PI) <= 250*Math.PI/180) d += dir*2*Math.PI; return d; }
+const SH_DWELL = 120;                     // a man on the way round gets a beat of the eyes, going out and coming back
 function scanNow(){
   if (!scan) return null;
   const t = performance.now() - scan.t0, E = q => q < 0.5 ? 2*q*q : 1 - Math.pow(-2*q + 2, 2)/2;
-  if (t >= SH_OUT + SH_HOLD + SH_BACK){ scan = null; return null; }
-  const k = t < SH_OUT ? E(t/SH_OUT) : t < SH_OUT + SH_HOLD ? 1 : E(1 - (t - SH_OUT - SH_HOLD)/SH_BACK);
+  const f = scan.f;                         // where on the turn (0..1) the man inside sits, or null
+  const dw = f ? SH_DWELL : 0, total = SH_OUT + SH_HOLD + SH_BACK + 2*dw;
+  if (t >= total){ scan = null; return null; }
+  let k;
+  if (!f){ k = t < SH_OUT ? E(t/SH_OUT) : t < SH_OUT + SH_HOLD ? 1 : E(1 - (t - SH_OUT - SH_HOLD)/SH_BACK); }
+  else {
+    const o1 = SH_OUT*f, o2 = SH_OUT*(1 - f), b1 = SH_BACK*(1 - f), b2 = SH_BACK*f;
+    let u = t;
+    if (u < o1) k = f*E(u/o1);
+    else if ((u -= o1) < dw) k = f;                                           // eyes on him, going out
+    else if ((u -= dw) < o2) k = f + (1 - f)*E(u/o2);
+    else if ((u -= o2) < SH_HOLD) k = 1;
+    else if ((u -= SH_HOLD) < b1) k = 1 - (1 - f)*E(u/b1);
+    else if ((u -= b1) < dw) k = f;                                           // and again, coming back
+    else { u -= dw; k = f*(1 - E(Math.min(1, u/b2))); }
+  }
   return { dir: scan.dir, k };
 }
 const RC = { v0: 13.0, dec: 1.2, youV: 6.0, youA: 7.5, defV: 5.8, defA: 7, react: 0.15, strike: 1000, after: 1500, window: 0.65, feint: 0.95, feintOut: 0.7, feintStop: 0.25 };
@@ -3342,7 +3359,7 @@ function seqFrame(s, T){
      0.3 s. Over the open shoulder (away from the passer) that puts the goal-side man and the touchline
      up the pitch in the picture; over the other shoulder he sees his own half, and nothing. */
   if (sc){ const chest = -s.side*Math.PI/2, look = chest + sc.dir*SCAN_TURN;
-    yp[0] += wrapA(look - yp[0])*sc.k; yp[1] = yp[1] + (-0.22 - yp[1])*sc.k; }
+    yp[0] += turnBy(yp[0], look, sc.dir)*sc.k; yp[1] = yp[1] + (-0.22 - yp[1])*sc.k; }
   camYP(me[0], me[1], yp[0], yp[1]);
   /* Learn mode: while he looks, the man's distance sits over his head, so the eye learns what 5 m and 14 m look like */
   (function(){ let tag = document.getElementById('dtag');
@@ -3374,7 +3391,14 @@ function offerCalls(c){
 }
 function startScan(dir){
   if (!seqLive || scan) return false;
-  scan = { dir, t0: performance.now() };
+  scan = { dir, t0: performance.now(), f: null };
+  /* let it run: the man inside him lies on the way round to the inside shoulder; the eyes stop on him both ways */
+  if (current && current.key === 'run'){
+    const s = current, wx = p => [s.side*p[0], p[1]], me = wx(s.you), pp = wx(s.passer), dp = wx(s.def);
+    const start = ypTo(me[0], me[1], pp[0], 0.5, pp[1])[0], look = -s.side*Math.PI/2 + dir*SCAN_TURN, toD = ypTo(me[0], me[1], dp[0], 1.4, dp[1])[0];
+    const span = turnBy(start, look, dir), at = turnBy(start, toD, dir), f = span !== 0 ? at/span : 0;
+    if (f > 0.03 && f < 0.92 && Math.sign(at) === Math.sign(span)) scan.f = f;
+  }
   if (current && !current.decided) current.scans.push((seqT - RC.strike)/1000);
   return true;
 }
