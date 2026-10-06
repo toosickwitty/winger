@@ -3036,7 +3036,7 @@ loadStats();
 const SCAN_TURN = 105*Math.PI/180;        // the check: head 105 degrees from the chest, toward the shoulder he looked over
 /* the check itself: 0.10 s out, 0.10 s there, 0.10 s back onto the ball, 0.30 s in all, the time a
    top 12-14-year-old's own check takes (the shell's glance is 0.35 s) */
-const SH_OUT = 100, SH_HOLD = 300, SH_BACK = 100;   // the eyes settle at the end of the turn for a beat: long enough to read how far off the man is
+const SH_OUT = 100, SH_HOLD = 200, SH_BACK = 100;   // the eyes settle at the end of the turn for a beat: long enough to read how far off the man is
 /* the head turns the way he tapped - over that shoulder - even when the other way round would be shorter (up to 250 degrees) */
 function turnBy(from, to, dir){ let d = wrapA(to - from); if (Math.sign(d) !== dir && Math.abs(d + dir*2*Math.PI) <= 250*Math.PI/180) d += dir*2*Math.PI; return d; }
 const SH_DWELL = 120;                     // a man on the way round gets a beat of the eyes, going out and coming back
