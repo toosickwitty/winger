@@ -145,6 +145,8 @@ footer{flex:0 0 auto;border-top:1px solid var(--line);background:var(--turf);col
   body:has(#panelFeedback:not(.hide)) footer{grid-column:2;grid-row:2 / 4;overflow-y:auto;border-top:0;border-left:1px solid var(--line);padding:12px}
 }
 .ans .sub b{color:var(--go);font-weight:600}
+.wy ul.cues{margin:6px 0 0;padding-left:18px}
+.wy ul.cues li{margin:3px 0}
 @media (orientation:landscape) and (max-height:500px){
   /* a phone on its side: every pixel of height goes to the pitch */
   header{padding:4px 12px;gap:10px} .mark{font-size:17px} .meta{font-size:13px}
@@ -3496,8 +3498,12 @@ function finish(){
   const gcls = { Correct: 't3', Workable: 't1', Late: 't1', Incorrect: 't0' };
   row('Call · ' + v.callGrade, gcls[v.callGrade], '<b>Your call: ' + (c.action ? CALL_NAME[c.action] + ' at ' + (v2 => v2.toFixed(1) + ' s')(c.td) : 'none') + ((c.key === 'jump' || c.key === 'run') && c.tWin ? ' (the window closed at ' + c.tWin.toFixed(1) + ' s)' : '') + '.</b> ' + v.text);
   row('Scan · ' + v.lookGrade, gcls[v.lookGrade], '<b>Your scans</b> (<i>mirar antes de recibir</i>). ' + v.look);
-  row(null, '', '<b>The cues.</b> Too far to reach this ball (about 10 m on a 20 m pass, 13 m on a 30 m pass) → receive open. Within seven metres → come to it, as it leaves his foot. On your back → shield, set it back. Played past you into space, man inside you → let it run.');
-  row(null, '', '<b>Receiving from the back, the Spanish way.</b> Take the ball half-turned (<i>de perfil</i>) so the first touch goes forward. Man coming from behind: go to the ball (<i>desmarque de apoyo</i>), he cannot get past you to it. Man on your back: receive back to goal and play first time to the man facing play (<i>de espaldas, juega de cara</i>); or drag him with a step away and come short (<i>fintar y salir</i>). Look as it is struck and again as it travels.');
+  row(null, '', '<b>The cues.</b><ul class="cues">' +
+    '<li><b>Too far to reach this ball</b> (about 10 m on a 20 m pass, 13 m on a 30 m pass) → receive open.</li>' +
+    '<li><b>Within seven metres</b> → come to it, as it leaves his foot.</li>' +
+    '<li><b>On your back</b> → shield, set it back.</li>' +
+    '<li><b>Played past you into space, man inside you</b> → let it run.</li></ul>');
+  row(null, '', '<b>Receiving from the back, the Spanish way.</b> Take the ball half-turned (<i>de perfil</i>) so the first touch goes forward. Man coming from behind: go to the ball (<i>desmarque de apoyo</i>), he cannot get past you to it. Man on your back: receive back to goal and play first time to the man facing play (<i>de espaldas, juega de cara</i>). A ball driven past you into space, with the man inside you: no touch, let it run (<i>dejarla pasar</i>) and take it in stride. Look as it is struck and again as it travels.');
   const nm = v2 => v2.toFixed(1) + ' s', m = v2 => v2.toFixed(0) + ' m';
   row(['Turnover', 'Workable', 'Good', 'Best'][pts], 't' + pts, '<b>The clock</b> (from the strike). He was ' + m(c.d0) + ' off, ' + KEY_NAME[c.key] + (c.ts !== null ? ', went at ' + nm(c.ts) : '') + ' · the ball: ' + m(c.L) + ' · your looks: ' + (c.scans.length ? c.scans.map(nm).join(', ') : 'none') + ' · your call: ' + (c.action ? CALL_NAME[c.action] + ' at ' + nm(c.td) : 'none') + ' · the ball arrived at ' + nm(c.Tb) + '.');
   drawBoard(c); document.getElementById('mapwrap').style.display = 'flex'; show(pFeed);
