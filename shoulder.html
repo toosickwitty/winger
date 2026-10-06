@@ -3257,7 +3257,11 @@ function seqFrame(s, T){
   const mt = trackAt(s.T.me, T), me = wx(mt.p), msp = Math.hypot(mt.v[0], mt.v[1]);
   const lag = wx(trackAt(s.T.ball, Math.max(0, T - 150)).p);
   const yp = ypTo(me[0], me[1], lag[0], 0.5, lag[1]); yp[1] = Math.max(yp[1], -0.35);
-  if (s.decided && s.action === 'open' && t > s.td){ const k = Math.min(1, (t - s.td)/0.5); const up = ypTo(me[0], me[1], me[0] - s.side*8, 1.3, me[1] - 20); yp[0] += wrapA(up[0] - yp[0])*0.45*k; yp[1] += (up[1] - yp[1])*0.3*k; }
+  if (s.decided && s.action === 'open' && t > s.td){
+    /* half-turned up the pitch while it comes; and once it is at his feet, eyes on the man he is about to take on */
+    const k = Math.min(1, (t - s.td)/0.5); const up = ypTo(me[0], me[1], me[0] - s.side*8, 1.3, me[1] - 20); yp[0] += wrapA(up[0] - yp[0])*0.45*k; yp[1] += (up[1] - yp[1])*0.3*k;
+    if (t > s.Tb && s.T.tInt === null){ const dp = wx(trackAt(s.T.tr.D, T).p), k2 = Math.min(1, (t - s.Tb)/0.45);
+      const onD = ypTo(me[0], me[1], dp[0], 1.4, dp[1]); yp[0] += wrapA(onD[0] - yp[0])*0.85*k2; yp[1] += (onD[1] - yp[1])*0.85*k2; } }
   const sc = scanNow();
   /* the shoulder check. His chest is to the centre of the pitch, half-turned, eyes on the passer behind-
      inside. The check turns the head 105 degrees from the chest toward the shoulder he looked over, in
