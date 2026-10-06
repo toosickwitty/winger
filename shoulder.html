@@ -3134,7 +3134,7 @@ function candidate(side, key){
   }
   if (key === 'watch'){ if (tracksFor(sc, 'feint', 0.5).tInt !== null) return null; if (tracksFor(sc, 'meet', 0.5).tInt !== null) return null; if (tracksFor(sc, 'open', 0.5).tInt === null) return null; }
   if (key === 'run' && !RUN_RAW){ const r = tracksFor(sc, 'run', 0.6); if (r.tInt !== null || r.tMeet > Tb + 2.0) return null;            // let it run by 0.6 s and you take it in stride
-    let lo = 0.6, hi = Tb; for (let i = 0; i < 12; i++){ const m = (lo + hi)/2; if (tracksFor(sc, 'run', m).tInt === null) lo = m; else hi = m; } sc.tWin = lo; }
+    let lo = 0.6, hi = Tb + 1.0; for (let i = 0; i < 12; i++){ const m = (lo + hi)/2; if (tracksFor(sc, 'run', m).tInt === null) lo = m; else hi = m; } sc.tWin = lo; }
   if (key === 'hold' && gamble){ const R = tracksFor(sc, 'open', 0.5); if (R.tInt !== null) return null; }                                   // the gamble must fail
   return Object.assign(sc, {
     ev: [{ role: 'P', at: passer, ts: 0, sh: { own: {}, opp: {} } }, { role: key === 'width' ? 'RB' : 'YOU', at: target, ts: RC.strike, ta: RC.strike + Tb*1000, len: L }],
@@ -3178,7 +3178,7 @@ function tracksFor(s, action, td){
   const defAt = t => {
     if (s.key === 'tight'){ const m = lagMe(t); return [m[0] - 0.4, m[1] - 1.4]; }
     if (s.key === 'run'){                                                                    // reads the ball going past, a third of a second late, and goes for where it is taken
-      const t0 = 0.95; if (t <= t0) return def.slice();                                      // he has to read it going past, and turn
+      const t0 = ballT(d2(s.passer, you)) + 0.2; if (t <= t0) return def.slice();           // he reads it as it goes past him, and turns
       const tgt = tInt !== null ? pInt : pMeet, D = d2(def, tgt) || 1, r = Math.min(D, runS(t - t0, RC.defV, RC.defA));
       return [def[0] + (tgt[0]-def[0])/D*r, def[1] + (tgt[1]-def[1])/D*r]; }
     if (s.key === 'watch'){
@@ -3205,7 +3205,7 @@ function tracksFor(s, action, td){
   } else if (s.key === 'tight' && (action === 'open' || action === 'run' || td === null)){ tInt = s.Tb + 0.15; pInt = you.slice(); }
   else if (s.key === 'run'){
     if (td === null){ tInt = tMeet + 0.6; pInt = [pMeet[0] + u[0]*3.5, pMeet[1] + u[1]*3.5]; }                            // nobody went: it ran on, and he did
-    else if (action === 'run'){ const tArr = 0.95 + runT(d2(def, pMeet), RC.defV, RC.defA); if (tArr <= tMeet + 0.12){ tInt = tMeet; pInt = pMeet; } }
+    else if (action === 'run'){ const tArr = ballT(d2(s.passer, you)) + 0.2 + runT(d2(def, pMeet), RC.defV, RC.defA); if (tArr <= tMeet + 0.12){ tInt = tMeet; pInt = pMeet; } }
   }
   if (s.key === 'hold' && action === 'run' && tInt === null){ tInt = s.Tb + 0.05; pInt = you.slice(); }                     // a ball to feet, run away from: it arrives where he was
   else if (s.key === 'watch'){
