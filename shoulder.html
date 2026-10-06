@@ -222,7 +222,7 @@ a.iconbtn{text-decoration:none;display:inline-flex;align-items:center;white-spac
       <button data-mode="test" aria-pressed="false">Test</button>
     </div>
     <button class="cta" id="start">Start session</button>
-    <p class="note">16 reps, about six minutes. The ball is played to you on the wing from your own defensive line, 17-26 m, at a top-level youth pace. While it travels, <b>look over your shoulder</b> (tap the left or right half of the screen; on a computer the &larr; &rarr; keys) &mdash; 0.3 s each, as often as you like &mdash; and <b>call it before it arrives</b>, in the terms the Spanish school uses: <b>Receive open</b>, stay and take it half-turned (<i>de perfil</i>); <b>Come to it</b>, the supporting unmarking movement (<i>desmarque de apoyo</i>); <b>Shield, set it back</b>, body between him and the ball and first time to the man facing play (<i>de espaldas, juega de cara</i>); <b>Check away, then come</b>, a step toward goal to drag him, then come short (<i>fintar y salir</i>).<br><br>The read is <b>his distance against the length of the ball</b>. Tight on your back (1-2 m): shield. Close enough to get there (5-7 m): come to it, as the ball leaves his foot &mdash; he goes early, and if you stand still he cuts it out. Too far to reach a ball this long (10 m and more on a 20 m pass, 13 m on a 30 m pass): receive open and take it facing play &mdash; now and then he gambles from there anyway, and arrives after it. One look, before the strike or as it travels, is enough to read the distance (mirar antes de recibir). In Learn, his distance sits over his head while you look, so the eye learns what 5 m and 14 m look like. Everything after your call is played out: who gets there first, and by how much.<br><br><b>Learn</b> paints the lanes on the grass. <b>Test</b> takes that away.</p>
+    <p class="note">16 reps, about six minutes. The ball is played to you on the wing from your own defensive line, 17-26 m, at a top-level youth pace. While it travels, <b>look over your shoulder</b> (tap the left or right half of the screen; on a computer the &larr; &rarr; keys) &mdash; 0.3 s each, as often as you like &mdash; and <b>call it before it arrives</b>, in the terms the Spanish school uses: <b>Receive open</b>, stay and take it half-turned (<i>de perfil</i>); <b>Come to it</b>, the supporting unmarking movement (<i>desmarque de apoyo</i>); <b>Shield, set it back</b>, body between him and the ball and first time to the man facing play (<i>de espaldas, juega de cara</i>); <b>Check away, then come</b>, a step toward goal to drag him, then come short (<i>fintar y salir</i>).<br><br>The read is <b>his distance against the length of the ball</b>. Tight on your back (1-2 m): shield. Close, set and watching you, not the ball (2.5-4 m): check away, then come &mdash; a step toward goal moves his feet, and you come to it with a yard. Close enough to get there (5-7 m): come to it, as the ball leaves his foot &mdash; he goes early, and if you stand still he cuts it out. Too far to reach a ball this long (10 m and more on a 20 m pass, 13 m on a 30 m pass): receive open and take it facing play &mdash; now and then he gambles from there anyway, and arrives after it. One look, before the strike or as it travels, is enough to read the distance (mirar antes de recibir). In Learn, his distance sits over his head while you look, so the eye learns what 5 m and 14 m look like. Everything after your call is played out: who gets there first, and by how much.<br><br><b>Learn</b> paints the lanes on the grass. <b>Test</b> takes that away.</p>
   </div>
 
   <div id="panelAsk" class="hide">
@@ -3049,8 +3049,8 @@ const runS = (t, v, a) => { if (t <= 0) return 0; const ta = v/a; return t < ta 
 const runT = (d, v, a) => { const ta = v/a, da = a*ta*ta/2; return d <= da ? Math.sqrt(2*d/a) : ta + (d - da)/v; };
 /* how far back a man can be and still cut out a ball that reaches the spot in front of you at tQ, if he goes 0.2 s after the strike */
 const reachFor = tQ => { let lo = 0, hi = 30; for (let i = 0; i < 30; i++){ const m = (lo + hi)/2; (0.2 + runT(m - 1.3, RC.defV, RC.defA) < tQ ? lo : hi) === lo ? lo = m : hi = m; } return lo; };
-const RC_BAG = { hold: 4, jump: 7, tight: 5 };                    // every ball is played to him
-const KEY_NAME = { hold: 'too far to get there', jump: 'close enough to get there', tight: 'tight on your back', width: 'holding off; the ball was for your full-back' };
+const RC_BAG = { hold: 4, jump: 4, watch: 4, tight: 4 };          // every ball is played to him; no call is the answer more than a quarter of the time
+const KEY_NAME = { hold: 'too far to get there', jump: 'close enough to get there', watch: 'close, set and watching you', tight: 'tight on your back', width: 'holding off; the ball was for your full-back' };
 const CALLS = [['open','●','Receive open','<b>Too far for this ball.</b> Stay, half-turned, take it facing play'],
                ['meet','↓','Come to it','<b>Close enough to get there.</b> Go and meet the ball, win the race'],
                ['shield','↑','Shield, set it back','<b>On your back.</b> Body between; first time to the man facing play'],
@@ -3079,7 +3079,7 @@ function candidate(side, key){
        hold   beyond his reach for this ball, +2.5-5 m   -> receive open (one in three gambles late anyway, and fails) */
   const Q = [you[0] + ub[0]*1.3, you[1] + ub[1]*1.3], tQ = ballT(L - 1.3);
   const reach = reachFor(tQ);                                                            // the farthest he can cut it out from, going 0.2 s after the strike
-  const d0 = key === 'tight' ? rand(1.2, 2.0) : key === 'jump' ? rand(4.5, 7.0) : reach + rand(2.5, 5);
+  const d0 = key === 'tight' ? rand(1.2, 2.0) : key === 'jump' ? rand(4.5, 7.0) : key === 'watch' ? rand(2.6, 4.0) : reach + rand(2.5, 5);
   if (key === 'hold' && z0 - d0 < -40) return null;
   const def = [you[0] - rand(0.3, 1.6), you[1] - d0];
   let ts = null, gamble = false;
@@ -3105,6 +3105,7 @@ function candidate(side, key){
     let lo = 1.3, hi = Tb; for (let i = 0; i < 14; i++){ const m = (lo + hi)/2; if (tracksFor(sc, 'meet', m).tInt === null) lo = m; else hi = m; }
     sc.tWin = lo;                                                                          // the last moment a call still wins
   }
+  if (key === 'watch'){ if (tracksFor(sc, 'feint', 0.5).tInt !== null) return null; if (tracksFor(sc, 'meet', 0.5).tInt !== null) return null; if (tracksFor(sc, 'open', 0.5).tInt === null) return null; }
   if (key === 'hold' && gamble){ const R = tracksFor(sc, 'open', 0.5); if (R.tInt !== null) return null; }                                   // the gamble must fail
   return Object.assign(sc, {
     ev: [{ role: 'P', at: passer, ts: 0, sh: { own: {}, opp: {} } }, { role: key === 'width' ? 'RB' : 'YOU', at: target, ts: RC.strike, ta: RC.strike + Tb*1000, len: L }],
@@ -3138,6 +3139,17 @@ function tracksFor(s, action, td){
   const lagMe = t => meAt(t - 0.3);                              // a tight man reacts a third of a second late
   const defAt = t => {
     if (s.key === 'tight'){ const m = lagMe(t); return [m[0] - 0.4, m[1] - 1.4]; }
+    if (s.key === 'watch'){
+      const run = (from, tgt, t0) => { if (t <= t0) return from.slice(); const D = d2(from, tgt) || 1, r = Math.min(D, runS(t - t0, RC.defV, RC.defA)); return [from[0] + (tgt[0]-from[0])/D*r, from[1] + (tgt[1]-from[1])/D*r]; };
+      if (tGo === null || action === 'open'){ const tj = Math.max(0.3, s.Tb - runT(d2(def, s.Q), RC.defV, RC.defA) - 0.05); return run(def, s.Q, tj); }   // steps in as it arrives
+      if (action === 'meet') return run(def, pMeet, tGo + 0.3);                                                               // comes with you
+      if (action === 'shield'){ const m = lagMe(t), tgt = [m[0] - 0.4, m[1] - 1.4]; return run(def, tgt, tGo + 0.3); }      // closes onto your back
+      /* the feint: your step toward goal takes him a step back; then he turns and chases, from behind */
+      const t0 = tGo + 0.3, back = [def[0] - toward[0]*1.0, def[1] - toward[1]*1.0];
+      if (t <= t0) return def.slice();
+      if (t <= t0 + RC.feint){ const k = Math.min(1, runS(t - t0, 3.0, 6)/1.0); return [def[0] + (back[0]-def[0])*k, def[1] + (back[1]-def[1])*k]; }
+      return run(back, pMeet, t0 + RC.feint);
+    }
     if ((s.key === 'hold' && !s.gamble) || width) return [def[0] + 0.3*Math.sin(t*2.1), def[1] + 0.25*Math.sin(t*1.3)];
     if (t < s.ts) return def.slice();
     const tgt = ((action === 'meet' || action === 'feint') && tGo !== null) ? pMeet : s.Q;
@@ -3149,6 +3161,13 @@ function tracksFor(s, action, td){
     const tBallThere = ballT(d2(s.passer, tgt));
     if (tArr <= Math.min(tBallThere, tMeet) + 0.12){ tInt = Math.min(tBallThere, tMeet); pInt = tgt; }
   } else if (s.key === 'tight' && (action === 'open' || td === null)){ tInt = s.Tb + 0.15; pInt = you.slice(); }
+  else if (s.key === 'watch'){
+    if (tGo === null || action === 'open'){ tInt = s.Tb + 0.1; pInt = you.slice(); }
+    else if (action === 'meet' || action === 'feint'){
+      const t0 = action === 'meet' ? tGo + 0.3 : tGo + 0.3 + RC.feint, from = action === 'meet' ? def : [def[0] - toward[0]*1.0, def[1] - toward[1]*1.0];
+      const tArr = t0 + runT(d2(from, pMeet), RC.defV, RC.defA);
+      if (tArr <= tMeet + 0.12){ tInt = tMeet; pInt = pMeet; } }
+  }
   const tTake = tInt !== null ? tInt : tMeet, pTake = tInt !== null ? pInt : pMeet;
   /* the lay-off: shield and set it back goes first time to the full-back */
   const layOff = !width && action === 'shield' && tInt === null, tLay = tTake + 0.35, layT = 0.9;
@@ -3335,6 +3354,13 @@ function verdict(c){
                  : near + 'Right call, late: you had until ' + nm(c.tWin) + ' and you went at ' + nm(c.td + (act === 'feint' ? RC.feint : 0)) + (act === 'feint' ? ' (after the feint)' : '') + ', and he cut it out ' + m(d2(c.you, R.pInt)) + ' in front of you. Decide before the pass; go as the ball leaves his foot.'; }
     else { tier = 0;
       text = 'He was ' + m(c.d0) + ' off: close enough to get to a ' + m(c.L) + ' ball. ' + (act === 'open' ? 'You stood and took it half-turned' : 'You showed and shielded') + ', and he sprinted past your shoulder, went at ' + nm(c.ts) + ' and cut it out ' + m(d2(c.you, R.pInt)) + ' in front of you. Possession lost on your own wing. A man within seven metres can only be beaten by going to the ball.'; }
+  } else if (key === 'watch'){
+    tier = act === 'feint' ? (got ? 3 : 0) : act === 'meet' ? (got ? 2 : 0) : act === 'shield' ? 2 : 0;
+    const set = 'He was ' + m(c.d0) + ' off, set, watching you, not the ball. ';
+    text = act === 'feint' ? (got ? set + 'Your step toward goal moved his feet back; then you came to it and took it ' + m(d2(c.you, R.pMeet)) + ' up the line with a yard on him (fintar y salir), facing play.' : set + 'You checked away and came, but too late: he had turned and was on it with you.')
+         : act === 'meet' ? (got ? set + 'You came straight to it and he came with you, a stride behind: you took it, but with him on your back as it arrived. Kept, tight. A step away first would have bought the yard.' : set + 'You came to it late and he came with you and got there first.')
+         : act === 'shield' ? set + 'You showed and set it back first time. Safe, nothing gained: he was not on you yet, and close enough to be moved.'
+         : set + 'You stood and took it half-turned, and as it came in he stepped and took it off your toes. Close and still is not far: move his feet first.';
   } else if (key === 'tight'){
     tier = act === 'shield' ? 3 : act === 'feint' ? 2 : act === 'meet' ? 2 : 0;
     text = act === 'shield' ? 'He was on your back. You showed for it, put your body between him and the ball, and played first time to your full-back, the man facing play (de espaldas, juega de cara). Possession kept, and the ball is now going forward.'
@@ -3349,11 +3375,12 @@ function verdict(c){
          : 'The ball was for your full-back. The feint pulled you off your line for nothing; hold the width.';
   }
   /* the look: mirar antes de recibir */
-  const lateRun = key === 'jump' && (act === 'meet' || act === 'feint') && !got;         // the right call, made too late
+  const lateRun = (key === 'jump' || key === 'watch') && (act === 'meet' || act === 'feint') && !got && tier === 0;   // the right call, made too late
   const callGrade = c.late ? 'Late' : lateRun ? 'Late' : tier === 3 ? 'Correct' : tier > 0 ? 'Workable' : 'Incorrect';
   /* the ladder: what he did decides the call */
   const LADDER = { hold: [m(c.d0) + ' off, too far to reach a ' + m(c.L) + ' ball', 'receive open', 'take it facing play'],
                    jump: [m(c.d0) + ' off, close enough to get there', 'come to it', 'win the race'],
+                   watch: [m(c.d0) + ' off, set and watching you', 'check away, then come', 'move his feet first'],
                    tight: ['already on your back', 'shield and set it back', 'keep the ball'],
                    width: ['not moving, and the ball was for your full-back', 'receive open', 'hold the width'] }[key];
   text = '<b>He was ' + LADDER[0] + ' → the call: ' + LADDER[1] + ', ' + LADDER[2] + '.</b> ' + text;
@@ -3401,7 +3428,7 @@ function drawBoard(s){
   for (const id in s.T.tr){ const own = id === 'P' || s.others.some(o => o.id === id && o.own); dot(P(trackAt(s.T.tr[id], tStrike).p), id === 'D' ? '#ff5a3c' : own ? '#5aa9ff' : '#ff5a3c', 1.0, own ? '#fff' : '#200'); }
   const y0 = P(s.you); dot(y0, '#c6ef2f', 1.1, '#fff'); txt(y0[0], y0[1], 'YOU', 2.0, '#c6ef2f', W === 1 ? -2.6 : 3.4);
   const rb = P(s.RB); txt(rb[0], rb[1], 'YOUR FULL-BACK', 1.6, '#8cc4ff', W === 1 ? 3.2 : -2.2);
-  const dd = P(trackAt(s.T.tr.D, tStrike).p); txt(dd[0], dd[1], s.d0.toFixed(0) + ' M' + (s.ts !== null ? ', WENT AT ' + s.ts.toFixed(1) + ' S' : s.key === 'tight' ? ', ON YOUR BACK' : ', HOLDING'), 1.8, '#ff8a70', W === 1 ? 3.4 : -2.4);
+  const dd = P(trackAt(s.T.tr.D, tStrike).p); txt(dd[0], dd[1], s.d0.toFixed(0) + ' M' + (s.ts !== null ? ', WENT AT ' + s.ts.toFixed(1) + ' S' : s.key === 'tight' ? ', ON YOUR BACK' : s.key === 'watch' ? ', SET, WATCHING YOU' : ', HOLDING'), 1.8, '#ff8a70', W === 1 ? 3.4 : -2.4);
   const tk = P(s.T.pTake); L('circle', { cx: tk[0], cy: tk[1], r: 1.6, fill: 'none', stroke: s.T.tInt === null ? '#c6ef2f' : '#ff5a3c', 'stroke-width': .45 });
   txt(tk[0], tk[1], s.T.tInt === null ? (s.key === 'width' ? 'HIS BALL' : s.T.layOff ? 'YOURS, THEN BACK' : 'YOURS') : 'CUT OUT', 1.9, s.T.tInt === null ? '#c6ef2f' : '#ff8a70', W === 1 ? -3.0 : 3.8);
   const at = svgEl('text', { x: 44, y: 36.6, 'font-size': 2.3, 'text-anchor': 'middle', opacity: .7 }); at.textContent = 'ATTACKING ▶';
