@@ -3144,7 +3144,7 @@ function laneD(q, a, b){ const vx = b[0]-a[0], vz = b[1]-a[1], L2 = vx*vx + vz*v
 function makeScene(side, key){ for (let i = 0; i < 600; i++){ const s = candidate(side, key); if (s) return s; } return candidate(side, 'hold') || makeScene(side, 'hold'); }
 /* everyone's track, given his call (made td seconds after the strike; null = none) */
 function tracksFor(s, action, td){
-  const tr = {}, ball = [], me = [], DT = 50, strike = RC.strike, tEnd = s.tFreeze || (RC.strike + s.Tb*1000 + RC.after);
+  const tr = {}, ball = [], me = [], DT = 50, strike = RC.strike; let tEnd = s.tFreeze || (RC.strike + s.Tb*1000 + RC.after);
   const you = s.you, def = s.def, ub = s.ub, u = s.u, width = s.key === 'width';
   const tGo = (td === null || action === 'open') ? null : td + RC.react;
   const toward = unit(you, s.passer);                            // the way to the ball, from where he stands
@@ -3216,6 +3216,8 @@ function tracksFor(s, action, td){
       if (tArr <= tMeet + 0.12){ tInt = tMeet; pInt = pMeet; } }
   }
   const tTake = tInt !== null ? tInt : tMeet, pTake = tInt !== null ? pInt : pMeet;
+  /* a ball let run is taken later than one to feet: the clip runs on until a second after he has it */
+  if (s.key === 'run' || action === 'run'){ tEnd = Math.max(tEnd, strike + (tTake + 1.2)*1000); s.tFreeze = tEnd; }
   /* the lay-off: shield and set it back goes first time to the full-back */
   const layOff = !width && action === 'shield' && tInt === null, tLay = tTake + 0.35, layT = 0.9;
   /* bodies. Nobody runs through anybody: once the ball is taken he pulls up within a stride; if his
@@ -3229,6 +3231,9 @@ function tracksFor(s, action, td){
   for (let T = 0; T <= tEnd + 1e-6; T += DT){
     const t = (T - strike)/1000;
     let m = meAt(Math.min(t, tTake + 0.2));
+    /* a ball let run: once it is at his feet he bends the run up the line toward their goal, at pace */
+    const lineDir = [-0.12, -1], lineN = Math.hypot(lineDir[0], lineDir[1]); lineDir[0] /= lineN; lineDir[1] /= lineN;
+    if (action === 'run' && tInt === null && t > tTake){ const d = RC.youV*(t - tTake); m = [pTake[0] + lineDir[0]*d, pTake[1] + lineDir[1]*d]; }
     const dead = s.key === 'hold' && action === 'run';                                    // a ball run away from, with nobody near it: it just stops
     let ddRaw = (tInt !== null && t > tInt && !dead) ? [defAt(tInt)[0] + ub[0]*4.5*Math.min(1, (t - tInt)/1.2), defAt(tInt)[1] + ub[1]*4.5*Math.min(1, (t - tInt)/1.2)] : defAt(t);
     const dd = s.key === 'tight' ? ddRaw : clearOf(ddRaw, mPrev);          // a running man goes round a body, never through it
@@ -3247,6 +3252,7 @@ function tracksFor(s, action, td){
     else if (tInt !== null){ const dd = defAt(t); bp = [dd[0] + ub[0]*0.4, dd[1] + ub[1]*0.4]; }
     else if (width){ const k = Math.min(1, (t - tTake)/1.2); bp = [s.RB[0] - 3.5*k, s.RB[1] - 4*k]; }      // the full-back carries it forward
     else if (layOff && t > tLay){ const k = Math.min(1, (t - tLay)/layT); bp = [pTake[0] + (s.RB[0] - pTake[0])*k, pTake[1] + (s.RB[1] - pTake[1])*k]; }
+    else if (action === 'run') bp = [m[0] + lineDir[0]*0.5, m[1] + lineDir[1]*0.5];
     else bp = [m[0] + 0.35*toward[0], m[1] + 0.35*toward[1]];
     ball.push([T, bp[0], bp[1]]);
     (tr.D = tr.D || []).push([T, dd[0], dd[1]]);
@@ -3336,20 +3342,23 @@ function seqFrame(s, T){
     /* half-turned up the pitch while it comes; and once it is at his feet, eyes on the man he is about to take on */
     const k = Math.min(1, (t - s.td)/0.5); const up = ypTo(me[0], me[1], me[0] - s.side*8, 1.3, me[1] - 20); yp[0] += wrapA(up[0] - yp[0])*0.45*k; yp[1] += (up[1] - yp[1])*0.3*k;
   }
-  /* once the ball is at his feet his eyes come off it: onto the man he is about to take on, or, setting it back,
-     onto the full-back he is playing to. (Looking at a ball at your own feet is how a camera ends up spinning.) */
-  if (s.decided && s.T.tInt === null && t > s.T.tTake - 0.35){
-    const E = q => q < 0.5 ? 2*q*q : 1 - Math.pow(-2*q + 2, 2)/2, k2 = E(Math.min(1, (t - s.T.tTake + 0.35)/0.85));
-    const tp = wx(trackAt(s.action === 'shield' ? s.T.tr.RB : s.T.tr.D, T).p);
-    const on = ypTo(me[0], me[1], tp[0], 1.4, tp[1]); yp[0] += wrapA(on[0] - yp[0])*0.9*k2; yp[1] += (on[1] - yp[1])*0.9*k2; }
   /* check away, then come: eyes stay on the passer the whole way - the steps toward goal are a through-ball
      request, and the eye contact is what sells it; then the turn, the run back, and the ball (the default gaze) */
   if (s.decided && s.action === 'feint' && s.td !== null){
     const tGo = s.td + RC.react; if (t > tGo){ const pp = wx(s.passer), onP = ypTo(me[0], me[1], pp[0], 1.2, pp[1]); yp[0] += wrapA(onP[0] - yp[0])*0.7; yp[1] += (onP[1] - yp[1])*0.5; }
   }
+  /* let it run: as he goes he turns the safe way - over the touchline shoulder, away from the man inside - and
+     his eyes come up the pitch toward their goal, where he is running; the ball sits in the bottom of the picture */
+  if (s.decided && s.action === 'run' && s.td !== null && t > s.td + RC.react){
+    const E = q => q < 0.5 ? 2*q*q : 1 - Math.pow(-2*q + 2, 2)/2, k = E(Math.min(1, (t - s.td - RC.react)/0.55));
+    const ahead = ypTo(me[0], me[1], me[0] - s.side*2, 1.2, me[1] - 15);                                        // up the pitch, toward their goal
+    yp[0] += turnBy(yp[0], ahead[0], s.side)*k; yp[1] += (Math.max(ahead[1], -0.12) - yp[1])*k;
+    const g = Math.max(0, 1 - Math.abs(t - s.T.tMeet + 0.1)/0.35);                                                 // a glance down to take it
+    if (g > 0 && s.T.tInt === null){ const bb = wx(trackAt(s.T.ball, T).p); const onB = ypTo(me[0], me[1], bb[0], 0.1, bb[1]); yp[1] += (Math.max(onB[1], -0.75) - yp[1])*0.8*g; }
+  }
   /* once the ball is at his feet his eyes come off it: onto the man he is about to take on, or, setting it back,
      onto the full-back he is playing to. (Looking at a ball at your own feet is how a camera ends up spinning.) */
-  if (s.decided && s.T.tInt === null && t > s.T.tTake - 0.35){
+  if (s.decided && s.action !== 'run' && s.T.tInt === null && t > s.T.tTake - 0.35){
     const E = q => q < 0.5 ? 2*q*q : 1 - Math.pow(-2*q + 2, 2)/2, k2 = E(Math.min(1, (t - s.T.tTake + 0.35)/0.85));
     const tp = wx(trackAt(s.action === 'shield' ? s.T.tr.RB : s.T.tr.D, T).p);
     const on = ypTo(me[0], me[1], tp[0], 1.4, tp[1]); yp[0] += wrapA(on[0] - yp[0])*0.9*k2; yp[1] += (on[1] - yp[1])*0.9*k2; }
