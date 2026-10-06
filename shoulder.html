@@ -3043,11 +3043,13 @@ const SH_DWELL = 120;                     // a man on the way round gets a beat 
 function scanNow(){
   if (!scan) return null;
   const t = performance.now() - scan.t0, E = q => q < 0.5 ? 2*q*q : 1 - Math.pow(-2*q + 2, 2)/2;
-  const f = scan.f;                         // where on the turn (0..1) the man inside sits, or null
-  const dw = f ? SH_DWELL : 0, total = SH_OUT + SH_HOLD + SH_BACK + 2*dw;
+  const f = null;                           // (the dwell is off: a pause mid-turn read as a glitch; a slower sweep does the job)
+  const OUT = scan.slow ? 280 : SH_OUT, BACK = scan.slow ? 280 : SH_BACK;   // let it run: a slower, smooth sweep, so the man inside is in the picture for a few frames
+  const dw = f ? SH_DWELL : 0, total = OUT + SH_HOLD + BACK + 2*dw;
   if (t >= total){ scan = null; return null; }
   let k;
-  if (!f){ k = t < SH_OUT ? E(t/SH_OUT) : t < SH_OUT + SH_HOLD ? 1 : E(1 - (t - SH_OUT - SH_HOLD)/SH_BACK); }
+  const Es = scan.slow ? (q => 0.15*E(q) + 0.85*q) : E;                              // the slow sweep is nearly even-paced: no whip through the middle, so a man on the way round is in the picture for a few frames
+  if (!f){ k = t < OUT ? Es(t/OUT) : t < OUT + SH_HOLD ? 1 : Es(1 - (t - OUT - SH_HOLD)/BACK); }
   else {
     const o1 = SH_OUT*f, o2 = SH_OUT*(1 - f), b1 = SH_BACK*(1 - f), b2 = SH_BACK*f;
     let u = t;
@@ -3402,7 +3404,7 @@ function offerCalls(c){
 }
 function startScan(dir){
   if (!seqLive || scan) return false;
-  scan = { dir, t0: performance.now(), f: null };
+  scan = { dir, t0: performance.now(), f: null, slow: !!(current && current.key === 'run') };
   /* let it run: the man inside him lies on the way round to the inside shoulder; the eyes stop on him both ways */
   if (current && current.key === 'run'){
     const s = current, wx = p => [s.side*p[0], p[1]], me = wx(s.you), pp = wx(s.passer), dp = wx(s.def);
