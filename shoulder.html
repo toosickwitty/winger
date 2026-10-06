@@ -222,7 +222,7 @@ a.iconbtn{text-decoration:none;display:inline-flex;align-items:center;white-spac
       <button data-mode="test" aria-pressed="false">Test</button>
     </div>
     <button class="cta" id="start">Start session</button>
-    <p class="note">16 reps, about six minutes. The ball is played to you on the wing from your own defensive line, 17-26 m, at a top-level youth pace. While it travels, <b>look over your shoulder</b> (tap the left or right half of the screen; on a computer the &larr; &rarr; keys) &mdash; 0.3 s each, as often as you like &mdash; and <b>call it before it arrives</b>, in the terms the Spanish school uses: <b>Receive open</b>, stay and take it half-turned (<i>de perfil</i>); <b>Come to it</b>, the supporting unmarking movement (<i>desmarque de apoyo</i>); <b>Shield, set it back</b>, body between him and the ball and first time to the man facing play (<i>de espaldas, juega de cara</i>); <b>Check away, then come</b>, a step toward goal to drag him, then come short (<i>fintar y salir</i>).<br><br>The read is <b>his distance against the length of the ball</b>. Tight on your back (1-2 m): shield. Close enough to get there (4-6 m): come to it, as the ball leaves his foot &mdash; he goes early, and if you stand still he cuts it out. Too far to reach a ball this long (10 m and more on a 20 m pass, 13 m on a 30 m pass): receive open and take it facing play &mdash; now and then he gambles from there anyway, and arrives after it. One look, before the strike or as it travels, is enough to read the distance (mirar antes de recibir). In Learn, his distance sits over his head while you look, so the eye learns what 5 m and 14 m look like. Everything after your call is played out: who gets there first, and by how much.<br><br><b>Learn</b> paints the lanes on the grass. <b>Test</b> takes that away.</p>
+    <p class="note">16 reps, about six minutes. The ball is played to you on the wing from your own defensive line, 17-26 m, at a top-level youth pace. While it travels, <b>look over your shoulder</b> (tap the left or right half of the screen; on a computer the &larr; &rarr; keys) &mdash; 0.3 s each, as often as you like &mdash; and <b>call it before it arrives</b>, in the terms the Spanish school uses: <b>Receive open</b>, stay and take it half-turned (<i>de perfil</i>); <b>Come to it</b>, the supporting unmarking movement (<i>desmarque de apoyo</i>); <b>Shield, set it back</b>, body between him and the ball and first time to the man facing play (<i>de espaldas, juega de cara</i>); <b>Check away, then come</b>, a step toward goal to drag him, then come short (<i>fintar y salir</i>).<br><br>The read is <b>his distance against the length of the ball</b>. Tight on your back (1-2 m): shield. Close enough to get there (5-7 m): come to it, as the ball leaves his foot &mdash; he goes early, and if you stand still he cuts it out. Too far to reach a ball this long (10 m and more on a 20 m pass, 13 m on a 30 m pass): receive open and take it facing play &mdash; now and then he gambles from there anyway, and arrives after it. One look, before the strike or as it travels, is enough to read the distance (mirar antes de recibir). In Learn, his distance sits over his head while you look, so the eye learns what 5 m and 14 m look like. Everything after your call is played out: who gets there first, and by how much.<br><br><b>Learn</b> paints the lanes on the grass. <b>Test</b> takes that away.</p>
   </div>
 
   <div id="panelAsk" class="hide">
@@ -3079,11 +3079,11 @@ function candidate(side, key){
        hold   beyond his reach for this ball, +2.5-5 m   -> receive open (one in three gambles late anyway, and fails) */
   const Q = [you[0] + ub[0]*1.3, you[1] + ub[1]*1.3], tQ = ballT(L - 1.3);
   const reach = reachFor(tQ);                                                            // the farthest he can cut it out from, going 0.2 s after the strike
-  const d0 = key === 'tight' ? rand(1.2, 2.0) : key === 'jump' ? rand(4.0, 6.5) : reach + rand(2.5, 5);
+  const d0 = key === 'tight' ? rand(1.2, 2.0) : key === 'jump' ? rand(4.5, 7.0) : reach + rand(2.5, 5);
   if (key === 'hold' && z0 - d0 < -40) return null;
   const def = [you[0] - rand(0.3, 1.6), you[1] - d0];
   let ts = null, gamble = false;
-  if (key === 'jump') ts = rand(0.1, 0.4);                                              // he reads the pass and goes
+  if (key === 'jump') ts = rand(0.3, 0.6);                                              // he reads the pass and goes
   if (key === 'hold' && Math.random() < 1/3){ gamble = true; ts = rand(0.5, 0.9); }     // too far, goes anyway, arrives late
   const others = [
     { id: 'RB', own: true,  at: RB },
@@ -3099,7 +3099,12 @@ function candidate(side, key){
   if (key === 'width' && laneD(def, passer, RB) < 2.5) return null;                      // the ball to the full-back is on
   if (laneD(RB, passer, you) < 2.5 && key !== 'width') return null;                     // the ball to him is on
   const sc = { side, key, you, passer, RB, target, L, u, ub, Tb, d0, def, ts, gamble, reach, Q, tQ, others, start: you, wingX: you[0], zBase: you[1], scans: [], action: null, td: null };
-  if (key === 'jump'){ if (tracksFor(sc, 'meet', 1.0).tInt !== null) return null; if (tracksFor(sc, 'open', 0.5).tInt === null) return null; }   // go by 1.0 s and you win; stand and he cuts it out
+  if (key === 'jump'){
+    if (tracksFor(sc, 'meet', 1.3).tInt !== null) return null;                            // go by 1.3 s and you win
+    if (tracksFor(sc, 'open', 0.5).tInt === null) return null;                             // stand still and he cuts it out
+    let lo = 1.3, hi = Tb; for (let i = 0; i < 14; i++){ const m = (lo + hi)/2; if (tracksFor(sc, 'meet', m).tInt === null) lo = m; else hi = m; }
+    sc.tWin = lo;                                                                          // the last moment a call still wins
+  }
   if (key === 'hold' && gamble){ const R = tracksFor(sc, 'open', 0.5); if (R.tInt !== null) return null; }                                   // the gamble must fail
   return Object.assign(sc, {
     ev: [{ role: 'P', at: passer, ts: 0, sh: { own: {}, opp: {} } }, { role: key === 'width' ? 'RB' : 'YOU', at: target, ts: RC.strike, ta: RC.strike + Tb*1000, len: L }],
@@ -3327,9 +3332,9 @@ function verdict(c){
     if (act === 'meet' || act === 'feint'){ tier = got ? (act === 'meet' ? 3 : 2) : 0;
       const near = 'He was ' + m(c.d0) + ' off: close enough to get to a ' + m(c.L) + ' ball, and he went at ' + nm(c.ts) + '. ';
       text = got ? near + (act === 'feint' ? 'You checked away first, which cost half a second, then came to it at ' + nm(c.td + RC.feint) : 'You came to it (desmarque de apoyo) at ' + nm(c.td)) + ' and met it ' + m(d2(c.you, R.pMeet)) + ' up the line, ' + Math.max(0.05, c.ts + runT(d2(c.def, R.pMeet), RC.defV, RC.defA) - R.tMeet).toFixed(1) + ' s before he could get there.' + (act === 'feint' ? ' With a man that close, go straight to the ball: the feint is for a man who is set and watching you.' : '')
-                 : near + 'Right idea, too late: you went at ' + nm(c.td + (act === 'feint' ? RC.feint : 0)) + (act === 'feint' ? ' (after the feint)' : '') + ', and he cut it out ' + m(d2(c.you, R.pInt)) + ' in front of you. Within six metres, go as the ball leaves his foot.'; }
+                 : near + 'Right call, late: you had until ' + nm(c.tWin) + ' and you went at ' + nm(c.td + (act === 'feint' ? RC.feint : 0)) + (act === 'feint' ? ' (after the feint)' : '') + ', and he cut it out ' + m(d2(c.you, R.pInt)) + ' in front of you. Decide before the pass; go as the ball leaves his foot.'; }
     else { tier = 0;
-      text = 'He was ' + m(c.d0) + ' off: close enough to get to a ' + m(c.L) + ' ball. ' + (act === 'open' ? 'You stood and took it half-turned' : 'You showed and shielded') + ', and he sprinted past your shoulder, went at ' + nm(c.ts) + ' and cut it out ' + m(d2(c.you, R.pInt)) + ' in front of you. Possession lost on your own wing. A man within six metres can only be beaten by going to the ball.'; }
+      text = 'He was ' + m(c.d0) + ' off: close enough to get to a ' + m(c.L) + ' ball. ' + (act === 'open' ? 'You stood and took it half-turned' : 'You showed and shielded') + ', and he sprinted past your shoulder, went at ' + nm(c.ts) + ' and cut it out ' + m(d2(c.you, R.pInt)) + ' in front of you. Possession lost on your own wing. A man within seven metres can only be beaten by going to the ball.'; }
   } else if (key === 'tight'){
     tier = act === 'shield' ? 3 : act === 'feint' ? 2 : act === 'meet' ? 2 : 0;
     text = act === 'shield' ? 'He was on your back. You showed for it, put your body between him and the ball, and played first time to your full-back, the man facing play (de espaldas, juega de cara). Possession kept, and the ball is now going forward.'
@@ -3344,7 +3349,8 @@ function verdict(c){
          : 'The ball was for your full-back. The feint pulled you off your line for nothing; hold the width.';
   }
   /* the look: mirar antes de recibir */
-  const callGrade = c.late ? 'Incorrect' : tier === 3 ? 'Correct' : tier > 0 ? 'Workable' : 'Incorrect';
+  const lateRun = key === 'jump' && (act === 'meet' || act === 'feint') && !got;         // the right call, made too late
+  const callGrade = c.late ? 'Late' : lateRun ? 'Late' : tier === 3 ? 'Correct' : tier > 0 ? 'Workable' : 'Incorrect';
   /* the ladder: what he did decides the call */
   const LADDER = { hold: [m(c.d0) + ' off, too far to reach a ' + m(c.L) + ' ball', 'receive open', 'take it facing play'],
                    jump: [m(c.d0) + ' off, close enough to get there', 'come to it', 'win the race'],
@@ -3357,7 +3363,7 @@ function verdict(c){
   else if (!sc.length){ look = 'You looked only after you had called (' + c.scans.map(nm).join(', ') + '). A look that comes after the decision cannot inform it.'; lookGrade = 'Incorrect'; }
   else { look = 'You looked at ' + sc.map(nm).join(', ') + ' and saw him ' + m(c.d0) + ' off' + (key === 'jump' && sc.some(t => t >= c.ts) ? ', already going' : '') + '.' + (after ? ' (' + after + ' more after the call.)' : ''); lookGrade = 'Correct'; }
   if (tier === 3 && !informative && key !== 'width'){ tier = 2; look += ' Right call, but a guess: mirar antes de recibir. Check as it is struck and again as it travels.'; }
-  if (c.late){ tier = 0; text = text.replace('</b> ', '</b> No call before it arrived. '); }
+  if (c.late){ tier = 0; text = text.replace('</b> ', '</b> No call before it arrived: late. '); }
   return { tier, text, look, callGrade, lookGrade };
 }
 function finish(){
@@ -3366,10 +3372,10 @@ function finish(){
   paintSides(); saveStats();
   const box = el('rank'); box.innerHTML = '';
   const row = (chip, cls, html) => { const r = document.createElement('div'); r.className = 'row' + (cls ? ' picked' : ''); r.innerHTML = (chip ? '<span class="chip ' + cls + '">' + chip + '</span>' : '') + '<span class="wy">' + html + '</span>'; box.appendChild(r); };
-  const gcls = { Correct: 't3', Workable: 't1', Incorrect: 't0' };
-  row('Call · ' + v.callGrade, gcls[v.callGrade], '<b>Your call: ' + (c.action ? CALL_NAME[c.action] : 'none') + '.</b> ' + v.text);
+  const gcls = { Correct: 't3', Workable: 't1', Late: 't1', Incorrect: 't0' };
+  row('Call · ' + v.callGrade, gcls[v.callGrade], '<b>Your call: ' + (c.action ? CALL_NAME[c.action] + ' at ' + (v2 => v2.toFixed(1) + ' s')(c.td) : 'none') + (c.key === 'jump' && c.tWin ? ' (the window closed at ' + c.tWin.toFixed(1) + ' s)' : '') + '.</b> ' + v.text);
   row('Scan · ' + v.lookGrade, gcls[v.lookGrade], '<b>Your scans</b> (<i>mirar antes de recibir</i>). ' + v.look);
-  row(null, '', '<b>The cues.</b> Too far to reach this ball (about 10 m on a 20 m pass, 13 m on a 30 m pass) → receive open. Within six metres → come to it, as it leaves his foot. On your back → shield, set it back. Close, set and watching you → check away, then come.');
+  row(null, '', '<b>The cues.</b> Too far to reach this ball (about 10 m on a 20 m pass, 13 m on a 30 m pass) → receive open. Within seven metres → come to it, as it leaves his foot. On your back → shield, set it back. Close, set and watching you → check away, then come.');
   row(null, '', '<b>Receiving from the back, the Spanish way.</b> Take the ball half-turned (<i>de perfil</i>) so the first touch goes forward. Man coming from behind: go to the ball (<i>desmarque de apoyo</i>), he cannot get past you to it. Man on your back: receive back to goal and play first time to the man facing play (<i>de espaldas, juega de cara</i>); or drag him with a step away and come short (<i>fintar y salir</i>). Look as it is struck and again as it travels.');
   const nm = v2 => v2.toFixed(1) + ' s', m = v2 => v2.toFixed(0) + ' m';
   row(['Turnover', 'Workable', 'Good', 'Best'][pts], 't' + pts, '<b>The clock</b> (from the strike). He was ' + m(c.d0) + ' off, ' + KEY_NAME[c.key] + (c.ts !== null ? ', went at ' + nm(c.ts) : '') + ' · the ball: ' + m(c.L) + ' · your looks: ' + (c.scans.length ? c.scans.map(nm).join(', ') : 'none') + ' · your call: ' + (c.action ? CALL_NAME[c.action] + ' at ' + nm(c.td) : 'none') + ' · the ball arrived at ' + nm(c.Tb) + '.');
