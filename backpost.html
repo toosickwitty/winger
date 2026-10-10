@@ -1000,17 +1000,17 @@ const LOOK = (() => {
     const B = { spine: [bn('Spine'), bn('Spine1'), bn('Spine2')], neck: bn('Neck'), head: bn('Head'),
                 upLeg: [bn('RightUpLeg'), bn('LeftUpLeg')], leg: [bn('RightLeg'), bn('LeftLeg')] };
     let tNow = 0;
-    let passT0 = null;
+    let passT0 = null, passW = 0;
     function apply(){
       if (passCtl.k !== null){
         const k = passCtl.k, w = k < -0.55 ? (k + 1)/0.45 : k > 1.0 ? Math.max(0, (1.2 - k)/0.2) : 1;   // in over the approach, out after the follow-through
         if (passT0 === null) passT0 = tNow;
-        const ww = Math.min(1, Math.max(0, w*w*(3 - 2*w)));
+        const ww = Math.min(1, Math.max(0, w*w*(3 - 2*w))); passW = ww;
         sampleBlend(tNow, ww, passT0);
         /* the ball sits at the player's origin: the body shifts a boot's width to the plant side and a little
            back, so the ball is at the KICKING foot, not between the feet under the plant foot */
         const sg = (passCtl.o.foot || 'R') === 'R' ? 1 : -1;
-        stand.position.set(sg*0.22*ww, 0, -0.12*ww);
+        stand.position.set(sg*0.10*ww, 0, -0.10*ww);
       } else { passT0 = null; stand.position.set(0, 0, 0); sample(tNow); }           // the captured pose at this instant...
       const wy = upperCtl.rotation.y, wx = upperCtl.rotation.x, hy = headCtl.rotation.y;
       B.spine.forEach(b => { if (wy) b.rotateY(wy/3); if (wx) b.rotateX(wx/3); });   // ...his twist...
@@ -1055,21 +1055,35 @@ const LOOK = (() => {
       spineY: [[-1, 0], [-0.6, 0], [0, 0.14*open], [0.55, 0.16*open], [0.7, 0.08*open], [1.0, -0.04], [1.2, 0]],
       spineX: [[-1, 0.03], [-0.6, 0.04], [0, 0.12 + 0.06*(1-ins)], [0.55, 0.16 + 0.06*(1-ins)], [0.7, 0.15 + 0.06*(1-ins)], [1.0, 0.08], [1.2, 0.03]],   // chest over the ball
       hipsX:  [[-1, 0.02], [0, 0.04], [0.55, 0.05], [0.7, 0.05], [1.0, 0.0], [1.2, 0.02]],
-      stepK:  [[-1, 0], [1.2, 0]],                                                                                              // (no shuffle before the plant)
-      plZ:    [[-1, 0], [-0.6, 0], [-0.1, 0.16], [0.7, 0.16], [1.0, 0.1], [1.2, 0]],                                           // a hand's width beside the ball
-      plX:    [[-1, 0], [-0.7, 0.03], [-0.45, 0.14], [-0.25, 0.12], [0.7, 0.12], [1.0, 0.08], [1.2, 0]],                              // the plant foot is nearly down already: a short low step, no lift                            // the plant foot steps in and lands level with it
-      plY:    [[-1, 0], [-0.6, 0], [-0.1, 0.3*open], [0.7, 0.3*open], [1.0, 0.15*open], [1.2, 0]],                             // toes on the target
-      plKnee: [[-1, 0.1], [-0.7, 0.12], [-0.45, 0.25], [-0.25, 0.3], [0.55, 0.36], [0.7, 0.33], [1.0, 0.25], [1.2, 0.1]],          // lands soft, knee bent
-      kX:     [[-1, 0], [-0.6, 0], [-0.1, -0.4], [0.55, -(0.75 + 0.35*pw)], [0.7, 0.15], [1.0, ins ? 0.7 + 0.3*pw : 0.5 + 0.25*pw], [1.2, 0.04]],   // the swing is in the thigh: the foot goes back along the ground and comes through past the plant foot   // trails into a compact backswing; a short push through
-      kKnee:  [[-1, 0.1], [-0.6, 0.12], [-0.1, 0.45], [0.55, 0.7 + 0.4*pw], [0.7, ins ? 0.2 : 0.12], [1.0, 0.25], [1.2, 0.1]],                 // less knee lift: a swing, not a stamp                   // heel up; the knee over the ball at contact
-      kY:     [[-1, 0], [-0.1, 0.1], [0.55, 0.35*ins + 0.05], [0.7, 0.95*ins + 0.1], [1.0, 0.8*ins + 0.08], [1.2, 0]],                              // the foot squared to the back of the ball
-      kZ:     [[-1, 0], [0.7, 0], [1.0, -0.15*ins], [1.2, 0]],                                                                                     // a little across the midline
-      kFoot:  [[-1, 0], [0.55, 0.15], [0.7, ins ? -0.35 : 0.4], [1.0, ins ? -0.3 : 0.35], [1.2, 0]],                                               // toes up, ankle locked
+      stepK:  [[-1, 0], [1.2, 0]],
+      /* the plant leg: a short step so the foot lands a little ahead of the hip and a hand's width out, toes to the target */
+      plX:    [[-1, 0], [-0.7, 0], [-0.45, 0.32], [-0.25, 0.22], [0.7, 0.22], [1.0, 0.12], [1.2, 0]],      // swing forward (+)
+      plY:    [[-1, 0], [-0.6, 0], [-0.25, 0.1*open], [0.7, 0.1*open], [1.2, 0]],                         // a touch of turn
+      plZ:    [[-1, 0], [-0.6, 0], [-0.25, 0.12], [0.7, 0.12], [1.0, 0.06], [1.2, 0]],                    // out to the side (+)
+      plKnee: [[-1, 0], [-0.7, 0], [-0.45, 0.35], [-0.25, 0.28], [0.55, 0.32], [0.7, 0.3], [1.0, 0.2], [1.2, 0]],
+      /* the kicking leg: back (thigh behind, heel up), then through the ball and on in front of him */
+      kX:     [[-1, 0], [-0.6, 0], [-0.1, -0.35], [0.55, -(0.5 + 0.3*pw)], [0.7, 0.3], [1.0, 0.8 + 0.3*pw], [1.2, 0.05]],   // swing: - back, + forward
+      kKnee:  [[-1, 0], [-0.6, 0], [-0.1, 0.45], [0.55, 0.75 + 0.35*pw], [0.7, 0.25], [1.0, 0.3], [1.2, 0]],                     // heel up on the backswing, nearly straight at contact
+      kY:     [[-1, 0], [-0.1, 0], [0.55, 0.2*ins], [0.7, 0.85*ins], [1.0, 0.7*ins], [1.2, 0]],                                // the foot turned out to meet the ball with the inside
+      kZ:     [[-1, 0], [0.55, 0.08], [0.7, 0.02], [1.0, -0.1*ins], [1.2, 0]],                                                 // a little out on the backswing, across after
+      kFoot:  [[-1, 0], [0.55, 0.15], [0.7, ins ? -0.35 : 0.4], [1.0, ins ? -0.3 : 0.35], [1.2, 0]],                           // toes up, ankle locked
       armPl:  [[-1, 0.05], [-0.6, 0.08], [-0.1, 0.45], [0.55, 0.7], [0.7, 0.6], [1.0, 0.3], [1.2, 0.05]],                                          // the opposite arm out for balance...
       armPlX: [[-1, 0], [-0.1, -0.15], [0.55, -0.4], [0.7, -0.2], [1.0, 0.4], [1.2, 0]],                                                           // ...and across after
       armK:   [[-1, 0.05], [-0.1, 0.12], [0.55, 0.1], [0.7, 0.2], [1.0, 0.3], [1.2, 0.05]],
-      drop:   [[-1, 0], [-0.6, 0], [-0.1, 6], [0.55, 7], [0.7, 6], [1.0, 3], [1.2, 0]]
+      drop:   [[-1, 0], [-0.75, -4], [-0.1, -6], [0.55, -5], [0.7, -6], [1.0, -4], [1.1, -2], [1.2, 0]]   // (negative: the straight rest legs are longer than the idle stance; the hips ride up so the feet stay on the grass)
     });
+    /* the legs in the pass are posed ABSOLUTELY, in the player's own frame (forward, up, sideways), not as
+       offsets on this skeleton's thigh axes, which point diagonally and vary with the stance underneath:
+       the thigh and shin go back to their rest orientation and are then swung about the player's axes */
+    const REST = {}; ['RightUpLeg', 'LeftUpLeg', 'RightLeg', 'LeftLeg', 'RightFoot', 'LeftFoot'].forEach(n => { REST[n] = bn(n).quaternion.clone(); });
+    const _Pq = new THREE.Quaternion(), _pq = new THREE.Quaternion(), _rq = new THREE.Quaternion(), _ax = new THREE.Vector3();
+    /* rotate a bone about an axis given in the PLAYER's frame (x: his left, y: up, z: forward) */
+    function spin(bone, ax, ang){
+      if (!ang) return;
+      bone.parent.getWorldQuaternion(_pq).invert();
+      _ax.set(ax[0], ax[1], ax[2]).applyQuaternion(_Pq).applyQuaternion(_pq).normalize();
+      bone.quaternion.premultiply(_rq.setFromAxisAngle(_ax, ang));
+    }
     const PB = { hips: bn('Hips'), head: bn('Head'), up: { Right: bn('RightUpLeg'), Left: bn('LeftUpLeg') }, lo: { Right: bn('RightLeg'), Left: bn('LeftLeg') },
                  foot: { Right: bn('RightFoot'), Left: bn('LeftFoot') }, arm: { Right: bn('RightArm'), Left: bn('LeftArm') } };
     function applyPass(){
@@ -1085,8 +1099,23 @@ const LOOK = (() => {
       PB.head.rotateX(at('headX')); if (KF.headY[2][1]){ const hy = at('headY'); B.neck.rotateY(hy*0.4); PB.head.rotateY(hy*0.6); }
       PB.hips.rotateY(sg*at('hipsY')); PB.hips.rotateX(at('hipsX'));
       B.spine.forEach(b => { b.rotateY(sg*at('spineY')/3); b.rotateX(at('spineX')/3); });
-      PB.up[PL].rotateZ(sg*at('plZ')); PB.up[PL].rotateX(at('plX')); PB.up[PL].rotateY(-sg*at('plY')); PB.lo[PL].rotateX(at('plKnee'));
-      PB.up[K].rotateX(at('kX') + at('stepK')); PB.lo[K].rotateX(at('kKnee') + at('stepK')*0.8); PB.up[K].rotateY(sg*at('kY')); PB.up[K].rotateZ(-sg*at('kZ')); PB.foot[K].rotateX(at('kFoot'));
+      /* legs: rest orientation (straight down), blended in with the pass, then swung in the player's frame.
+         swing: about his lateral axis, + = forward. turn-out: about the vertical, + = toes out (away from the other leg).
+         out: about his forward axis, + = away from the other leg. knee: about the thigh's own lateral axis, + = heel up. */
+      P.getWorldQuaternion(_Pq);
+      const wl = passW;
+      const leg = (side, sgn, swing, turn, out, knee, toes) => {
+        const up = PB.up[side], lo = PB.lo[side], ft = PB.foot[side];
+        up.quaternion.slerp(REST[side + 'UpLeg'], wl); lo.quaternion.slerp(REST[side + 'Leg'], wl); ft.quaternion.slerp(REST[side + 'Foot'], wl);
+        spin(up, [0, 0, 1], sgn*out*wl); spin(up, [0, 1, 0], sgn*turn*wl); spin(up, [1, 0, 0], -swing*wl);
+        /* the knee bends about the thigh's lateral axis: the player's lateral axis, turned with the thigh */
+        const c = Math.cos(sgn*turn*wl), sn = Math.sin(sgn*turn*wl);
+        spin(lo, [c, 0, -sn], knee*wl);
+        spin(ft, [c, 0, -sn], toes*wl);
+      };
+      /* sgn: +1 for his left leg, -1 for his right (which way 'out' and 'toes out' point) */
+      leg(PL, sg, at('plX'), at('plY'), at('plZ'), at('plKnee'), 0);
+      leg(K, -sg, at('kX'), at('kY'), at('kZ'), at('kKnee'), at('kFoot'));
       PB.arm[PL].rotateZ(-sg*at('armPl')); PB.arm[PL].rotateX(at('armPlX')); PB.arm[K].rotateZ(sg*at('armK'));
     }
     P.userData.pass = (k, o) => { passCtl.k = (k === null || k === undefined) ? null : k; if (o) passCtl.o = o; };
