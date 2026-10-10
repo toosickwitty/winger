@@ -1537,11 +1537,11 @@ const LOOK = (() => {
       hipsX:  [[-1, 0.02], [0, 0.04], [0.55, 0.05], [0.7, 0.05], [1.0, 0.0], [1.2, 0.02]],
       stepK:  [[-1, 0], [1.2, 0]],                                                                                              // (no shuffle before the plant)
       plZ:    [[-1, 0], [-0.6, 0], [-0.1, 0.16], [0.7, 0.16], [1.0, 0.1], [1.2, 0]],                                           // a hand's width beside the ball
-      plX:    [[-1, 0], [-0.7, 0.05], [-0.45, 0.26], [-0.25, 0.22], [0.7, 0.22], [1.0, 0.14], [1.2, 0]],                            // the plant foot steps in and lands level with it
+      plX:    [[-1, 0], [-0.7, 0.03], [-0.45, 0.14], [-0.25, 0.12], [0.7, 0.12], [1.0, 0.08], [1.2, 0]],                              // the plant foot is nearly down already: a short low step, no lift                            // the plant foot steps in and lands level with it
       plY:    [[-1, 0], [-0.6, 0], [-0.1, 0.3*open], [0.7, 0.3*open], [1.0, 0.15*open], [1.2, 0]],                             // toes on the target
-      plKnee: [[-1, 0.1], [-0.7, 0.12], [-0.45, 0.42], [-0.25, 0.4], [0.55, 0.46], [0.7, 0.42], [1.0, 0.3], [1.2, 0.1]],          // lands soft, knee bent
-      kX:     [[-1, 0], [-0.6, 0], [-0.1, -0.35], [0.55, -(0.6 + 0.35*pw)], [0.7, 0.12], [1.0, ins ? 0.55 + 0.3*pw : 0.4 + 0.25*pw], [1.2, 0.04]],   // trails into a compact backswing; a short push through
-      kKnee:  [[-1, 0.1], [-0.6, 0.12], [-0.1, 0.6], [0.55, 1.0 + 0.6*pw], [0.7, ins ? 0.28 : 0.15], [1.0, 0.35], [1.2, 0.1]],                   // heel up; the knee over the ball at contact
+      plKnee: [[-1, 0.1], [-0.7, 0.12], [-0.45, 0.25], [-0.25, 0.3], [0.55, 0.36], [0.7, 0.33], [1.0, 0.25], [1.2, 0.1]],          // lands soft, knee bent
+      kX:     [[-1, 0], [-0.6, 0], [-0.1, -0.4], [0.55, -(0.75 + 0.35*pw)], [0.7, 0.15], [1.0, ins ? 0.7 + 0.3*pw : 0.5 + 0.25*pw], [1.2, 0.04]],   // the swing is in the thigh: the foot goes back along the ground and comes through past the plant foot   // trails into a compact backswing; a short push through
+      kKnee:  [[-1, 0.1], [-0.6, 0.12], [-0.1, 0.45], [0.55, 0.7 + 0.4*pw], [0.7, ins ? 0.2 : 0.12], [1.0, 0.25], [1.2, 0.1]],                 // less knee lift: a swing, not a stamp                   // heel up; the knee over the ball at contact
       kY:     [[-1, 0], [-0.1, 0.1], [0.55, 0.35*ins + 0.05], [0.7, 0.95*ins + 0.1], [1.0, 0.8*ins + 0.08], [1.2, 0]],                              // the foot squared to the back of the ball
       kZ:     [[-1, 0], [0.7, 0], [1.0, -0.15*ins], [1.2, 0]],                                                                                     // a little across the midline
       kFoot:  [[-1, 0], [0.55, 0.15], [0.7, ins ? -0.35 : 0.4], [1.0, ins ? -0.3 : 0.35], [1.2, 0]],                                               // toes up, ankle locked
@@ -2267,7 +2267,7 @@ function planRun(s, spot){
 }
 /* where a passer is in his pass at T: k from -1 (900 ms out: eyes on the ball, then the glance)
    through 0 (the plant, 300 ms out), 0.7 (contact, at the strike) to 1.2 (settled, 500 ms after) */
-const footOf = id => { let h = 0; for (const c of id) h = (h*31 + c.charCodeAt(0)) % 97; return h % 4 === 0 ? 'L' : 'R'; };
+const footOf = id => 'R';
 function passPhase(s, id, T){
   for (let i = 1; i < s.ev.length; i++){
     if (s.ev[i-1].role !== id) continue;
