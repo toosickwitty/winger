@@ -2933,7 +2933,7 @@ function drawLabels(){
 }
 
 function endSession(){
-  setVeil(true, 'Session done', 'Check the two bars. The lower one is where the work is.');
+  { const mw = document.getElementById('mapwrap'); if (mw) mw.style.display = 'none'; } setVeil(true, 'Session done', 'Check the two bars. The lower one is where the work is.');
   labels.style.display = 'none'; el('leaders').style.display = 'none';
   el('hmeta').textContent = 'Session done';
   el('sumScore').textContent = (sMax ? Math.round(100*sPts/sMax) : 0)+'%';
@@ -2998,6 +2998,9 @@ addEventListener('keydown', e => {
   if (e.code === 'Space' || e.key === ' '){ e.preventDefault(); if (e.repeat) return; const b = on('next'); if (b) b.click(); }
   else if (e.key === 'r' || e.key === 'R'){ if (e.repeat) return; const b = on('replay'); if (b){ e.preventDefault(); b.click(); } }
 });
+/* a second tap on Next inside the cue window (a double tap, or a tap that fires twice) used to skip a rep */
+(() => { const b = document.getElementById('next'); if (!b) return; let last = -1e9;
+  b.addEventListener('click', e => { const n = performance.now(); if (n - last < (CFG.cueMs || 800) + 400){ e.stopImmediatePropagation(); e.preventDefault(); return; } last = n; }, true); })();
 </script>
 <script id="fs-sideways">
 /* Phone or tablet held sideways: fill the whole screen, no browser bar.
