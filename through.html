@@ -1052,13 +1052,30 @@ const LOOK = (() => {
        each at its own natural tempo, never a run played in slow motion */
     const gaits = {}; let gaitNow = null;
     const gaitClip = n => gaits[n] || (gaits[n] = clipFor(n === 'run' ? RUN_MPS : n === 'walk' ? WALK_MPS : 0));
-    function sample(t){
-      const c0 = gaitNow || (t < 0 ? pre : main), D = c0.clip.duration;
-      const time = (((c0.phase0 + t * c0.rate) % D) + D) % D;
+    function sampleClip(c0, t){
+      const D = c0.clip.duration, time = (((c0.phase0 + t * c0.rate) % D) + D) % D;
       for (const c of c0.channels){
         const v = c.interp.evaluate(time);
         if (c.quat) c.node.quaternion.set(v[0], v[1], v[2], v[3]);
         else        c.node.position.set(v[0], v[1], v[2]);
+      }
+    }
+    function sample(t){ sampleClip(gaitNow || (t < 0 ? pre : main), t); }
+    /* the pass is played on a planted body: the live gait crossfades into the idle stance on the way in
+       and back out again, so a man never pops from a stride into the plant or out of the follow-through */
+    const _q = new THREE.Quaternion(), _p = new THREE.Vector3(), hold = new Map();
+    function sampleBlend(t, w, tIdle){
+      if (w <= 0){ sample(t); return; }
+      const idle = gaitClip('idle');
+      if (w >= 1){ sampleClip(idle, tIdle); return; }
+      sample(t);
+      hold.clear();
+      for (const c of idle.channels) hold.set(c.node.uuid + (c.quat ? 'q' : 'p'), c.quat ? c.node.quaternion.clone() : c.node.position.clone());
+      sampleClip(idle, tIdle);
+      for (const c of idle.channels){
+        const h = hold.get(c.node.uuid + (c.quat ? 'q' : 'p')); if (!h) continue;
+        if (c.quat) c.node.quaternion.copy(h.slerp(c.node.quaternion, w));
+        else        c.node.position.copy(h.lerp(c.node.position, w));
       }
     }
 
@@ -1070,9 +1087,13 @@ const LOOK = (() => {
     const B = { spine: [bn('Spine'), bn('Spine1'), bn('Spine2')], neck: bn('Neck'), head: bn('Head'),
                 upLeg: [bn('RightUpLeg'), bn('LeftUpLeg')], leg: [bn('RightLeg'), bn('LeftLeg')] };
     let tNow = 0;
+    let passT0 = null;
     function apply(){
-      if (passCtl.k !== null){ gaitNow = gaitClip('idle'); tNow = 0; }   // passing: planted, the gait does not play
-      sample(tNow);                                    // the captured pose at this instant...
+      if (passCtl.k !== null){
+        const k = passCtl.k, w = k < -0.55 ? (k + 1)/0.45 : k > 1.0 ? Math.max(0, (1.2 - k)/0.2) : 1;   // in over the approach, out after the follow-through
+        if (passT0 === null) passT0 = tNow;
+        sampleBlend(tNow, Math.min(1, Math.max(0, w*w*(3 - 2*w))), passT0);
+      } else { passT0 = null; sample(tNow); }           // the captured pose at this instant...
       const wy = upperCtl.rotation.y, wx = upperCtl.rotation.x, hy = headCtl.rotation.y;
       B.spine.forEach(b => { if (wy) b.rotateY(wy/3); if (wx) b.rotateX(wx/3); });   // ...his twist...
       if (hy){ B.neck.rotateY(hy*0.4); B.head.rotateY(hy*0.6); }                      // ...where he looks
@@ -1105,26 +1126,31 @@ const LOOK = (() => {
          look up the moment it is struck. Driven (iCoachFootball): approach 30-45 degrees so the hips
          open, chest over the ball, toes DOWN and the ankle locked, laces, knee over the ball at contact,
          a low punched follow-through. ins = 1 inside of the foot, 0 the laces. */
-      headY:  [[-1, 0], [-0.75, 0], [-0.55, 1.2*ft], [-0.4, 1.2*ft], [-0.2, 0], [1.2, 0]],
-      headX:  [[-1, 0.4], [-0.75, 0.4], [-0.55, -0.2*lk + 0.4*(1-lk)], [-0.4, -0.2*lk + 0.4*(1-lk)], [-0.2, 0.42], [0.7, 0.5], [0.85, 0.1], [1.0, -0.05], [1.2, 0.1]],
-      hipsY:  [[-1, 0], [-0.3, 0], [0, -(0.35 + 0.25*(1-ins))*open], [0.55, -(0.4 + 0.25*(1-ins))*open], [0.7, -0.25*open], [1.0, 0.05], [1.2, 0]],
-      spineY: [[-1, 0], [-0.3, 0], [0, 0.22*open], [0.55, 0.26*open], [0.7, 0.15*open], [1.0, -0.05], [1.2, 0]],
-      spineX: [[-1, 0.03], [-0.3, 0.05], [0, 0.12 + 0.07*(1-ins)], [0.55, 0.17 + 0.07*(1-ins)], [0.7, 0.15 + 0.07*(1-ins)], [1.0, 0.06], [1.2, 0.03]],   // the lean at the waist, chest over the ball
-      hipsX:  [[-1, 0.02], [0, 0.04], [0.55, 0.06], [0.7, 0.05], [1.0, -0.02], [1.2, 0.02]],
-      stepK:  [[-1, 0], [-0.8, 0.25], [-0.5, 0.25], [-0.3, 0], [1.2, 0]],                                      // the step before the strike
-      plZ:    [[-1, 0], [-0.3, 0], [0, 0.2], [0.7, 0.2], [1.0, 0.14], [1.2, 0]],                              // 3-6 in beside the ball
-      plX:    [[-1, 0], [-0.3, 0], [0, 0.26], [0.7, 0.26], [1.0, 0.15], [1.2, 0]],                            // level with it
-      plY:    [[-1, 0], [-0.3, 0], [0, 0.4*open], [0.7, 0.4*open], [1.0, 0.2*open], [1.2, 0]],                // toes on the target
-      plKnee: [[-1, 0.1], [0, 0.5], [0.55, 0.55], [0.7, 0.5], [1.0, 0.3], [1.2, 0.1]],
-      kX:     [[-1, 0], [-0.3, 0], [0, -0.4], [0.55, -(0.5 + 0.55*pw)], [0.7, 0.12], [1.0, ins ? 0.45 + 0.4*pw : 0.3 + 0.3*pw], [1.2, 0.05]],   // a short backswing; a long push through
-      kKnee:  [[-1, 0.1], [0, 0.35], [0.55, 0.7 + 0.9*pw], [0.7, ins ? 0.3 : 0.15], [1.0, 0.3], [1.2, 0.1]],                                   // heel up; knee over the ball on the laces
-      kY:     [[-1, 0], [0, 0.1], [0.55, 0.3*ins + 0.05], [0.7, 1.05*ins + 0.12], [1.0, 0.8*ins + 0.1], [1.2, 0]],                              // the foot squared to the back of the ball
-      kZ:     [[-1, 0], [0.7, 0], [1.0, -0.2*ins], [1.2, 0]],                                                                                  // across the midline
-      kFoot:  [[-1, 0], [0.55, 0.2], [0.7, ins ? -0.4 : 0.45], [1.0, ins ? -0.35 : 0.4], [1.2, 0]],                                            // toes up, ankle locked; toes down for the laces
-      armPl:  [[-1, 0.05], [0, 0.55], [0.55, 0.85], [0.7, 0.75], [1.0, 0.35], [1.2, 0.05]],                                                     // the opposite arm out...
-      armPlX: [[-1, 0], [0, -0.2], [0.55, -0.5], [0.7, -0.3], [1.0, 0.55], [1.2, 0]],                                                           // ...and across the chest after
-      armK:   [[-1, 0.05], [0, 0.15], [0.55, 0.1], [0.7, 0.25], [1.0, 0.4], [1.2, 0.05]],
-      drop:   [[-1, 0], [-0.3, 0], [0, 7], [0.55, 9], [0.7, 7], [1.0, 3], [1.2, 0]]
+      /* Staged like a mocap side-foot pass: the look at the target comes FIRST (while the ball is still at
+         his feet), then the head drops to the ball and stays still through contact; the plant foot steps in
+         beside the ball while the kicking leg trails straight into a compact backswing (one motion, not a
+         shuffle and then a wind-up); the hips open a little and rotate through; the follow-through is short
+         and quick, the foot still turned out; the head lifts only once the ball has gone. */
+      headY:  [[-1, 1.0*ft], [-0.6, 1.0*ft], [-0.35, 0], [1.2, 0]],
+      headX:  [[-1, -0.15*lk + 0.3*(1-lk)], [-0.6, -0.15*lk + 0.3*(1-lk)], [-0.35, 0.42], [0.85, 0.42], [1.05, 0.02], [1.2, 0.06]],
+      hipsY:  [[-1, 0], [-0.6, 0], [0, -(0.22 + 0.12*(1-ins))*open], [0.55, -(0.26 + 0.12*(1-ins))*open], [0.7, -0.1*open], [1.0, 0.1*open], [1.2, 0]],
+      spineY: [[-1, 0], [-0.6, 0], [0, 0.14*open], [0.55, 0.16*open], [0.7, 0.08*open], [1.0, -0.04], [1.2, 0]],
+      spineX: [[-1, 0.03], [-0.6, 0.04], [0, 0.12 + 0.06*(1-ins)], [0.55, 0.16 + 0.06*(1-ins)], [0.7, 0.15 + 0.06*(1-ins)], [1.0, 0.08], [1.2, 0.03]],   // chest over the ball
+      hipsX:  [[-1, 0.02], [0, 0.04], [0.55, 0.05], [0.7, 0.05], [1.0, 0.0], [1.2, 0.02]],
+      stepK:  [[-1, 0], [1.2, 0]],                                                                                              // (no shuffle before the plant)
+      plZ:    [[-1, 0], [-0.6, 0], [-0.1, 0.16], [0.7, 0.16], [1.0, 0.1], [1.2, 0]],                                           // a hand's width beside the ball
+      plX:    [[-1, 0], [-0.6, 0.05], [-0.3, 0.42], [-0.1, 0.3], [0.7, 0.3], [1.0, 0.18], [1.2, 0]],                            // the plant foot steps in and lands level with it
+      plY:    [[-1, 0], [-0.6, 0], [-0.1, 0.3*open], [0.7, 0.3*open], [1.0, 0.15*open], [1.2, 0]],                             // toes on the target
+      plKnee: [[-1, 0.1], [-0.6, 0.12], [-0.3, 0.55], [-0.1, 0.42], [0.55, 0.5], [0.7, 0.45], [1.0, 0.3], [1.2, 0.1]],          // lands soft, knee bent
+      kX:     [[-1, 0], [-0.6, 0], [-0.1, -0.3], [0.55, -(0.42 + 0.3*pw)], [0.7, 0.1], [1.0, ins ? 0.38 + 0.3*pw : 0.28 + 0.25*pw], [1.2, 0.04]],   // trails into a compact backswing; a short push through
+      kKnee:  [[-1, 0.1], [-0.6, 0.12], [-0.1, 0.55], [0.55, 0.85 + 0.55*pw], [0.7, ins ? 0.28 : 0.15], [1.0, 0.3], [1.2, 0.1]],                   // heel up; the knee over the ball at contact
+      kY:     [[-1, 0], [-0.1, 0.1], [0.55, 0.35*ins + 0.05], [0.7, 0.95*ins + 0.1], [1.0, 0.8*ins + 0.08], [1.2, 0]],                              // the foot squared to the back of the ball
+      kZ:     [[-1, 0], [0.7, 0], [1.0, -0.15*ins], [1.2, 0]],                                                                                     // a little across the midline
+      kFoot:  [[-1, 0], [0.55, 0.15], [0.7, ins ? -0.35 : 0.4], [1.0, ins ? -0.3 : 0.35], [1.2, 0]],                                               // toes up, ankle locked
+      armPl:  [[-1, 0.05], [-0.6, 0.08], [-0.1, 0.45], [0.55, 0.7], [0.7, 0.6], [1.0, 0.3], [1.2, 0.05]],                                          // the opposite arm out for balance...
+      armPlX: [[-1, 0], [-0.1, -0.15], [0.55, -0.4], [0.7, -0.2], [1.0, 0.4], [1.2, 0]],                                                           // ...and across after
+      armK:   [[-1, 0.05], [-0.1, 0.12], [0.55, 0.1], [0.7, 0.2], [1.0, 0.3], [1.2, 0.05]],
+      drop:   [[-1, 0], [-0.6, 0], [-0.1, 6], [0.55, 7], [0.7, 6], [1.0, 3], [1.2, 0]]
     });
     const PB = { hips: bn('Hips'), head: bn('Head'), up: { Right: bn('RightUpLeg'), Left: bn('LeftUpLeg') }, lo: { Right: bn('RightLeg'), Left: bn('LeftLeg') },
                  foot: { Right: bn('RightFoot'), Left: bn('LeftFoot') }, arm: { Right: bn('RightArm'), Left: bn('LeftArm') } };
@@ -1730,9 +1756,9 @@ function windUp(k){
   if (!passerRig || !passerRig.userData.pass) return;
   const r = (typeof current !== 'undefined' && current && current.zBase !== undefined) ? ((Math.abs(current.zBase)*7919) % 100)/100 : 0.5;   // disguise: about one rep in four
   const dis = r < 0.25, feint = r < 0.12 ? (r < 0.06 ? 1 : -1) : 0;
-  if (k > 0){ passerRig.userData.pass(-1 + 1.7*Math.min(1, k), { foot: 'R', power: 0.6, open: 0.7, look: dis ? 0 : 1, feint }); windLast = k >= 1 ? performance.now() : 0; }
+  if (k > 0){ const kk = Math.min(1, k); passerRig.userData.pass(kk < 0.55 ? -1 + kk/0.55 : kk < 0.84 ? 0.55*(kk - 0.55)/0.29 : 0.55 + 0.15*(kk - 0.84)/0.16, { foot: 'R', power: 0.6, open: 0.7, look: dis ? 0 : 1, feint }); windLast = k >= 1 ? performance.now() : 0; }
   else { const e = performance.now() - windLast;
-    if (windLast && e < 450) passerRig.userData.pass(0.7 + 0.5*Math.min(1, e/450)); else { windLast = 0; passerRig.userData.pass(null); } }
+    if (windLast && e < 400) passerRig.userData.pass(0.7 + 0.5*Math.min(1, e/400)); else { windLast = 0; passerRig.userData.pass(null); } }
 }
 
 /* the camera is his eyes: where he stands, and a yaw and pitch for his head */
