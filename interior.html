@@ -373,12 +373,13 @@ const LANE_NAME = ['your wide lane', 'your half-space', 'the middle', 'the far h
    as a block (basculación); they spread out to attack.                           */
 function attShape(Fx, D, jit, opt){
   const rwIn = !!(opt && opt.rwIn);           // the winger has come inside, into the half-space
+  const wideRep = !!(opt && opt.wideRep);     // the width rep: the winger starts on the touchline, so his move inside is unmistakable
   const sx = clamp(0.15*Fx, -5, 5), L = clamp(D - 14, -40, -8);
   const o = {
     LCB: [-10 + sx, D + 18], RCB: [10 + sx, D + 18], LB: [-22 + sx, D + 9], RB: [22 + sx, D + 9],
     S6: [sx, D + 6], L8: [-13 + sx, L + 6],                               // the other interior: between their lines on his side
     N9: [0.5*sx, L + 1], LW: [-winAtt(-Fx), L + 0.5],
-    RW: rwIn ? [13 + sx, L + 14] : [winAtt(Fx), L + 0.5],          // inside, coming short into the half-space
+    RW: rwIn ? [11 + 0.3*sx, L + 14] : [wideRep ? 30.5 : winAtt(Fx), L + 0.5],          // inside: the inner half of the half-space, short (inside AND behind the 8, so the two never crowd)
     OGK: [0.1*Fx, clamp(D + 33, 28, 50.5)]
   };
   const so = clamp(0.45*Fx, -12, 12), sm = clamp(0.5*Fx, -13, 13), sf = clamp(0.35*Fx, -9, 9);
@@ -444,8 +445,8 @@ function idealFor(kind, sh, extra){
     return { at: pitch([halfX(sh), z]), ref: { type: 'line', z, label: 'halfway between their front two and their midfield', text: 'the gap behind their front two', team: 'opp', between: true } };
   }
   if (kind === 'attWide'){
-    const z = lastLine(sh);
-    return { at: pitch([29, z + 0.5]), ref: { type: 'line', z, label: 'their last defender', team: 'opp' } };
+    const z = clamp((lastLine(sh) + oppMid(sh))/2, lastLine(sh) + 1.5, oppMid(sh) - 1.5);
+    return { at: pitch([27, z]), ref: { type: 'line', z, label: 'halfway between their midfield and their back line', text: 'between their lines, out wide', team: 'opp', between: true } };
   }
   if (kind.startsWith('att')){
     const front = Math.max(sh.own.N9[1], sh.own.LW[1], sh.rwIn ? -99 : sh.own.RW[1]);
@@ -480,7 +481,7 @@ const PRINCIPLE = {
   attMid: { es: 'Entre l&iacute;neas &middot; pasillo interior', title: 'Between their lines, in your half-space',
     why: 'The ball is past their first line, in the middle or on the far side. Your spot does not change: your half-space, halfway between their midfield line and their back line. From there you are a pass through their midfield, and you are ready if it is switched to your side. Stay off your 9&rsquo;s line and out of your winger&rsquo;s lane.' },
   attWide: { es: 'Amplitud', title: 'Your winger went inside: you take the width',
-    why: 'Your winger has come inside, short, into your half-space, and your centre-back is in that lane behind him. That is two in the lane already: no more than two, so a third would break the spacing. When the winger comes inside, width is needed from a full-back or from a number eight who moves out (Coaches&rsquo; Voice). Go wide, level with their last defender, so their full-back still has someone to deal with out there.' },
+    why: 'Your winger has come inside, short, into your half-space, and your centre-back is in that lane behind him. That is two in the lane already: no more than two, so a third would break the spacing. When the winger comes inside, width is needed from a full-back or from a number eight who moves out (Coaches&rsquo; Voice). Go wide, between their lines, so their full-back still has someone to deal with out there: the winger came in, you go out (a rotation, not a sprint across him).' },
   defMid: { es: 'L&iacute;nea de medios', title: 'Compact in the midfield line',
     why: 'They have it and we are in our block. You are in our midfield line, level with the others, keeping the same gaps and sliding with the ball (basculaci&oacute;n): on your side of the pitch that is your half-space, with the ball on the far side you slide in toward the middle. In a block the interiors keep the team compact and stop passes between the lines (Coaches&rsquo; Voice). Do not jump out: the gap you leave behind you is exactly where they want to play.' },
   defJump: { es: 'Presi&oacute;n alta &middot; saltar al central', title: 'Jump to their centre-back',
@@ -499,7 +500,7 @@ const ROLES = {
   def: ['TB1', 'TB2', 'TB3', 'TB4', 'TM1', 'TM2', 'TM3', 'TM4', 'TF1', 'TF2', 'TGK']
 };
 const FINAL = {
-  attDrop: ['LCB', 'RCB'], attNear: ['RW', 'RB'], attMid: ['S6', 'L8', 'LB'], attWide: ['RW', 'S6', 'RB'],
+  attDrop: ['LCB', 'RCB'], attNear: ['RW', 'RB'], attMid: ['S6', 'L8', 'LB'], attWide: ['S6', 'RB', 'RCB'],
   defMid: ['TB2', 'TB3', 'TM2', 'TM3'], defJump: ['TB3'], defWide: ['TB4']
 };
 const SHAPE = { att: attShape, def: defShape };
@@ -533,6 +534,7 @@ function chain(phase, D, holder, n, finals, jit, opt){
     const opts = [];
     ROLES[phase].forEach(r => {
       if (r === role || r === prevRole) return;                   // no straight back to the man who gave it
+      if (r === 'RW' && typeof opt === 'function' && opt(i).wideRep) return;   // the width rep: the winger is on his way inside, not in the passing
       if (i === n && finals && !finals.includes(r)) return;
       const c = receiverSpot(phase, r, Dn, jit, typeof opt === 'function' ? opt(i) : opt), L = d2(h.at, c.at);
       if (L < PASS_MIN || L > PASS_MAX) return;
@@ -555,8 +557,8 @@ function candidate(side, key){
   if (!turn){
     const phase = key.slice(0, 3);
     const D = phase === 'att' ? rand(-8, 8) : key === 'defJump' ? rand(-26, -18) : rand(-16, 4);
-    const holders = phase === 'att' ? ['LCB', 'RCB', 'LB', 'RB', 'S6', 'L8', 'RW'] : key === 'defJump' ? ['TB1', 'TB2', 'TGK'] : ['TB1', 'TB2', 'TB3', 'TB4', 'TM2', 'TM3'];
-    const opt = key === 'attWide' ? (i => ({ rwIn: i >= 2 })) : key === 'defJump' ? { high: true } : null;
+    const holders = phase === 'att' ? (key === 'attWide' ? ['LCB', 'RCB', 'LB', 'RB', 'S6', 'L8'] : ['LCB', 'RCB', 'LB', 'RB', 'S6', 'L8', 'RW']) : key === 'defJump' ? ['TB1', 'TB2', 'TGK'] : ['TB1', 'TB2', 'TB3', 'TB4', 'TM2', 'TM3'];
+    const opt = key === 'attWide' ? (i => ({ rwIn: i >= 1, wideRep: true })) : key === 'defJump' ? { high: true } : null;
     solved = chain(phase, D, pickOne(holders), 3, FINAL[key], jit, opt);
     if (!solved) return null;
   } else {
@@ -604,6 +606,7 @@ function candidate(side, key){
   }
   const last = ev[ev.length - 1], tFreeze = last.ts + 150;
   const st0 = idealFor(startKind(ev[0]), ev[0].sh, {}).at, st = [Math.min(st0[0], 31.5), st0[1]];
+  if (key === 'attWide') st[0] = 17.5;             // the width rep: he starts on the outer edge of his half-space, so going wide is one short diagonal, not a sprint across the winger
   if (turn) kind = 'turnCover';                   // settled once we know who is pressing (sceneOK)
   const I = idealFor(kind, last.sh, extra);
   return { side, key, kind, turn, ev, tFreeze, ideal: I.at, ref: I.ref, start: st, jit, extra,
@@ -821,7 +824,7 @@ const FIND = {
   attDrop: 'Lane: the half-space runs between the edge of the 18-yard box and the edge of the 6-yard box, extended up the pitch. Height: find their front two and their midfield line, and stand in the gap between them, not level with your 6.',
   attNear: 'Lane: the half-space, between the 18-yard-box edge and the 6-yard-box edge, extended. Height: halfway between their midfielders and their defenders: behind one line, in front of the other. Not on your 9&rsquo;s line.',
   attMid: 'Lane: the half-space, between the 18-yard-box edge and the 6-yard-box edge, extended. Height: halfway between their midfielders and their defenders. The ball being away from you does not change it.',
-  attWide: 'Lane: outside the 18-yard-box line, extended. Height: level with their last defender, the way a winger would be.',
+  attWide: 'Lane: outside the 18-yard-box line, extended. Height: between their lines, halfway between their midfield and their back line, so their full-back has to come out to you.',
   defMid: 'Height: our midfield line. Across: keep the same gap to the next man that everyone in the line keeps, and slide with the ball.',
   defJump: 'Reference: their centre-back on your side, not the grid. The trigger: our team is pressing high and the ball goes to him.',
   defWide: 'Reference: the ball and their midfielder inside, not the grid. Stand on the line between them, close to him.',
@@ -870,6 +873,7 @@ function sceneOK(s){
   if (s.tFreeze < dur[0] - 300 || s.tFreeze > dur[1] + 300) return false;
   /* the play must move him */
   if (d2(s.ideal, s.start) < 6) return false;
+  if (s.kind === 'attWide' && d2(s.ideal, s.start) > 15) return false;   // the rotation out is one diagonal, not a run up the pitch
   const T = tracks(s);
   if (T.miss > 0.35) return false;                // every receiver meets his ball
   if (!lanesClean(s)) return false;                // a clean line for every pass
@@ -946,11 +950,13 @@ function sceneOK(s){
   const withBall = s.ev[s.ev.length - 1].phase === 'att' && !s.turn, goingTo = s.ev[s.ev.length - 1].sh.own;
   for (const id in s.ev[0].sh.own){
     if (id === 'OGK' || (s.kind === 'attSwap' && id === 'RB')) continue;
+    const cue = s.kind === 'attWide' && id === 'RW';                      // the width rep: the winger coming inside through his lane IS the cue
     const g = goingTo[id];                                                // nor where he is heading
-    if (withBall && g && laneOf(g[0]) === laneOf(s.start[0]) && Math.abs(g[1] - s.start[1]) < 6) return false;
+    if (withBall && !cue && g && laneOf(g[0]) === laneOf(s.start[0]) && Math.abs(g[1] - s.start[1]) < 6) return false;
     for (let Tm = 0; Tm <= s.tFreeze + 1; Tm += 100){                    // the whole clip, and the frozen picture
       const q = trackAt(T.tr[id], Math.min(Tm, s.tFreeze)).p;
-      if (withBall){ if (laneOf(q[0]) === laneOf(s.start[0]) && Math.abs(q[1] - s.start[1]) < 6) return false; }
+      if (cue){ if (Math.hypot(q[0] - s.start[0], q[1] - s.start[1]) < 3.5) return false; }   // ...but never through him
+      else if (withBall){ if (laneOf(q[0]) === laneOf(s.start[0]) && Math.abs(q[1] - s.start[1]) < 6) return false; }
       else if (Math.hypot(q[0] - s.start[0], q[1] - s.start[1]) < (Tm >= s.tFreeze ? 4 : 3)) return false;   // without the ball: never on top of him
     }
   }
