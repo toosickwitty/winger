@@ -1526,7 +1526,7 @@ const LOOK = (() => {
         /* the ball sits at the player's origin: the body shifts a boot's width to the plant side and a little
            back, so the ball is at the KICKING foot, not between the feet under the plant foot */
         const sg = (passCtl.o.foot || 'R') === 'R' ? 1 : -1;
-        stand.position.set(sg*0.10*ww, 0, -0.10*ww);
+        stand.position.set(sg*0.10*ww, 0, -0.04*ww);
       } else { passT0 = null; stand.position.set(0, 0, 0); sample(tNow); }           // the captured pose at this instant...
       const wy = upperCtl.rotation.y, wx = upperCtl.rotation.x, hy = headCtl.rotation.y;
       B.spine.forEach(b => { if (wy) b.rotateY(wy/3); if (wx) b.rotateX(wx/3); });   // ...his twist...
@@ -1578,11 +1578,11 @@ const LOOK = (() => {
       plZ:    [[-1, 0], [-0.6, 0], [-0.25, 0.12], [0.7, 0.12], [1.0, 0.06], [1.2, 0]],                    // out to the side (+)
       plKnee: [[-1, 0], [-0.7, 0], [-0.45, 0.35], [-0.25, 0.28], [0.55, 0.32], [0.7, 0.3], [1.0, 0.2], [1.2, 0]],
       /* the kicking leg: back (thigh behind, heel up), then through the ball and on in front of him */
-      kX:     [[-1, 0], [-0.6, 0], [-0.1, -0.35], [0.55, -(0.5 + 0.3*pw)], [0.7, 0.3], [1.0, 0.8 + 0.3*pw], [1.2, 0.05]],   // swing: - back, + forward
-      kKnee:  [[-1, 0], [-0.6, 0], [-0.1, 0.45], [0.55, 0.75 + 0.35*pw], [0.7, 0.25], [1.0, 0.3], [1.2, 0]],                     // heel up on the backswing, nearly straight at contact
-      kY:     [[-1, 0], [-0.1, 0], [0.55, 0.2*ins], [0.7, 0.85*ins], [1.0, 0.7*ins], [1.2, 0]],                                // the foot turned out to meet the ball with the inside
-      kZ:     [[-1, 0], [0.55, 0.08], [0.7, 0.02], [1.0, -0.1*ins], [1.2, 0]],                                                 // a little out on the backswing, across after
-      kFoot:  [[-1, 0], [0.55, 0.15], [0.7, ins ? -0.35 : 0.4], [1.0, ins ? -0.3 : 0.35], [1.2, 0]],                           // toes up, ankle locked
+      kX:     [[-1, 0], [-0.6, 0], [0.55, -(0.55 + 0.3*pw)], [0.78, 0.45 + 0.3*pw], [1.05, 0.7 + 0.3*pw], [1.2, 0.05]],   // swing: - back, + forward. One smooth backswing; contact (0.7) is the MIDDLE of the downswing, where the leg is fastest
+      kKnee:  [[-1, 0], [-0.6, 0], [0.55, 0.8 + 0.35*pw], [0.7, 0.22], [0.85, 0.3], [1.05, 0.5], [1.2, 0]],                     // heel comes up through the backswing; the knee snaps straight into contact
+      kY:     [[-1, 0], [-0.1, 0], [0.55, 0.3*ins], [0.7, 0.85*ins], [1.05, 0.7*ins], [1.2, 0]],                                // the foot turned out to meet the ball with the inside
+      kZ:     [[-1, 0], [0.55, 0.08], [0.7, 0.02], [1.05, -0.1*ins], [1.2, 0]],                                                 // a little out on the backswing, across after
+      kFoot:  [[-1, 0], [0.55, 0.15], [0.7, ins ? -0.35 : 0.4], [1.05, ins ? -0.3 : 0.35], [1.2, 0]],                           // toes up, ankle locked
       armPl:  [[-1, 0.05], [-0.6, 0.08], [-0.1, 0.45], [0.55, 0.7], [0.7, 0.6], [1.0, 0.3], [1.2, 0.05]],                                          // the opposite arm out for balance...
       armPlX: [[-1, 0], [-0.1, -0.15], [0.55, -0.4], [0.7, -0.2], [1.0, 0.4], [1.2, 0]],                                                           // ...and across after
       armK:   [[-1, 0.05], [-0.1, 0.12], [0.55, 0.1], [0.7, 0.2], [1.0, 0.3], [1.2, 0.05]],
@@ -1634,7 +1634,7 @@ const LOOK = (() => {
       leg(K, -sg, at('kX'), at('kY'), at('kZ'), at('kKnee'), at('kFoot'));
       PB.arm[PL].rotateZ(-sg*at('armPl')); PB.arm[PL].rotateX(at('armPlX')); PB.arm[K].rotateZ(sg*at('armK'));
     }
-    P.userData.pass = (k, o) => { passCtl.k = (k === null || k === undefined) ? null : k; if (o) passCtl.o = o; };
+    P.userData.pass = (k, o) => { const was = passCtl.k; passCtl.k = (k === null || k === undefined) ? null : k; if (o) passCtl.o = o; if (passCtl.k !== was && (passCtl.k !== null || was !== null)) apply(); };   // re-posed at once: the foot meets the ball in the frame it leaves
     P.userData.head  = headCtl;
     P.userData.upper = upperCtl;
     P.userData.legs  = legs;
@@ -2192,9 +2192,9 @@ function windUp(k){
   if (!passerRig || !passerRig.userData.pass) return;
   const r = (typeof current !== 'undefined' && current && current.zBase !== undefined) ? ((Math.abs(current.zBase)*7919) % 100)/100 : 0.5;   // disguise: about one rep in four
   const dis = r < 0.25, feint = r < 0.12 ? (r < 0.06 ? 1 : -1) : 0;
-  if (k > 0){ const kk = Math.min(1, k); passerRig.userData.pass(kk < 0.55 ? -1 + kk/0.55 : kk < 0.78 ? 0.55*(kk - 0.55)/0.23 : 0.55 + 0.15*(kk - 0.78)/0.22, { foot: 'R', power: 0.6, open: 0.7, look: dis ? 0 : 1, feint }); windLast = k >= 1 ? performance.now() : 0; }
+  if (k > 0){ const kk = Math.min(1, k); passerRig.userData.pass(kk < 0.42 ? -1 + kk/0.42 : kk < 0.764 ? 0.55*(kk - 0.42)/0.344 : 0.55 + 0.15*(kk - 0.764)/0.236, { foot: 'R', power: 0.6, open: 0.7, look: dis ? 0 : 1, feint }); windLast = k >= 1 ? performance.now() : 0; }
   else { const e = performance.now() - windLast;
-    if (windLast && e < 400) passerRig.userData.pass(0.7 + 0.5*Math.min(1, e/400)); else { windLast = 0; passerRig.userData.pass(null); } }
+    if (windLast && e < 450) passerRig.userData.pass(e <= 300 ? 0.7 + 0.3*e/300 : 1.0 + 0.2*(e - 300)/150); else { windLast = 0; passerRig.userData.pass(null); } }
 }
 
 /* the camera is his eyes: where he stands, and a yaw and pitch for his head */
@@ -2337,8 +2337,8 @@ function passPhase(s, id, T){
   for (let i = 1; i < s.ev.length; i++){
     if (s.ev[i-1].role !== id) continue;
     const u = T - s.ev[i].ts;
-    if (u < -650 || u > 400) continue;
-    const k = u <= -250 ? -1 + (u + 650)/400 : u <= -120 ? 0.55*(u + 250)/130 : u <= 0 ? 0.55 + 0.15*(u + 120)/120 : 0.7 + u/400*0.5;
+    if (u < -700 || u > 450) continue;
+    const k = u <= -320 ? -1 + (u + 700)/380 : u <= -130 ? 0.55*(u + 320)/190 : u <= 0 ? 0.55 + 0.15*(u + 130)/130 : u <= 300 ? 0.7 + 0.3*u/300 : 1.0 + 0.2*(u - 300)/150;
     const r = ((s.ev[i].ts*7919) % 100)/100;                 // disguise: about one pass in four, fixed per pass
     const dis = r < 0.25, feint = r < 0.12 ? (r < 0.06 ? 1 : -1) : 0;
     return { k, o: { foot: footOf(id), power: Math.min(1, s.ev[i].len/26), open: s.ev[i].len > 22 ? 0.35 : 0.7, look: dis ? 0 : 1, feint } };
