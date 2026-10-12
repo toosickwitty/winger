@@ -1778,7 +1778,10 @@ function tapGlance(screenSide){
 }
 function checkedOverlap(s){
   const tm = seqTimes();
-  return (s.glances || []).some(g => g.out && g.t >= tm.recv + 700);
+  /* any glance down the touchline once he is carrying it (taps are only taken from recv + 300, and the
+     full-back is already a third of the way on his run by then): a check at 0.4 s used to be thrown away
+     and then reported as 'you only checked your inside shoulder' */
+  return (s.glances || []).some(g => g.out && g.t >= tm.recv + 300);
 }
 
 
