@@ -476,9 +476,13 @@ function candidate(side, key, forceTen){
               : tenMode === 'far'  ? add('own', 'ten', [halfSpaceX(-1, shift - rand(9.8, 13)), lineZ + rand(6.5, 8.5)], [rand(-1.5, 1.5), rand(0.5, 1.2)], 'your 10 · far half-space, a man on his back', { state: 'shut' })
               :                      (() => { const at = [W[0] - rand(7, 10), W[1] - rand(0, 3)], u = unit(W[0] - at[0], W[1] - at[1]), sp = rand(0.8, 1.6);
                                        return add('own', 'ten', at, [u[0]*sp, u[1]*sp], 'your 10 · dropping inside you for the bounce, marked', { state: 'shut' }); })();
-      q.markMid = true; q.markOff = OFF_SHUT();
+      if (tenMode === 'drop'){
+        /* the man who was on the 10 is now a few strides from the ball: he steps to YOU, hard, through the lane to the 10 */
+        const u = unit(q.end[0] - W[0], q.end[1] - W[1]), perp = [-u[1], u[0]], d0 = rand(4.5, 6), sd = pickOne([-1, 1]), end = [W[0] + u[0]*d0 + perp[0]*1.2*sd, W[1] + u[1]*d0 + perp[1]*1.2*sd];
+        const cl = unit(W[0] - end[0], W[1] - end[1]), sp = rand(3.6, 4.4); q.presser = { end, vel: [cl[0]*sp, cl[1]*sp] }; q.laneCut = true;
+      } else { q.markMid = true; q.markOff = OFF_SHUT(); }
       opts.push({ role: 'ten', label: tenMode === 'run' ? 'In behind for the 10' : 'Into the 10’s feet', tier: 0, at: tenMode === 'run' ? landing.run(q.end, q.vel) : landing.feet(q.end, q.vel),
-        why: tenMode === 'run' ? 'your 10 ran on, but a midfielder went with him, goal-side: cut out' : tenMode === 'far' ? 'your 10 had a man on his back in the far half-space: he cannot turn' : 'your 10 dropped inside you with a man on him: a bounce, back the way it came, nothing more' });
+        why: tenMode === 'run' ? 'your 10 ran on, but a midfielder went with him, goal-side: cut out' : tenMode === 'far' ? 'your 10 had a man on his back in the far half-space: he cannot turn' : 'your 10 dropped inside you and the man who was on him stepped through that lane to press you: the bounce is cut, and you are about to be closed down' });
     }
   }
 
@@ -543,6 +547,7 @@ function candidate(side, key, forceTen){
   P.filter(q => q.team === 'own').forEach(q => {
     if (q.markIdx !== undefined && q.markOff !== undefined){ const b = find('back' + q.markIdx); b.end = markAt(q, q.markOff); b.vel = q.markVel || b.vel; }
     if (q.markMid){ const m = find('mid1'); m.end = markAt(q, q.markOff); m.vel = q.vel.slice(); }
+    if (q.presser){ const m = find('mid1'); m.end = q.presser.end; m.vel = q.presser.vel; }
   });
 
   /* the support behind him, tracked (unless the 10 is dropping inside him: then he is the bounce) */
@@ -571,7 +576,7 @@ function candidate(side, key, forceTen){
   const O = p => [p[0] - W[0], p[1] - W[1]];
   chosen.role = 'chosen';
   return { side, view: 'wing', type, key, tenMode, wingX: W[0], zBase: W[1], lookDeg: (look + 360) % 360, lineZ, midZ, deep,
-           players: P.map(q => ({ team: q.team, role: q.role, end: O(q.end), vel: q.vel, tag: q.tag, state: q.state || null, run: !!q.run })),
+           players: P.map(q => ({ team: q.team, role: q.role, end: O(q.end), vel: q.vel, tag: q.tag, state: q.state || null, run: !!q.run, laneCut: !!q.laneCut })),
            opts: opts.map(o => ({ role: o.role, label: o.label, tier: o.tier, at: O(o.at), why: o.why, lofted: !!o.lofted })),
            target: O(target), runnerAt: O(chosen.end), title: TITLE[type], why,
            recv: [0, 0], passerAt: [0, 0], intended: key };
@@ -616,6 +621,7 @@ function sceneOK(s){
   for (const p of own.filter(p => p.role !== 'chosen')){
     const near = Math.min(...opp.map(q => d2(q, p.end)));
     if (p.state && p.state.startsWith('work')){ if (near < 2.2 || near > 4.2) return false; }
+    else if (p.laneCut){ if (Math.min(...opp.map(q => distToLane(q, [0,0], p.end))) > 1.6) return false; }   // shut by the presser in the lane
     else if (near > 2.1) return false;                       // tight: goal-side and on a shoulder
   }
   /* nobody standing on anyone else */
