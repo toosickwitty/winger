@@ -262,7 +262,7 @@ const CFG = {
   wingX: 28,                        // where he is standing, off the touchline
   ballAt: [-11.5, 16.5],            // roughly where the pass will come from
   hFov: 110,                        // HORIZONTAL degrees: cut inside, he needs the far winger and his own wing-back in one look
-  vFovMax: 76,
+  vFovMax: 86,
   look: { ox: -21.03, oz: -15.28 },  // across the pitch toward goal, from his half-space
   colors: { own: 0x5b9dff, opp: 0xff5c44, skin: 0xe8c9a0 }
 };
@@ -330,7 +330,7 @@ const ZONE = { box: 20.15, six: 9.16, goalZ: -52.5 };
 const TYPES = ['ruptura', 'espalda', 'overlap', 'entrelineas', 'apoyo', 'cambio'];
 const TEMPLATES = {};
 TYPES.forEach(t => { TEMPLATES[t + '-wing'] = [1]; TEMPLATES[t + '-ten'] = [1]; });
-const ARC_SAFE = 49, FLASH_S = 0.7, MIN_PASS = 18;      // hFov 110: 55 deg each side, less a body width and a margin
+let ARC_SAFE = 49; const FLASH_S = 0.7, MIN_PASS = 18;  // the look: half the horizontal field of view the screen actually gives him, less a body width and a margin (set in setFov)
 const rand = (a,b) => a + Math.random()*(b-a);
 const pickOne = a => a[Math.floor(Math.random()*a.length)];
 function shuffle(a){
@@ -472,7 +472,8 @@ function candidate(side, key, forceTen){
          his back) or drops inside the ball for the bounce (marked) */
       const q = tenMode === 'run'  ? add('own', 'ten', [shift + rand(8, 11), lineZ + rand(0.8, 2.2)], [rand(-0.5, 0.5), -rand(5.0, 6.0)], 'your 10 · running on into the box, tracked', { state: 'shut', run: true })
               : tenMode === 'far'  ? add('own', 'ten', [halfSpaceX(-1, shift - rand(9.8, 13)), lineZ + rand(6.5, 8.5)], [rand(-1.5, 1.5), rand(0.5, 1.2)], 'your 10 · far half-space, a man on his back', { state: 'shut' })
-              :                      add('own', 'ten', [W[0] - rand(7, 10), W[1] - rand(0, 3)], [-rand(0.4, 1.2), rand(0.6, 1.4)], 'your 10 · dropping inside you for the bounce, marked', { state: 'shut' });
+              :                      (() => { const at = [W[0] - rand(7, 10), W[1] - rand(0, 3)], u = unit(W[0] - at[0], W[1] - at[1]), sp = rand(0.8, 1.6);
+                                       return add('own', 'ten', at, [u[0]*sp, u[1]*sp], 'your 10 · dropping inside you for the bounce, marked', { state: 'shut' }); })();
       q.markMid = true; q.markOff = OFF_SHUT();
       opts.push({ role: 'ten', label: tenMode === 'run' ? 'In behind for the 10' : 'Into the 10’s feet', tier: 0, at: tenMode === 'run' ? landing.run(q.end, q.vel) : landing.feet(q.end, q.vel),
         why: tenMode === 'run' ? 'your 10 ran on, but a midfielder went with him, goal-side: cut out' : tenMode === 'far' ? 'your 10 had a man on his back in the far half-space: he cannot turn' : 'your 10 dropped inside you with a man on him: a bounce, back the way it came, nothing more' });
@@ -1608,7 +1609,11 @@ function setFov(){
   const v = 2 * Math.atan(Math.tan(half) / Math.max(camera.aspect, 0.2));
   camera.fov = Math.min(v * 180 / Math.PI, CFG.vFovMax);
   camera.updateProjectionMatrix();
+  /* a tall screen cannot show 110 degrees across: the picture he is given, the board's cone and the
+     scenes he is dealt all use the width he really has */
+  ARC_SAFE = Math.max(28, Math.min(49, hFovEff()/2 - 6));
 }
+function hFovEff(){ return 2 * Math.atan(Math.tan(camera.fov/2 * Math.PI/180) * camera.aspect) * 180/Math.PI; }
 
 
 
@@ -1782,6 +1787,10 @@ function buildScene(s){
   s.players.forEach(p => {
     const v = Math.hypot(p.vel[0], p.vel[1]);
     const from = [p.end[0] - s.side*0 - p.vel[0]*T, p.end[1] - p.vel[1]*T];
+    /* a defender near the ball who is giving ground does it facing the ball (a jockey, a backpedal), never
+       strolling off with his back to it; a recovering runner far away still runs */
+    const away = p.team === 'opp' && v > 0.15 && v < 4.5 && Math.hypot(p.end[0], p.end[1]) < 16 && (p.vel[0]*p.end[0] + p.vel[1]*p.end[1]) > 0;
+    if (away){ mover(p.team, p.end, from, p.tag, Object.assign({ backpedal: true }, eye)); return; }
     if (v < 0.15) place(p.team, p.end[0], p.end[1], s, p.end[0], p.end[1], p.tag, Object.assign({ speed:0, mps:0 }, eye));
     /* everyone has his head on the ball. Runners keep their bodies on the run and only
        turn the head and shoulders; the rest open up to it */
@@ -1957,7 +1966,7 @@ function drawMap(s, reveal, tap){
     L('circle', { cx: B.Wx, cy: B.Wz, r, fill: 'none', stroke: '#fff', 'stroke-width': .15, opacity: .28, 'stroke-dasharray': '.6 .8' });
   });
   /* what his eyes took in */
-  const la = lookAngle(s), half = CFG.hFov/2*Math.PI/180;
+  const la = lookAngle(s), half = hFovEff()/2*Math.PI/180;
   [-half, half].forEach(h => L('line', { x1: B.Wx, y1: B.Wz, x2: B.Wx + Math.cos(la + h)*45, y2: B.Wz + Math.sin(la + h)*45, class: 'cone' }));
   /* labels that stay upright */
   const up = (x, y, txt, size, opa) => { const t = svgEl('text', { x, y, 'font-size': size, 'text-anchor': 'middle', opacity: opa || 1 }); t.textContent = txt; return t; };
