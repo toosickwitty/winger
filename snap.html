@@ -345,7 +345,8 @@ function newBag(){
   const out = [];
   for (let i = 0; i < n; i++){
     const prev = out[i-1];
-    const pool = TYPES.filter(t => left[t] > 0 && t !== prev);
+    let pool = TYPES.filter(t => left[t] > 0 && t !== prev);
+    if (!pool.length) pool = TYPES.filter(t => left[t] > 0);          // only the last pattern is left: twice in a row beats a blank rep
     const most = Math.max(...pool.map(t => left[t]));
     const t = pickOne(pool.filter(t => left[t] >= most - 1));
     out.push(t); left[t]--;
@@ -528,10 +529,17 @@ function candidate(side, key, forceTen){
   /* the back line and midfield move as units; then every marker takes his man */
   back.forEach((p, i) => add('opp', 'back' + i, p, [0, lineStep]));
   mids.forEach((p, i) => add('opp', 'mid' + i, p, [rand(-0.6, 0.6), -rand(4.0, 5.5)]));           // recovering, flat out
+  /* a marker stands goal-side of his man AND on a shoulder: from where the winger stands, the two bodies are
+     side by side, never one hidden behind the other (a marker hidden behind the 9 would make a covered man
+     look free) */
+  const markAt = (q, off) => { const g = toGoal(q.end), sgt = unit(q.end[0] - W[0], q.end[1] - W[1]), perp = [-sgt[1], sgt[0]];
+    const side = q.markSide || pickOne([-1, 1]), need = rand(1.0, 1.4);
+    const have = (g[0]*perp[0] + g[1]*perp[1])*off;                         // how far across the sight line the goal-side step already puts him
+    const more = Math.max(0, need - Math.abs(have)) * (have === 0 ? side : Math.sign(have));
+    return [q.end[0] + g[0]*off + perp[0]*more, q.end[1] + g[1]*off + perp[1]*more]; };
   P.filter(q => q.team === 'own').forEach(q => {
-    if (q.markIdx !== undefined && q.markOff !== undefined){ const b = find('back' + q.markIdx); const g = toGoal(q.end);
-      b.end = [q.end[0] + g[0]*q.markOff + (q.markSide || 0)*rand(0.3, 0.8), q.end[1] + g[1]*q.markOff]; b.vel = q.markVel || b.vel; }
-    if (q.markMid){ const m = find('mid1'); const g = toGoal(q.end); m.end = [q.end[0] + g[0]*q.markOff, q.end[1] + g[1]*q.markOff]; m.vel = q.vel.slice(); }
+    if (q.markIdx !== undefined && q.markOff !== undefined){ const b = find('back' + q.markIdx); b.end = markAt(q, q.markOff); b.vel = q.markVel || b.vel; }
+    if (q.markMid){ const m = find('mid1'); m.end = markAt(q, q.markOff); m.vel = q.vel.slice(); }
   });
 
   /* the support behind him, tracked (unless the 10 is dropping inside him: then he is the bounce) */
@@ -571,14 +579,14 @@ function sceneOK(s){
   const own = s.players.filter(p => p.team === 'own');
   const tgt = s.target, rcv = s.runnerAt;
   /* no short combinations: every answer is a proper ball through the lines */
-  if (Math.hypot(tgt[0], tgt[1]) < (s.type === 'apoyo' ? 11 : MIN_PASS)) return false;   // the 9 dropping off is a 12-17 m ball from here
+  if (Math.hypot(tgt[0], tgt[1]) < (s.type === 'apoyo' ? 11 : s.type === 'entrelineas' ? 12 : MIN_PASS)) return false;   // a ball to feet between the lines is 12-18 m from here
   const deepest = Math.min(...opp.map(q => q[1]));
   const midLine = s.midZ - s.zBase - 1;                           // their midfield line, as it was set
   const toFeet = s.type === 'entrelineas' || s.type === 'apoyo' || s.type === 'cambio';
   /* a workable ball has to be a real one too: a lane, and the man reachable */
   for (const o of s.opts.filter(o => o.tier === 1)){
     if (Math.hypot(o.at[0], o.at[1]) < 10 || Math.hypot(o.at[0], o.at[1]) > 42) return false;
-    if (!o.lofted && Math.min(...opp.map(q => distToLane(q, [0,0], o.at))) < 2.0) return false;
+    if (!o.lofted && Math.min(...opp.map(q => distToLane(q, [0,0], o.at))) < 1.6) return false;
     if (Math.abs(s.wingX + o.at[0]) > 32 || s.zBase + o.at[1] < -50.5) return false;
   }
   /* it breaks a line: into space beyond their back line, or into feet beyond their midfield */
@@ -605,7 +613,7 @@ function sceneOK(s){
   for (const p of own.filter(p => p.role !== 'chosen')){
     const near = Math.min(...opp.map(q => d2(q, p.end)));
     if (p.state && p.state.startsWith('work')){ if (near < 2.2 || near > 4.2) return false; }
-    else if (near > 1.7) return false;
+    else if (near > 2.1) return false;                       // tight: goal-side and on a shoulder
   }
   /* nobody standing on anyone else */
   const all = s.players.map(p => p.end);
@@ -627,6 +635,15 @@ function sceneOK(s){
       if (d*180/Math.PI < Math.atan(0.9/dq)*180/Math.PI + 1.2) return false;
     }
   }
+  /* and no man of ours is ever lined up with a defender in his eyes: a marker hidden behind the 9 makes a
+     covered man look free, a defender in front of him makes a free man look covered. Every pair of bodies
+     is separated by at least a body's width, through the whole look */
+  const ownAll = s.players.filter(p => p.team === 'own'), oppAll = s.players.filter(p => p.team === 'opp');
+  for (const t of [0, FLASH_S*0.35, FLASH_S*0.7, FLASH_S]){
+    for (const a of ownAll){ const pa = at(a, t), da = Math.hypot(pa[0], pa[1]), ba = Math.atan2(pa[1], pa[0]);
+      for (const q of oppAll){ const pq = at(q, t), dq = Math.hypot(pq[0], pq[1]);
+        let d = Math.abs(Math.atan2(pq[1], pq[0]) - ba); if (d > Math.PI) d = 2*Math.PI - d;
+        if (d < Math.atan(0.7/Math.max(1, Math.min(da, dq))) + 0.5*Math.PI/180) return false; } } }
   /* and our own shape keeps the positional-play spacing */
   if (!ownSpaced(s)) return false;
   return true;
