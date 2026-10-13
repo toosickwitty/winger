@@ -205,7 +205,7 @@ a.iconbtn{text-decoration:none;display:inline-flex;align-items:center;white-spac
       <button data-side="alt" aria-pressed="false">Both</button>
     </div>
     <button class="cta" id="start">Start session</button>
-    <p class="note">16 reps, about four minutes. You are the winger who has cut inside at the start of the attacking third, into the half-space: the same picture a 10 gets, with the ball arriving at your feet. 0.7 of a second with everyone moving &mdash; then the players are gone and only the grass is left. One ball breaks their lines, the way Spanish positional play teaches it: <b>ruptura</b> (a runner through a gap in their back line), <b>a la espalda</b> (your full-back or far winger in behind a full-back who tucked in), <b>entre l&iacute;neas</b> (a man free between their lines), <b>apoyo del 9</b> (your 9 dropping off with nobody following) or <b>cambio de orientaci&oacute;n</b> (their block shifted to you, your far winger alone). Everything else is shut. Tap the grass where the ball has to land, from your own eyes: into the space in front of a runner, or into the feet of the free man.</p>
+    <p class="note">16 reps, about four minutes. You are the winger who has cut inside on the line between the middle and attacking thirds, 35 m from goal, into the half-space: the same picture a 10 gets, with the ball arriving at your feet. 0.7 of a second with everyone moving &mdash; then the players are gone and only the grass is left. One ball breaks their lines, the way Spanish positional play teaches it: <b>ruptura</b> (a runner through a gap in their back line), <b>a la espalda</b> (your full-back or far winger in behind a full-back who tucked in), <b>entre l&iacute;neas</b> (a man free between their lines), <b>apoyo del 9</b> (your 9 dropping off with nobody following) or <b>cambio de orientaci&oacute;n</b> (their block shifted to you, your far winger alone). Everything else is shut. Tap the grass where the ball has to land, from your own eyes: into the space in front of a runner, or into the feet of the free man.</p>
   </div>
 
   <div id="panelAsk" class="hide">
@@ -366,10 +366,11 @@ const inArc = (p, deg, arc) => Math.abs(((Math.atan2(p[1], p[0]) * 180/Math.PI -
 const halfSpaceX = (sign, x) => sign*Math.min(19.5, Math.max(9.8, Math.abs(x)));
 function candidate(side, key){
   const [type, view] = key.split('-'), ten = view === 'ten';
-  /* where he is: a winger who has cut inside at the start of the attacking third, 32-40 m from goal, in the
-     half-space (x 7-14 off the middle): the inverted winger's picture, which is the 10's picture too */
-  const W = type === 'cambio' ? (ten ? [rand(6, 10), rand(-10, 2)] : [rand(8, 14), rand(-18, -10)])   // a switch: he has drawn the block over, cutting in
-                               : ten ? [rand(-4, 4), rand(-10, 2)] : [rand(7, 14), rand(-18, -10)];
+  /* where he is: a winger who has cut inside on the line between the middle and attacking thirds (35 m from
+     goal, z = -17.5; he is within 3 m of it), in the half-space, 7-14 m off the middle: the inverted winger's
+     picture, which is the 10's picture too */
+  const W = type === 'cambio' ? (ten ? [rand(6, 10), rand(-10, 2)] : [rand(8, 14), rand(-20.5, -14.5)])   // a switch: he has drawn the block over, cutting in
+                               : ten ? [rand(-4, 4), rand(-10, 2)] : [rand(7, 14), rand(-20.5, -14.5)];
   const deep = Math.random() < 0.5;                                    // their block: high line, or deep
   const lineZ = W[1] - (ten ? (deep ? rand(26, 29) : rand(23, 26)) : (deep ? rand(20, 23) : rand(16, 19)));
   const midZ  = lineZ + rand(9, 12);
@@ -556,7 +557,7 @@ function sceneOK(s){
   const own = s.players.filter(p => p.team === 'own');
   const tgt = s.target, rcv = s.runnerAt;
   /* no short combinations: every answer is a proper ball through the lines */
-  if (Math.hypot(tgt[0], tgt[1]) < MIN_PASS) return false;
+  if (Math.hypot(tgt[0], tgt[1]) < (s.type === 'apoyo' ? 11 : MIN_PASS)) return false;   // the 9 dropping off is a 12-17 m ball from here
   const deepest = Math.min(...opp.map(q => q[1]));
   const midLine = s.midZ - s.zBase - 1;                           // their midfield line, as it was set
   const toFeet = s.type === 'entrelineas' || s.type === 'apoyo' || s.type === 'cambio';
@@ -2028,7 +2029,7 @@ function nextRep(){
   el('askWord').firstChild.textContent = 'Look';
   el('askHint').textContent = 'Everyone is moving. Read the runs.';
   el('answers').innerHTML = '';
-  setVeil(true, (current.side === 1 ? 'Right wing' : 'Left wing') + ' · cut inside', 'You have cut in at the top of their third. 0.7 of a second: find the ball that breaks their line.');
+  setVeil(true, (current.side === 1 ? 'Right wing' : 'Left wing') + ' · cut inside', 'You have cut in, 35 m from goal. 0.7 of a second: find the ball that breaks their line.');
   setTimeout(flash, CFG.cueMs);
 }
 
