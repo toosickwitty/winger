@@ -4,7 +4,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="Winger">
-<title>Through — half-space passing trainer</title>
+<title>Through 2.0 — the carry, played</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
@@ -206,7 +206,7 @@ a.iconbtn{text-decoration:none;display:inline-flex;align-items:center;white-spac
       <button data-side="alt" aria-pressed="false">Both</button>
     </div>
     <button class="cta" id="start">Start session</button>
-    <p class="note">16 reps, about six minutes. Your full-back plays you in out in the channel. Check inside as he strikes it, take it, and carry it 45&deg; into the half-space with your head up while the runs develop. While you carry it, tap the left or right half of the pitch (on a computer, the &larr; &rarr; keys) to glance over that shoulder. Your outside shoulder looks down the touchline: has your full-back gone on the overlap, and has anyone gone with him? He does not always go. One of four passes is on: in behind for the 9, in behind for the far winger, into the 10&rsquo;s feet, or down the line for the overlap. A defender always gives it away.</p>
+    <p class="note">16 reps, about six minutes. Your full-back plays you in out in the channel. Take it and carry it 45&deg; into the half-space with your head up: nobody is posed. Their back four, three midfielders and keeper defend with intent &mdash; one steps to you, one covers, the rest mark your men or stand in the lanes to them &mdash; and your 9, 10, far winger and full-back move on positional-play principles, with habits drawn fresh every rep. While you carry it, tap the left or right half of the pitch (&larr; &rarr; on a computer) to glance over that shoulder; the outside shoulder is the only way to know whether your full-back has gone on the overlap. At the end of the carry the four balls you could play are scored from the physics: one is on, some are races, the rest are shut. A defender always gives it away.</p>
   </div>
 
   <div id="panelAsk" class="hide">
@@ -710,10 +710,10 @@ function makeScene(side, answer){
 }
 const FB = s => s.side === 1 ? { near:'left-back', far:'right-back' } : { near:'right-back', far:'left-back' };
 const OPTIONS = [
-  { id:'nine', label:'In behind for the 9',   hint:'slide it into the space in front of him' },
-  { id:'wide', label:'In behind, far winger', hint:'the diagonal ball across their line' },
-  { id:'ten',  label:'Into the 10\'s feet',   hint:'the pass between their lines' },
-  { id:'overlap', label:'Overlap outside',     hint:'slip your full-back down the line' }
+  { id:'nine', label:'To the 9',            hint:'in behind if he goes, to feet if he drops' },
+  { id:'wide', label:'To the far winger',   hint:'in behind him, or the switch' },
+  { id:'ten',  label:'To the 10',           hint:'between their lines' },
+  { id:'overlap', label:'Overlap outside',  hint:'slip your full-back down the line' }
 ];
 const TIER_NAME = ['Turnover','Workable','Good','Best'];
 /* ===================== Winger 2.0: Through, played not posed =====================
@@ -722,7 +722,7 @@ const TIER_NAME = ['Turnover','Workable','Good','Best'];
    with intent; his 9, 10, far winger and the full-back who played him in move on positional-play principles.
    The four balls he could play at the end of the carry are scored from the physics. */
 const OPT_OF = { N9: 'nine', FW: 'wide', N10: 'ten', WB: 'overlap' };
-const LBL = { nine: 'In behind for the 9', wide: 'In behind, far winger', ten: 'Into the 10’s feet', overlap: 'Overlap outside' };
+const LBL = (id, kind) => id === 'nine' ? (kind === 'run' ? 'In behind for the 9' : 'Into the 9’s feet') : id === 'wide' ? (kind === 'run' ? 'In behind, far winger' : 'Switch to the far winger') : id === 'ten' ? (kind === 'run' ? 'In behind for the 10' : 'Into the 10’s feet') : 'Overlap outside';
 function buildCandidate(side, answer){
   const { rand, pick, mkPlayer } = BOTS;
   const W  = rand(14.2, 17), zB = rand(-23, -18.5), lineZ = rand(-34.5, -31), midZ = lineZ + rand(9, 12);
@@ -767,7 +767,7 @@ function buildCandidate(side, answer){
     const tag = q.team === 'own' ? TAGS[q.role] + ' · ' + (q.run ? (q.role === 'WB' ? 'overlapping' : 'running in behind') : q.drop ? 'dropping off' : 'holding') + (opt ? (opt.tier === 3 ? ', the ball' : opt.tier === 1 ? ', on but contested' : ', covered') : '')
               : q.role === 'GK' ? 'their keeper' : (q.job === 'press' ? 'closing you down' : q.job === 'track' ? 'going with the runner' : q.job === 'mark' ? 'on his man' : q.job === 'lane' ? 'in the lane' : q.job === 'cover' ? 'covering' : null);
     return { id: q.id, team: q.team, role: q.role, track, tag, run: !!q.run, state: opt ? (opt.tier === 3 ? 'best' : opt.tier === 1 ? 'work' : 'shut') : null }; });
-  const opts = E.opts.map(o => ({ id: OPT_OF[o.id], label: LBL[OPT_OF[o.id]], tier: o.tier, at: O(o.land), why: o.why }));
+  const opts = E.opts.map(o => ({ id: OPT_OF[o.id], label: LBL(OPT_OF[o.id], o.kind), tier: o.tier, at: O(o.land), why: o.why }));
   const target = {}; opts.forEach(o => target[o.id] = o.at);
   return { side, wingX: W, zBase: zB, lineZ, on, ball: [0, 0], passerAt: O(passer), recv: O(R), target, opts, players,
            fbGoes: !!by('WB').run, intended: answer || on, bots: true };
