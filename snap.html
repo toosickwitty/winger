@@ -533,7 +533,8 @@ function candidate(side, key, forceTen){
     if (st === 'best-line'){ chosen = q; target = land; why = 'their full-back came inside to watch you and your wing-back overlapped into the space behind him — slide it down the line'; }
   }
 
-  /* the back line and midfield move as units; then every marker takes his man */
+  /* the back line and midfield move as units; then every marker takes his man. Their keeper is on his line */
+  add('opp', 'TGK', [0.12*shift + rand(-0.8, 0.8), ZONE.goalZ + rand(1.0, 2.2)], [0.08*shift, 0]);
   back.forEach((p, i) => add('opp', 'back' + i, p, backVel[i] || [0, lineStep]));
   mids.forEach((p, i) => add('opp', 'mid' + i, p, [rand(-0.6, 0.6), -rand(4.0, 5.5)]));           // recovering, flat out
   /* a marker stands goal-side of his man AND on a shoulder: from where the winger stands, the two bodies are
@@ -599,7 +600,7 @@ function candidate(side, key, forceTen){
 }
 
 function sceneOK(s){
-  const opp = s.players.filter(p => p.team === 'opp').map(p => p.end);
+  const opp = s.players.filter(p => p.team === 'opp' && p.role !== 'TGK').map(p => p.end);
   const own = s.players.filter(p => p.team === 'own');
   const tgt = s.target, rcv = s.runnerAt;
   /* no short combinations: every answer is a proper ball through the lines */
@@ -663,7 +664,7 @@ function sceneOK(s){
   /* and no man of ours is ever lined up with a defender in his eyes: a marker hidden behind the 9 makes a
      covered man look free, a defender in front of him makes a free man look covered. Every pair of bodies
      is separated by at least a body's width, through the whole look */
-  const ownAll = s.players.filter(p => p.team === 'own'), oppAll = s.players.filter(p => p.team === 'opp');
+  const ownAll = s.players.filter(p => p.team === 'own'), oppAll = s.players.filter(p => p.team === 'opp' && p.role !== 'TGK');   // (a keeper on his line behind the 9 does not make him look marked)
   for (const t of [0, FLASH_S*0.35, FLASH_S*0.7, FLASH_S]){
     for (const a of ownAll){ const pa = at(a, t), da = Math.hypot(pa[0], pa[1]), ba = Math.atan2(pa[1], pa[0]);
       for (const q of oppAll){ const pq = at(q, t), dq = Math.hypot(pq[0], pq[1]);
@@ -1754,7 +1755,7 @@ function place(kind, ox, oz, s, moveOx, moveOz, tag, opt){
   }
   if (opt.hold) mps = 0;
   if (opt.pre === undefined) opt.pre = mps >= 2.4 ? 1.4 : (mps >= 1.2 ? 1.3 : 0);
-  const p = makePlayer(kind === 'own' ? CFG.colors.own : CFG.colors.opp, mps,
+  const p = makePlayer(opt.color || (kind === 'own' ? CFG.colors.own : CFG.colors.opp), mps,
     { skin: pick(SKINS), hair: pick(HAIRS), boot: pick(BOOTS), back: !!opt.backpedal, pre: opt.pre });
 
   const wa = opt.watchAt || [0,0];
@@ -1831,6 +1832,7 @@ function buildScene(s){
     const from = [p.end[0] - s.side*0 - p.vel[0]*T, p.end[1] - p.vel[1]*T];
     /* a defender near the ball who is giving ground does it facing the ball (a jockey, a backpedal), never
        strolling off with his back to it; a recovering runner far away still runs */
+    if (p.role === 'TGK'){ place('gk', p.end[0], p.end[1], s, p.end[0], p.end[1], null, Object.assign({ speed: 0, mps: 0, color: 0x9b5de5 }, eye)); return; }
     const away = p.team === 'opp' && v > 0.15 && v < 4.5 && Math.hypot(p.end[0], p.end[1]) < 16 && (p.vel[0]*p.end[0] + p.vel[1]*p.end[1]) > 0;
     if (away){ mover(p.team, p.end, from, p.tag, Object.assign({ backpedal: true }, eye)); return; }
     if (v < 0.15) place(p.team, p.end[0], p.end[1], s, p.end[0], p.end[1], p.tag, Object.assign({ speed:0, mps:0 }, eye));
