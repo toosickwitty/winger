@@ -205,7 +205,7 @@ a.iconbtn{text-decoration:none;display:inline-flex;align-items:center;white-spac
       <button data-side="alt" aria-pressed="false">Both</button>
     </div>
     <button class="cta" id="start">Start session</button>
-    <p class="note">16 reps, about four minutes. 0.7 of a second from the wing or from the 10, everyone moving &mdash; then it is gone. One ball breaks their lines, the way Spanish positional play teaches it: <b>ruptura</b> (a runner through a gap in their back line), <b>a la espalda</b> (in behind a full-back who tucked in), <b>entre l&iacute;neas</b> (your 10 free between their lines), <b>apoyo del 9</b> (your 9 dropping off with nobody following) or <b>cambio de orientaci&oacute;n</b> (their block shifted, your far winger alone). Everything else is shut. Tap the map where the ball has to go &mdash; into space in front of a runner, or into the feet of the free man.</p>
+    <p class="note">16 reps, about four minutes. You are the winger who has cut inside at the start of the attacking third, into the half-space: the same picture a 10 gets, with the ball arriving at your feet. 0.7 of a second with everyone moving &mdash; then the players are gone and only the grass is left. One ball breaks their lines, the way Spanish positional play teaches it: <b>ruptura</b> (a runner through a gap in their back line), <b>a la espalda</b> (your full-back or far winger in behind a full-back who tucked in), <b>entre l&iacute;neas</b> (a man free between their lines), <b>apoyo del 9</b> (your 9 dropping off with nobody following) or <b>cambio de orientaci&oacute;n</b> (their block shifted to you, your far winger alone). Everything else is shut. Tap the grass where the ball has to land, from your own eyes: into the space in front of a runner, or into the feet of the free man.</p>
   </div>
 
   <div id="panelAsk" class="hide">
@@ -350,8 +350,7 @@ function newBag(){
     const t = pickOne(pool.filter(t => left[t] >= most - 1));
     out.push(t); left[t]--;
   }
-  let wing = Math.random() < 0.5;
-  return out.map(t => (wing = !wing, t + (wing ? '-wing' : '-ten')));
+  return out.map(t => t + '-wing');                 // every rep: the winger who has cut inside (the 10's picture)
 }
 function recvPoint(answer, s){ return s.target; }
 const d2 = (a, b) => Math.hypot(a[0]-b[0], a[1]-b[1]);
@@ -367,8 +366,10 @@ const inArc = (p, deg, arc) => Math.abs(((Math.atan2(p[1], p[0]) * 180/Math.PI -
 const halfSpaceX = (sign, x) => sign*Math.min(19.5, Math.max(9.8, Math.abs(x)));
 function candidate(side, key){
   const [type, view] = key.split('-'), ten = view === 'ten';
-  const W = type === 'cambio' ? (ten ? [rand(6, 10), rand(-10, 2)] : [rand(10, 14), rand(-12, -2)])   // a switch: he has drawn the block over, cutting in
-                               : ten ? [rand(-4, 4), rand(-10, 2)] : [rand(17, 23), rand(-12, -2)];
+  /* where he is: a winger who has cut inside at the start of the attacking third, 32-40 m from goal, in the
+     half-space (x 7-14 off the middle): the inverted winger's picture, which is the 10's picture too */
+  const W = type === 'cambio' ? (ten ? [rand(6, 10), rand(-10, 2)] : [rand(8, 14), rand(-18, -10)])   // a switch: he has drawn the block over, cutting in
+                               : ten ? [rand(-4, 4), rand(-10, 2)] : [rand(7, 14), rand(-18, -10)];
   const deep = Math.random() < 0.5;                                    // their block: high line, or deep
   const lineZ = W[1] - (ten ? (deep ? rand(26, 29) : rand(23, 26)) : (deep ? rand(20, 23) : rand(16, 19)));
   const midZ  = lineZ + rand(9, 12);
@@ -423,7 +424,7 @@ function candidate(side, key){
       chosen = add('own', 'chosen', at, runVel, 'your far winger · attacking the back of the full-back');
       why = 'their far full-back tucked in narrow and your far winger attacked the space behind him — ping it in behind';
     } else {
-      const at = ten ? [nearW[0], lineZ + rand(0.3, 1.2)] : [Math.min(31, W[0] + rand(4, 8)), lineZ + rand(0.3, 1.2)];
+      const at = ten ? [nearW[0], lineZ + rand(0.3, 1.2)] : [rand(24, 29), lineZ + rand(0.3, 1.2)];   // his full-back, on the touchline he has just left
       back[0][0] = at[0] - rand(9, 11);
       const dir = unit(-rand(0.1, 0.35), -1); runVel = [dir[0]*sp, dir[1]*sp];
       target = [at[0] + dir[0]*rand(5.5, 7.5), at[1] + dir[1]*rand(5.5, 7.5)];
@@ -2027,17 +2028,41 @@ function nextRep(){
   el('askWord').firstChild.textContent = 'Look';
   el('askHint').textContent = 'Everyone is moving. Read the runs.';
   el('answers').innerHTML = '';
-  setVeil(true, current.view === 'ten' ? 'From the 10' : (current.side === 1 ? 'Right wing' : 'Left wing'), '0.7 of a second. Find the ball that breaks their line.');
+  setVeil(true, (current.side === 1 ? 'Right wing' : 'Left wing') + ' · cut inside', 'You have cut in at the top of their third. 0.7 of a second: find the ball that breaks their line.');
   setTimeout(flash, CFG.cueMs);
 }
 
 function flash(){
   setVeil(false);
+  actors.visible = true;
   runSequence(() => {
-    drawMask(); maskEl.style.display = 'block';
-    setTimeout(ask, CFG.maskMs);
+    /* the picture goes, the pitch stays: his eyes where they were, nobody on the grass */
+    actors.visible = false;
+    ghostBall.position.copy(ballMesh.position); ghostBall.visible = true;
+    ask();
   });
 }
+/* a tap on the stage while the question is open: the ray from his eye through the tap, down onto the grass */
+const _ray = new THREE.Raycaster(), _ndc = new THREE.Vector2();
+const ghostBall = new THREE.Mesh(new THREE.SphereGeometry(0.115, 24, 16), LOOK.ballMaterial()); ghostBall.visible = false; scene.add(ghostBall);
+function grassPoint(e){
+  const r = stage.getBoundingClientRect();
+  _ndc.set((e.clientX - r.left)/r.width*2 - 1, -((e.clientY - r.top)/r.height*2 - 1));
+  _ray.setFromCamera(_ndc, camera);
+  const o = _ray.ray.origin, d = _ray.ray.direction;
+  if (d.y >= -1e-4) return null;                           // above the horizon
+  const t = -o.y/d.y, x = o.x + d.x*t, z = o.z + d.z*t;
+  if (t > 90) return null;                                 // nowhere on the pitch
+  return [x, z];
+}
+stage.addEventListener('pointerdown', e => {
+  if (!mapOpen) return;
+  const q = grassPoint(e); if (!q) return;
+  e.preventDefault();
+  const ring = new THREE.Mesh(new THREE.RingGeometry(0.55, 0.8, 40), new THREE.MeshBasicMaterial({ color: 0xc6ef2f, transparent: true, opacity: 0.9, depthWrite: false, side: THREE.DoubleSide }));
+  ring.rotation.x = -Math.PI/2; ring.position.set(q[0], 0.03, q[1]); pathGroup.add(ring);
+  answerMap(q);
+});
 
 
 
@@ -2050,6 +2075,7 @@ function replayLook(){
   replaying = true;
   const btn = el('replay'); btn.disabled = true; btn.textContent = 'Watching…';
   document.getElementById('mapwrap').style.display = 'none';
+  actors.visible = true;
   runSequence(() => {
     document.getElementById('mapwrap').style.display = 'flex';
     replaying = false;
@@ -2060,10 +2086,9 @@ function replayLook(){
 function ask(){
   maskEl.style.display = 'none';
   el('askWord').firstChild.textContent = 'Where does it go?';
-  el('askHint').textContent = 'Tap where the ball breaks their lines.';
+  el('askHint').textContent = 'Tap the grass where the ball has to land.';
   el('answers').innerHTML = '';
-  drawMap(current, false, null);
-  document.getElementById('mapwrap').style.display = 'flex';
+  document.getElementById('mapwrap').style.display = 'none';
   mapOpen = true;
   timer.style.display = 'block';
   timer.style.transition = 'none'; timer.style.width = '100%';
@@ -2079,20 +2104,29 @@ function answerMap(tap){
   const W = [current.side*current.wingX, current.zBase];
   const f = [W[0] + current.side*current.target[0], W[1] + current.target[1]];
   const d = tap ? Math.hypot(tap[0]-f[0], tap[1]-f[1]) : null;
-  const pts = d === null ? 0 : d <= HIT ? 3 : d <= NEAR ? 1 : 0;
+  /* graded from his eyes: the direction of the pass (degrees off) and its weight (how far along that
+     line, as a share of the right distance). A 25 m spot sits a few pixels under the horizon on a phone,
+     so metres alone would punish the thumb, not the read */
+  let theta = null, rho = null;
+  if (tap){ const a = Math.atan2(tap[1]-W[1], tap[0]-W[0]), b2 = Math.atan2(f[1]-W[1], f[0]-W[0]);
+    theta = Math.abs(((a - b2 + 3*Math.PI) % (2*Math.PI)) - Math.PI)*180/Math.PI;
+    rho = Math.hypot(tap[0]-W[0], tap[1]-W[1]) / Math.max(1, Math.hypot(f[0]-W[0], f[1]-W[1])); }
+  const pts = d === null ? 0 : (d <= HIT || (theta <= 4 && rho >= 0.7 && rho <= 1.35)) ? 3 : (d <= NEAR || (theta <= 9 && rho >= 0.5 && rho <= 1.8)) ? 1 : 0;
+  const weight = rho === null ? '' : rho < 0.7 ? ' Under-hit: short of him.' : rho > 1.35 ? ' Over-hit: past him.' : '';
   sPts += pts; sMax += 3;
   const k = current.side === 1 ? 'R' : 'L';
   stats[k].pts += pts; stats[k].max += 3;
   if (pts === 3) sBest++;
   paintSides(); saveStats();
+  actors.visible = true; ghostBall.visible = false;
   setPhase(1, CFG.flashMs/1000);
-  drawMap(current, true, tap);
+  drawMap(current, true, tap); document.getElementById('mapwrap').style.display = 'flex';   // the review board: his tap against the spot (the replay shows it from his eyes, the ring on the grass)
   const box = el('rank'); box.innerHTML = '';
   const row = (chip, cls, text) => { const r = document.createElement('div'); r.className = 'row picked';
     r.innerHTML = '<span class="chip ' + cls + '">' + chip + '</span><span class="wy">' + text + '</span>'; box.appendChild(r); };
   if (d === null) row('Too slow', 't0', 'Hold the picture and put it down fast — on the pitch the ball is already on its way.');
-  else row(TIER_NAME[pts], 't' + pts, 'You were <b>' + d.toFixed(1) + ' m</b> from where the ball had to land.' +
-    (pts === 3 ? ' Into his stride.' : pts === 1 ? ' Right run — play it further in front of him.' : ' Wrong run, or played to where he was. Every other run was tracked.'));
+  else row(TIER_NAME[pts], 't' + pts, 'You were <b>' + d.toFixed(1) + ' m</b> from where the ball had to land (' + theta.toFixed(0) + '&deg; off the line of the pass).' +
+    (pts === 3 ? ' Into his stride.' : pts === 1 ? (theta <= 9 ? ' Right line.' + (weight || ' Play it further in front of him.') : ' Close, but not his run.') : (theta > 9 ? ' Wrong run: every other run was tracked.' : weight || ' Played to where he was.')));
   const r2 = document.createElement('div'); r2.className = 'row';
   r2.innerHTML = '<span class="wy"><b>' + current.title + '</b> — ' + current.why +
     '. Everything else was shut: runners tracked, a man on every other option.</span>';
@@ -2273,7 +2307,7 @@ el('again').onclick = startSession;
 el('next').onclick  = nextRep;
 el('replay').onclick = replayLook;
 el('done').onclick  = () => { show(pIdle); paintSeg(); el('hmeta').textContent = 'Rep 0 / '+CFG.repsPerSession;
-  setVeil(true,'Ready','You are holding width. Two seconds: where are your full-back and your 8?'); };
+  setVeil(true,'Ready','You have cut inside. 0.7 of a second, then tap the grass.'); };
 el('reset').onclick = () => {
   stats = { L:{pts:0,max:0}, R:{pts:0,max:0}, side: stats.side };
   paintSides(); paintSeg(); saveStats(); show(pIdle);
