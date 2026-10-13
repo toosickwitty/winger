@@ -446,6 +446,9 @@ const BOTS = (() => {
     const dBall = d2(me.p, ball);
     if (J.job === 'press'){
       const g = toward(ball, GOAL), a = (me.traits.pressSide || 1)*0.6, c = Math.cos(a), sn = Math.sin(a), ga = [g[0]*c - g[1]*sn, g[0]*sn + g[1]*c];
+      if (d2(me.p, S.ball) < 4.0){ const ball = S.ball;                                            // this close he is watching the ball itself, not a memory of it                                                                            // arrived: jockeys in front of the ball, a step to the side he shows, giving ground as it comes
+        const bv = S.ballVel || [0, 0], mvg = Math.hypot(bv[0], bv[1]) > 1.0 ? unit(bv[0], bv[1]) : g, perp = [-mvg[1], mvg[0]], sd = me.traits.pressSide || 1;
+        me.want = [ball[0] + mvg[0]*3.0 + perp[0]*1.1*sd, ball[1] + mvg[1]*3.0 + perp[1]*1.1*sd]; me.speedWant = SPD.press; me.face = 'ball'; return; }
       me.want = [ball[0] + ga[0]*0.8, ball[1] + ga[1]*0.8]; me.speedWant = dBall > 9 ? SPD.run : SPD.press; return;
     }
     if (J.job === 'mark' || J.job === 'lane'){
@@ -534,6 +537,7 @@ const BOTS = (() => {
       me.want = show(me, S, [(ball[0] > 6 ? -21 : -26) + me.traits.lean, onside(lineZ + 2)], 3); me.want[1] = onside(me.want[1]); me.speedWant = SPD.jog; return;
     }
     if (me.role === 'WB'){
+      if (me.traits.holdUntil !== undefined && S.t < me.traits.holdUntil){ me.want = me.p; me.speedWant = 0; return; }   // the man who plays the pass stands over the ball until he has struck it
       if (me.run){ me.want = [me.p[0] + me.runDir[0]*9, me.p[1] + me.runDir[1]*9]; me.speedWant = SPD.sprint; return; }
       if (S.wingerInside && S.t >= me.traits.goAt && me.traits.wants === 'overlap'){ me.run = true; me.runAt = S.t; me.runDir = unit(-0.12, -1); return; }
       me.want = show(me, S, [26, ball[1] + 4], 3); me.speedWant = SPD.jog; return;
@@ -560,6 +564,7 @@ const BOTS = (() => {
       me.p[0] = clamp(me.p[0], -33.5, 33.5); me.p[1] = clamp(me.p[1], -52, 52);
       me.log.push([S.t, me.p[0], me.p[1], me.v[0], me.v[1]]);
     }
+    const prev = S.ballHist[S.ballHist.length - 1]; S.ballVel = prev ? [(S.ball[0] - prev[0])/DT, (S.ball[1] - prev[1])/DT] : [0, 0];
     S.ballHist.push(S.ball.slice());
     S.t += DT;
   }
@@ -570,10 +575,10 @@ const BOTS = (() => {
     const W = setup.W, from = setup.ballFrom, L = d2(from, W), T = ballT(L);
     S.players.forEach(q => { q.nextThink = S.t + Math.random()*0.2; });
     while (S.t < setup.post){
-      /* the ball: played to him from the 8, arriving at t = 0, then at his feet */
-      const tf = S.t + T;                                                   // time since the strike
-      S.ball = tf < 0 ? from.slice() : tf >= T ? W.slice() : [from[0] + (W[0] - from[0])*(tf/T), from[1] + (W[1] - from[1])*(tf/T)];
-      S.wingerInside = S.t >= -setup.pre + 0.3;                             // he has cut in: everyone can see it
+      /* the ball: played to him, arriving at t = 0, then at his feet (or wherever the drill carries it) */
+      if (setup.ballAt) S.ball = setup.ballAt(S.t);
+      else { const tf = S.t + T; S.ball = tf < 0 ? from.slice() : tf >= T ? W.slice() : [from[0] + (W[0] - from[0])*(tf/T), from[1] + (W[1] - from[1])*(tf/T)]; }
+      S.wingerInside = S.t >= (setup.insideAt === undefined ? -setup.pre + 0.3 : setup.insideAt);   // he has cut in: everyone can see it
       step(S);
     }
     return { players: S.players, at: (id, t) => { const lg = S.players.find(q => q.id === id).log; let best = lg[0]; for (const e of lg){ if (e[0] <= t) best = e; else break; } return { p: [best[1], best[2]], v: [best[3], best[4]] }; } };
@@ -623,7 +628,7 @@ const BOTS = (() => {
       /* how dangerous the ball is, by where it lands: behind their line in the middle, behind it wide, between
          their lines in the middle, or wide / in front of their midfield (a progression, not a chance) */
       const central = Math.abs(land[0]) < 15;
-      const danger = land[1] < lastZ - 1 ? (central ? 1.0 : 0.8) : (kind === 'run' && !central && land[1] < lastZ + 3) ? 0.7 : (central && land[1] < lastZ + 12) ? 0.65 : 0.35;   // a wide runner reaching their line is a cut-back coming
+      const danger = land[1] < lastZ - 1 ? (central ? 1.0 : 0.8) : (kind === 'run' && !central && land[1] < lastZ + 5) ? 0.7 : (central && land[1] < lastZ + 12) ? 0.65 : 0.35;   // a wide runner reaching their line is a cut-back coming
       let tier, why;
       if (laneCut){ tier = 0; why = 'the lane was cut: ' + NAME(laneCut.role) + ' could step into the line of the ball'; }
       else if (margin < o.workMargin){ tier = 0; why = NAME(bestD.role) + ' gets to the spot first (' + (-margin).toFixed(1) + ' s before the ball)'; }
