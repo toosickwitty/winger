@@ -1,0 +1,351 @@
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Winger">
+<meta name="theme-color" content="#0d1b12">
+<title>Winger Training · Winger 1.0 (frozen)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600&family=Inter:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root{
+  color-scheme: dark;
+  --turf:#0d1b12; --card:#17301f; --line:#33553d;
+  --flood:#f5f8f3; --dim:#b6c9bb; --go:#c6ef2f;
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html{background:var(--turf)}
+body{margin:0;min-height:100%;background:var(--turf);color:var(--flood);
+  font-family:Inter,system-ui,-apple-system,sans-serif;
+  background-image:repeating-linear-gradient(180deg,
+    rgba(255,255,255,.015) 0 44px, rgba(0,0,0,.015) 44px 88px);}
+.wrap{max-width:620px;margin:0 auto;padding:32px 18px calc(40px + env(safe-area-inset-bottom))}
+
+.mark{font-family:'Barlow Condensed',sans-serif;font-weight:600;font-size:30px;
+  letter-spacing:.16em;text-transform:uppercase;margin:0}
+.mark span{color:var(--go)}
+.tag{color:var(--dim);font-size:14.5px;line-height:1.55;margin:9px 0 26px;max-width:46ch}
+
+a.card{display:block;text-decoration:none;color:inherit;background:var(--card);
+  border:1px solid var(--line);border-radius:12px;padding:18px 18px 16px;margin-bottom:12px}
+a.card:active{background:#1d3c27}
+.row{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap}
+.name{font-family:'Barlow Condensed',sans-serif;font-size:27px;letter-spacing:.09em;
+  text-transform:uppercase;line-height:1}
+.kind{font-family:'Barlow Condensed',sans-serif;font-size:14px;letter-spacing:.12em;
+  text-transform:uppercase;color:var(--go)}
+.desc{color:var(--dim);font-size:14.5px;line-height:1.55;margin:10px 0 0}
+.meta{display:flex;flex-wrap:wrap;gap:7px;margin-top:13px}
+.pill{font-family:'Barlow Condensed',sans-serif;font-size:13px;letter-spacing:.1em;
+  text-transform:uppercase;color:var(--dim);border:1px solid var(--line);
+  border-radius:5px;padding:3px 9px}
+.go{display:flex;align-items:center;gap:7px;margin-top:15px;
+  font-family:'Barlow Condensed',sans-serif;font-size:17px;letter-spacing:.11em;
+  text-transform:uppercase;color:var(--go)}
+.go svg{width:15px;height:15px}
+
+.note{border-top:1px solid var(--line);margin-top:24px;padding-top:18px;
+  color:var(--dim);font-size:13.5px;line-height:1.6}
+.note b{color:var(--flood);font-weight:500}
+.note p{margin:0 0 10px}
+.note p:last-child{margin:0}
+
+.menu{display:grid;gap:12px;margin:0 0 26px}
+.menu a{display:block;text-decoration:none;color:inherit;background:var(--card);border:1px solid var(--line);border-radius:12px;padding:18px 18px 16px}
+.menu a:active{background:#1d3c27}
+.mname{display:block;font-family:'Barlow Condensed',sans-serif;font-size:26px;letter-spacing:.1em;text-transform:uppercase;color:var(--go);line-height:1}
+.msub{display:block;color:var(--dim);font-size:14px;line-height:1.5;margin-top:7px}
+.pos{display:none}
+body.in .menu{display:none}
+body.in .pos.open{display:block}
+.back{display:inline-flex;align-items:center;gap:6px;font-family:'Barlow Condensed',sans-serif;font-size:15px;letter-spacing:.11em;text-transform:uppercase;color:var(--go);text-decoration:none;margin:0 0 14px}
+.back:active{opacity:.7}
+.pos{margin-bottom:30px;scroll-margin-top:16px}
+.poshead{display:flex;flex-direction:column;gap:4px;border-bottom:1px solid var(--line);padding-bottom:10px;margin-bottom:14px}
+.posname{font-family:'Barlow Condensed',sans-serif;font-weight:600;font-size:22px;letter-spacing:.14em;text-transform:uppercase;color:var(--go)}
+.possub{color:var(--dim);font-size:14px;line-height:1.5}
+@media (min-width:560px){ .wrap{padding-top:52px} .mark{font-size:34px} }
+</style>
+
+<div class="wrap">
+  <h1 class="mark">Winger<span>.</span></h1>
+  <p class="tag">Fifteen decision drills, played from the player's own eye level. Pick your position, then a drill: a side, a
+     moment of live play, then choose. The winger drills track the left and right wing separately, so a
+     weaker side shows up on its own.</p>
+
+  <nav class="menu" id="menu">
+    <a href="#winger" data-sec="winger"><span class="mname">Winger</span><span class="msub">Receiving, the pocket, the byline, the box &middot; 9 drills</span></a>
+    <a href="#cam" data-sec="cam"><span class="mname">Attacking midfielder</span><span class="msub">The 8 and the 10, between the lines &middot; 3 drills</span></a>
+    <a href="#nine" data-sec="nine"><span class="mname">Striker &amp; false 9</span><span class="msub">On the last line, or dropping off it &middot; 1 drill</span></a>
+    <a href="#all" data-sec="all"><span class="mname">Every position</span><span class="msub">Vision and the picture in the head &middot; 2 drills</span></a>
+  </nav>
+
+  <section class="pos" id="winger">
+    <a class="back" href="#">&lsaquo; All positions</a>
+    <div class="poshead"><span class="posname">Winger</span><span class="possub">Wide, in a 4-3-3: receiving on the touchline, the pocket, the byline, the box.</span></div>
+  <a class="card" href="shoulder.html">
+    <div class="row"><span class="name">Shoulder</span><span class="kind">Receiving from the back</span></div>
+    <p class="desc">A ball from your defensive line, 17-26 m. Look over your shoulder while it travels
+       &mdash; the moment matters &mdash; and call it before it arrives: receive open (<i>de perfil</i>),
+       come to it (<i>desmarque de apoyo</i>), shield and set it back, or let it run. The man
+       behind you holds off, sits on your back, sprints to cut it out, or is inside you as the ball is driven past you into space.</p>
+    <div class="meta">
+      <span class="pill">Half-second look</span>
+      <span class="pill">16 reps</span>
+      <span class="pill">Left or right</span>
+    </div>
+    <div class="go">Start
+      <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2"
+           stroke-linecap="round" stroke-linejoin="round"><path d="M3 8h10M9 4l4 4-4 4"/></svg>
+    </div>
+  </a>
+  <a class="card" href="movement.html">
+    <div class="row"><span class="name">Pocket</span><span class="kind">Movement</span></div>
+    <p class="desc">One player per lane, the way Guardiola and Flick coach it. Two blue shirts
+       decide where you go: is your full-back overlapping outside you, and is your 8 in
+       the half-space inside you?</p>
+    <div class="meta">
+      <span class="pill">Two-second watch</span>
+      <span class="pill">16 reps</span>
+      <span class="pill">Phone sideways</span>
+    </div>
+    <div class="go">Start
+      <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2"
+           stroke-linecap="round" stroke-linejoin="round"><path d="M3 8h10M9 4l4 4-4 4"/></svg>
+    </div>
+  </a>
+  <a class="card" href="cross.html">
+    <div class="row"><span class="name">Byline</span><span class="kind">Crossing</span></div>
+    <p class="desc">You are at the byline with the ball and three runners attacking the box.
+       One glance in, then pick the delivery — near post, cutback, far post, or nobody is on
+       and you keep it.</p>
+    <div class="meta">
+      <span class="pill">One glance</span>
+      <span class="pill">16 reps</span>
+      <span class="pill">Left or right</span>
+    </div>
+    <div class="go">Start
+      <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2"
+           stroke-linecap="round" stroke-linejoin="round"><path d="M3 8h10M9 4l4 4-4 4"/></svg>
+    </div>
+  </a>
+  <a class="card" href="through.html">
+    <div class="row"><span class="name">Through</span><span class="kind">Final pass</span></div>
+    <p class="desc">Your full-back finds you in the channel. Check inside, take it, and carry
+       it 45° into the half-space with your head up — tap once to glance over your shoulder for
+       the overlap. Then: in behind for the 9, the diagonal for the far winger, into the 10's
+       feet, or down the line for your full-back, if he went.</p>
+    <div class="meta">
+      <span class="pill">Tap: shoulder check</span>
+      <span class="pill">16 reps</span>
+      <span class="pill">Phone sideways</span>
+    </div>
+    <div class="go">Start
+      <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2"
+           stroke-linecap="round" stroke-linejoin="round"><path d="M3 8h10M9 4l4 4-4 4"/></svg>
+    </div>
+  </a>
+  <a class="card" href="finish.html">
+    <div class="row"><span class="name">Finish</span><span class="kind">Shoot or slip</span></div>
+    <p class="desc">You have cut inside and are carrying it across the edge of the box. Is anyone
+       blocking your shot? If not, pick the post the keeper has left you. If someone has stepped
+       out to block you, find the man he left: square to your 9, or the reverse ball to your runner.</p>
+    <div class="meta">
+      <span class="pill">Carry, head up</span>
+      <span class="pill">16 reps</span>
+      <span class="pill">Phone sideways</span>
+    </div>
+    <div class="go">Start
+      <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2"
+           stroke-linecap="round" stroke-linejoin="round"><path d="M3 8h10M9 4l4 4-4 4"/></svg>
+    </div>
+  </a>
+  <a class="card" href="backpost.html">
+    <div class="row"><span class="name">Back Post</span><span class="kind">Arriving in the box</span></div>
+    <p class="desc">The ball is on the other wing and you are the far winger. Read the crosser, then
+       your man: hold the edge of the box for the cut-back, arrive on his blind side at the back
+       post, or step in front of him into the middle of the goal.</p>
+    <div class="meta">
+      <span class="pill">Two-second read</span>
+      <span class="pill">16 reps</span>
+      <span class="pill">Phone sideways</span>
+    </div>
+    <div class="go">Start
+      <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2"
+           stroke-linecap="round" stroke-linejoin="round"><path d="M3 8h10M9 4l4 4-4 4"/></svg>
+    </div>
+  </a>
+  <a class="card" href="thirdman.html">
+    <div class="row"><span class="name">Third Man</span><span class="kind">Timing the run</span></div>
+    <p class="desc">Your 6, centre-back or full-back plays it into your 9 or 10. Man on his back? Go —
+       tap the space you run into the moment it is played in. Free to turn? Stay wide. Early and
+       their defence reads it; late and the second man gets closed down.</p>
+    <div class="meta">
+      <span class="pill">One tap: where + when</span>
+      <span class="pill">16 reps</span>
+      <span class="pill">Phone sideways</span>
+    </div>
+    <div class="go">Start
+      <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2"
+           stroke-linecap="round" stroke-linejoin="round"><path d="M3 8h10M9 4l4 4-4 4"/></svg>
+    </div>
+  </a>
+  <a class="card" href="arrive.html">
+    <div class="row"><span class="name">Arrive</span><span class="kind">Read, run, finish</span></div>
+    <p class="desc">One whole move. Your full-back and your 8 tell you which lane is yours; the pass
+       into your 9 or 10 tells you when to go. Meet the lay-off in stride, carry it at the box with
+       someone sprinting at you &mdash; then shoot near or far, square it, or slip the runner.</p>
+    <div class="meta">
+      <span class="pill">A tap, then a finish</span>
+      <span class="pill">16 reps</span>
+      <span class="pill">Phone sideways</span>
+    </div>
+    <div class="go">Start
+      <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2"
+           stroke-linecap="round" stroke-linejoin="round"><path d="M3 8h10M9 4l4 4-4 4"/></svg>
+    </div>
+  </a>
+  <a class="card" href="shape.html">
+    <div class="row"><span class="name">Shape</span><span class="kind">Off the ball</span></div>
+    <p class="desc">Juego de posici&oacute;n off the ball. Five seconds of play, often nowhere near you;
+       it freezes as the last pass is struck: tap where you should be, then run there. Five lanes, no more
+       than two of you in a lane &mdash; width with the ball, the midfield four without it, the press when
+       you lose it. Learn mode paints the lanes and names the principle.</p>
+    <div class="meta">
+      <span class="pill">Tap the map</span>
+      <span class="pill">16 reps</span>
+      <span class="pill">Phone sideways</span>
+    </div>
+    <div class="go">Start
+      <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2"
+           stroke-linecap="round" stroke-linejoin="round"><path d="M3 8h10M9 4l4 4-4 4"/></svg>
+    </div>
+  </a>
+  </section>
+
+  <section class="pos" id="cam">
+    <a class="back" href="#">&lsaquo; All positions</a>
+    <div class="poshead"><span class="posname">Attacking midfielder</span><span class="possub">The 8 and the 10: between the lines, in the half-space, the interior of a 4-3-3.</span></div>
+  <a class="card" href="pared.html">
+    <div class="row"><span class="name">Pared</span><span class="kind">Pass, then where?</span></div>
+    <p class="desc">You are the 8, ball at your feet, and you play it into your 9, your 10 or your winger. While it travels, call where you go: give and go (<i>pared</i>), hold the angle, drag your marker away for the third man, or drop for the bounce. The read is the man on his back, the man on yours (a look over the inside shoulder) and whether a second man is closing him.</p>
+    <div class="meta">
+      <span class="pill">Call as you pass</span>
+      <span class="pill">16 reps</span>
+      <span class="pill">Left or right</span>
+    </div>
+    <div class="go">Start
+      <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2"
+           stroke-linecap="round" stroke-linejoin="round"><path d="M3 8h10M9 4l4 4-4 4"/></svg>
+    </div>
+  </a>
+  <a class="card" href="third8.html">
+    <div class="row"><span class="name">Third Man 8</span><span class="kind">The interior&rsquo;s run</span></div>
+    <p class="desc">Third Man from the 8&rsquo;s spot. Your 6, centre-back or full-back plays it into your 9, your 10 or your winger; tap the space you run into the moment you go: the channel inside their full-back, the gap your 9 opened, the pocket in front of a deep line, or onto the set. Free to turn? Hold your angle.</p>
+    <div class="meta">
+      <span class="pill">One tap: where + when</span>
+      <span class="pill">16 reps</span>
+      <span class="pill">Phone sideways</span>
+    </div>
+    <div class="go">Start
+      <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2"
+           stroke-linecap="round" stroke-linejoin="round"><path d="M3 8h10M9 4l4 4-4 4"/></svg>
+    </div>
+  </a>
+  <a class="card" href="interior.html">
+    <div class="row"><span class="name">Interior</span><span class="kind">Off the ball, from the 8</span></div>
+    <p class="desc">Shape, from the attacking midfielder&rsquo;s spot: the right interior of a 4-3-3. Come short
+       to help the build-up, get between their lines in your half-space, take the width when your winger
+       comes inside; in the block, jump to their centre-back when we press high, shut the pass back inside
+       when it goes wide. Tap your spot, then run there.</p>
+    <div class="meta">
+      <span class="pill">Tap the map</span>
+      <span class="pill">16 reps</span>
+      <span class="pill">Phone sideways</span>
+    </div>
+    <div class="go">Start
+      <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2"
+           stroke-linecap="round" stroke-linejoin="round"><path d="M3 8h10M9 4l4 4-4 4"/></svg>
+    </div>
+  </a>
+  </section>
+
+  <section class="pos" id="nine">
+    <a class="back" href="#">&lsaquo; All positions</a>
+    <div class="poshead"><span class="posname">Striker &amp; false 9</span><span class="possub">On the last line pinning centre-backs, or dropping off them into the gap.</span></div>
+  <a class="card" href="nine.html">
+    <div class="row"><span class="name">Nine</span><span class="kind">Striker &amp; false 9</span></div>
+    <p class="desc">Shape, from the centre-forward. Each rep tells you the role. As the striker, pin their
+       centre-backs on the last line; as the false 9, drop off them into the gap between their lines.
+       Without the ball you are the front of the block: screen their 6, or press their centre-back when
+       we press high. Tap your spot, then run there.</p>
+    <div class="meta">
+      <span class="pill">Tap the map</span>
+      <span class="pill">16 reps</span>
+      <span class="pill">Phone sideways</span>
+    </div>
+    <div class="go">Start
+      <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2"
+           stroke-linecap="round" stroke-linejoin="round"><path d="M3 8h10M9 4l4 4-4 4"/></svg>
+    </div>
+  </a>
+  </section>
+
+  <section class="pos" id="all">
+    <a class="back" href="#">&lsaquo; All positions</a>
+    <div class="poshead"><span class="posname">Every position</span><span class="possub">Vision and the picture in the head. Play these whatever shirt you are in.</span></div>
+  <a class="card" href="snap.html">
+    <div class="row"><span class="name">Snap</span><span class="kind">Breaking the lines</span></div>
+    <p class="desc">0.7 of a second from the wing or the 10, everyone moving. Find the one ball that
+       breaks their lines — ruptura, a la espalda, entre líneas, apoyo del 9 or cambio de
+       orientación — and tap where it has to go.</p>
+    <div class="meta">
+      <span class="pill">0.7 s scan</span>
+      <span class="pill">16 reps</span>
+      <span class="pill">Phone sideways</span>
+    </div>
+    <div class="go">Start
+      <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2"
+           stroke-linecap="round" stroke-linejoin="round"><path d="M3 8h10M9 4l4 4-4 4"/></svg>
+    </div>
+  </a>
+  <a class="card" href="recall.html">
+    <div class="row"><span class="name">Recall</span><span class="kind">The picture in your head</span></div>
+    <p class="desc">Scanning is for building a picture that survives the ball arriving. The clip freezes, holds
+       a moment, and goes dark; on an empty board you place the ball, the opponent nearest you and your
+       nearest team-mate from memory. Three in a row and the hold shortens, down to a glance.</p>
+    <div class="meta">
+      <span class="pill">Tap the board</span>
+      <span class="pill">16 reps</span>
+      <span class="pill">Phone sideways</span>
+    </div>
+    <div class="go">Start
+      <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2"
+           stroke-linecap="round" stroke-linejoin="round"><path d="M3 8h10M9 4l4 4-4 4"/></svg>
+    </div>
+  </a>
+  </section>
+
+  <div class="note">
+    <p><b>On a phone or tablet</b>, open this page in the browser and use <b>Add to Home
+       Screen</b>. It gets an icon and opens full-screen, with no browser bar eating the pitch.</p>
+    <p>Sessions run about six minutes. Short and often beats long and once — and screen work only
+       earns its keep if it gets rehearsed on grass, with someone calling for a look before the
+       ball is played.</p>
+    <p>Needs an internet connection to load.</p>
+  </div>
+</div>
+<script>
+(function(){
+  const secs = ['winger','cam','nine','all'];
+  function route(){
+    const id = location.hash.replace('#','');
+    document.querySelectorAll('.pos').forEach(p => p.classList.toggle('open', p.id === id));
+    document.body.classList.toggle('in', secs.includes(id));
+    if (secs.includes(id)) window.scrollTo(0, 0);
+  }
+  addEventListener('hashchange', route); route();
+})();
+</script>
