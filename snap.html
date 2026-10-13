@@ -399,78 +399,121 @@ const BOTS = (() => {
     return { id, team, role, p: p.slice(), v: [0, 0], want: p.slice(), speedWant: 0, react: rand(0.25, 0.55), nextThink: rand(0, 0.25), mark: null, traits: traits || {}, log: [] };
   }
 
-  /* ---------- the defending side ---------- */
-  /* Principles (a back four and two midfielders, a keeper):
-       the nearest free man to the ball steps to it; the next nearest covers between ball and goal;
-       the back line holds one line and moves with the ball; a back whose zone a runner attacks goes
-       with him, goal-side, after his reaction time; the far full-back tucks in when the ball is far
-       from him (the gap behind him is the price); the near full-back either follows the winger inside
-       (a trait) or holds the width; midfielders mark the 10 when he is near, goal-side. */
-  function thinkDefender(me, S){
-    const ball = S.ballPerceived, holder = S.holder;
-    const own = S.players.filter(q => q.team === me.team && q.role !== 'GK'), att = S.players.filter(q => q.team !== me.team);
-    const dBall = d2(me.p, ball);
-    const press = me.role !== 'GK' && S.pressers.includes(me.id);
-    const cover = me.role !== 'GK' && S.coverer === me.id;
-    me.job = press ? 'press' : cover ? 'cover' : 'hold';
-    if (me.role === 'GK'){
-      me.want = [clamp(0.12*ball[0], -3, 3), GOAL[1] + 1.6]; me.speedWant = SPD.jog; return;
+  /* ---------- the defending side: a plan, then men ----------
+     Defenders act with intent, the way a coached side does. Every think, the team makes a plan:
+       the ball is pressed by the nearest free man (showing one way);
+       every man we could play to gets a defender, in the order the defence cares about him
+         (central first: the 9, the 10, then the far winger, the wing-back, the man behind the ball),
+         and that defender either MARKS him (goal-side, on the ball-side shoulder) if he can get tight,
+         or CUTS THE LANE to him (stands on the line of the pass) if he cannot;
+       one man covers goal-side of the ball; the rest of the back line holds the line and takes any
+         runner who comes into its zone.
+     A side has six outfield defenders against the ball and five men to watch, and each of them
+     reacts a little late: whoever is left is the answer, and nobody decided it in advance. */
+  const PRIORITY = ['N9', 'N10', 'FW', 'WB', 'SUP'];
+  function plan(S){
+    const ball = S.ball, defs = S.players.filter(q => q.team === 'opp' && q.role !== 'GK'), att = S.players.filter(q => q.team === 'own');
+    const jobs = {}; const taken = new Set();
+    const byDist = (p, pool) => pool.filter(q => !taken.has(q.id)).sort((a, b) => d2(a.p, p) - d2(b.p, p));
+    /* 1. the ball */
+    const pr = byDist(ball, defs)[0];
+    if (pr && d2(pr.p, ball) < 15){ jobs[pr.id] = { job: 'press' }; taken.add(pr.id); }
+    /* 2. every option, in the order the side cares (a personality: some sides mark the 10 first) */
+    const order = S.traits.prio || PRIORITY;
+    for (const id of order){
+      const m = att.find(q => q.id === id); if (!m) continue;
+      /* who can take him: a back for a man on the line or a runner in behind, anyone for the rest, within reach */
+      const pool = byDist(m.p, defs).filter(q => d2(q.p, m.p) < (q.role.startsWith('back') ? 14 : 12));
+      const d = pool[0]; if (!d) continue;
+      const dist = d2(d.p, m.p);
+      jobs[d.id] = dist < 4.5 || m.run ? { job: 'mark', man: id } : { job: 'lane', man: id }; taken.add(d.id);
     }
-    if (press){
-      /* step to the ball, hard, and arrive a little goal-side of it */
-      const g = toward(ball, GOAL), a = (me.traits.pressSide || 1)*0.6, c = Math.cos(a), sn = Math.sin(a), ga = [g[0]*c - g[1]*sn, g[0]*sn + g[1]*c];   // shows him one way
+    /* 3. cover, then the line */
+    const cv = byDist(ball, defs.filter(q => !q.role.startsWith('back')))[0];
+    if (cv){ jobs[cv.id] = { job: 'cover' }; taken.add(cv.id); }
+    defs.forEach(q => { if (!jobs[q.id]) jobs[q.id] = { job: q.role.startsWith('back') ? 'hold' : 'cover' }; });
+    return jobs;
+  }
+  function thinkDefender(me, S){
+    const ball = S.ballPerceived, att = S.players.filter(q => q.team !== me.team);
+    if (me.role === 'GK'){ me.want = [clamp(0.12*ball[0], -3, 3), GOAL[1] + 1.6]; me.speedWant = SPD.jog; return; }
+    /* a new assignment is taken up after his reaction time */
+    const asg = S.jobs[me.id];
+    if (!me.cur || me.cur.job !== asg.job || me.cur.man !== asg.man){ if (!me.pend || me.pend.job !== asg.job || me.pend.man !== asg.man){ me.pend = Object.assign({ at: S.t }, asg); }
+      if (S.t - me.pend.at >= me.react){ me.cur = me.pend; } }
+    const J = me.cur || { job: me.role.startsWith('back') ? 'hold' : 'cover' };
+    me.job = J.job;
+    const dBall = d2(me.p, ball);
+    if (J.job === 'press'){
+      const g = toward(ball, GOAL), a = (me.traits.pressSide || 1)*0.6, c = Math.cos(a), sn = Math.sin(a), ga = [g[0]*c - g[1]*sn, g[0]*sn + g[1]*c];
       me.want = [ball[0] + ga[0]*0.8, ball[1] + ga[1]*0.8]; me.speedWant = dBall > 9 ? SPD.run : SPD.press; return;
     }
-    if (cover){
-      /* between the ball and the goal, 7-9 m off it, giving ground facing it */
-      const g = toward(ball, GOAL), pr = S.players.find(q => S.pressers.includes(q.id)), sd = pr ? -(pr.traits.pressSide || 1) : 1, perp = [-g[1], g[0]];
+    if (J.job === 'mark' || J.job === 'lane'){
+      const m = att.find(q => q.id === J.man); if (!m){ me.job = 'hold'; }
+      else if (J.job === 'mark'){
+        /* goal-side of him, on the ball-side shoulder: from the ball, two bodies side by side */
+        const g = toward(m.p, GOAL), sgt = toward(ball, m.p), perp = [-sgt[1], sgt[0]], sd = me.traits.side || 1, off = m.run ? 1.0 : 1.2;
+        me.want = [m.p[0] + g[0]*off + perp[0]*1.4*sd, m.p[1] + g[1]*off + perp[1]*1.4*sd]; me.speedWant = m.run ? SPD.sprint*0.93 : SPD.run; return;
+      } else {
+        /* on the line of the pass to him, a third of the way out from the ball, facing it */
+        const u = toward(ball, m.p), L = d2(ball, m.p), k = clamp(L*0.4, 4, 9);
+        me.want = [ball[0] + u[0]*k, ball[1] + u[1]*k]; me.speedWant = SPD.run; me.face = 'ball'; return;
+      }
+    }
+    if (J.job === 'cover'){
+      const g = toward(ball, GOAL), pr = S.players.find(q => S.jobs[q.id] && S.jobs[q.id].job === 'press'), sd = pr ? -(pr.traits.pressSide || 1) : 1, perp = [-g[1], g[0]];
       me.want = [ball[0] + g[0]*8 + perp[0]*sd*3, ball[1] + g[1]*8 + perp[1]*sd*3]; me.speedWant = SPD.jockey; me.face = 'ball'; return;
     }
-    if (me.role.startsWith('back')){
-      /* the line: slot x shifted toward the ball; z is the line's z (set for the unit); a runner in my zone is mine */
-      const line = S.lineZ, slot = me.traits.slotX + clamp(0.35*ball[0], -8, 8);
-      let x = slot;
-      if (me.traits.farFB && ball[0] - me.traits.slotX > 24) x = slot + 7;              // the far full-back tucks in toward the middle
-      if (me.traits.nearFB && me.traits.follow && S.wingerInside) x = Math.min(x, ball[0] - 1.5 + rand(-1, 1));   // follows the winger inside
-      const wb = att.find(q => q.role === 'WB' && q.run);
-      if (me.traits.nearFB && !me.traits.follow && wb && (S.t - wb.runAt) > me.react){ me.want = [wb.p[0] - 1.2, Math.max(line, Math.min(wb.p[1] + 4, line + 16))]; me.speedWant = SPD.run; me.job = 'track'; return; }   // holds the width: steps out to meet the overlap
-      /* a runner attacking the space behind me: go with him (late, by my reaction) */
-      const runner = att.find(q => q.run && Math.abs(q.p[0] - me.p[0]) < 7 && q.p[1] < me.p[1] + 6 && q.p[1] > me.p[1] - 8 && (S.t - q.runAt) > me.react);
-      if (runner){ const g = toward(runner.p, GOAL), sgt = toward(ball, runner.p), perp = [-sgt[1], sgt[0]], sd = runner.p[0] < me.p[0] ? 1 : -1;
-        me.want = [runner.p[0] + g[0]*1.0 + perp[0]*1.4*sd, runner.p[1] + g[1]*1.0 + perp[1]*1.4*sd]; me.speedWant = SPD.sprint*0.93; me.job = 'track'; return; }
-      /* a man dropping off me between the lines: follow him a few strides if I am the near centre-back and told to */
-      const dropper = att.find(q => q.role === 'N9' && q.drop && Math.abs(q.p[0] - me.p[0]) < 5 && me.traits.followDrop);
-      if (dropper){ const g = toward(dropper.p, GOAL), sgt = toward(ball, dropper.p), perp = [-sgt[1], sgt[0]]; me.want = [dropper.p[0] + g[0]*1.2 + perp[0]*1.4*me.traits.side, dropper.p[1] + g[1]*1.2 + perp[1]*1.4*me.traits.side]; me.speedWant = SPD.run; me.job = 'follow'; return; }
-      me.want = [x, line]; me.speedWant = SPD.jog; me.face = 'ball'; return;
-    }
-    /* midfielders: mark the 10 goal-side when he is near, else sit in the line of the ball */
-    const ten = att.find(q => q.role === 'N10');
-    if (ten && me.traits.marks === 'N10' && d2(ten.p, me.p) < 9){ const g = toward(ten.p, GOAL); const sgt = toward(ball, ten.p), perp = [-sgt[1], sgt[0]];
-      me.want = [ten.p[0] + g[0]*1.1 + perp[0]*1.4*me.traits.side, ten.p[1] + g[1]*1.1 + perp[1]*1.4*me.traits.side]; me.speedWant = SPD.run; me.job = 'mark'; return; }
-    /* otherwise: get goal-side of the ball in the middle, at a jog, facing it */
-    const g = toward(ball, GOAL); me.want = [ball[0]*0.5 + g[0]*10, Math.min(ball[1] + g[1]*10, S.lineZ + 9)]; me.speedWant = SPD.jog; me.face = 'ball';
+    /* hold: the line, in my slot, shifted to the ball; a runner into my zone is mine */
+    const line = S.lineZ, slot = me.traits.slotX + clamp(0.35*ball[0], -8, 8);
+    let x = slot;
+    if (me.traits.farFB && ball[0] - me.traits.slotX > 24) x = slot + 7;
+    if (me.traits.nearFB && me.traits.follow && S.wingerInside) x = Math.min(x, ball[0] - 1.5);
+    const runner = att.find(q => q.run && Math.abs(q.p[0] - me.p[0]) < 7 && q.p[1] < me.p[1] + 6 && q.p[1] > me.p[1] - 8 && (S.t - q.runAt) > me.react);
+    if (runner){ const g = toward(runner.p, GOAL), sgt = toward(ball, runner.p), perp = [-sgt[1], sgt[0]], sd = runner.p[0] < me.p[0] ? 1 : -1;
+      me.want = [runner.p[0] + g[0]*1.0 + perp[0]*1.4*sd, runner.p[1] + g[1]*1.0 + perp[1]*1.4*sd]; me.speedWant = SPD.sprint*0.93; me.job = 'track'; return; }
+    me.want = [x, line]; me.speedWant = SPD.jog; me.face = 'ball';
   }
 
-  /* ---------- the attacking side ---------- */
-  /* Positional play: hold the lanes (two per lane, three per line), width from the far winger, the 9 on the
-     last man's shoulder, the 10 between the lines, the wing-back wide behind the winger. Runs are triggered
-     by what the defence does: a gap in the line, a full-back who tucked, a centre-back who sits, a lane free. */
+  /* ---------- the attacking side ----------
+     Positional play: every man has a slot (the lanes, the lines, width from the far winger, the 9 on the
+     last man's shoulder, the 10 between the lines, the wing-back wide behind the winger), and from his slot
+     he SHOWS for the ball: he moves off the man nearest him, and off the line of any defender who could
+     cut the pass, while keeping the spacing (never within six metres of a team-mate in his lane). Runs are
+     triggered by what the defence gives: a gap in the line, a full-back who tucked, a centre-back who sits. */
+  function show(me, S, slot, zoneR){
+    const ball = S.ballPerceived, defs = S.players.filter(q => q.team !== me.team && q.role !== 'GK'), mates = S.players.filter(q => q.team === me.team && q !== me);
+    let p = slot.slice();
+    /* off the nearest defender: across the line of the pass, away from him */
+    const near = defs.slice().sort((a, b) => d2(a.p, p) - d2(b.p, p))[0];
+    if (near && d2(near.p, p) < 3.5){ const sgt = toward(ball, p), perp = [-sgt[1], sgt[0]], sd = ((near.p[0] - p[0])*perp[0] + (near.p[1] - p[1])*perp[1]) > 0 ? -1 : 1;
+      p = [p[0] + perp[0]*sd*2.5, p[1] + perp[1]*sd*2.5]; }
+    /* off the lane: a defender within 1.5 m of the line of the pass to me, a third of the way or more out */
+    const cut = defs.find(q => { const L = d2(ball, p), u = toward(ball, p), rel = [q.p[0] - ball[0], q.p[1] - ball[1]], along = (rel[0]*u[0] + rel[1]*u[1]); if (along < 3 || along > L - 1) return false; const off = Math.hypot(rel[0] - u[0]*along, rel[1] - u[1]*along); return off < 1.5; });
+    if (cut){ const sgt = toward(ball, p), perp = [-sgt[1], sgt[0]], rel = [cut.p[0] - ball[0], cut.p[1] - ball[1]], sd = (rel[0]*perp[0] + rel[1]*perp[1]) > 0 ? -1 : 1;
+      p = [p[0] + perp[0]*sd*3, p[1] + perp[1]*sd*3]; }
+    /* the spacing: not on top of a team-mate */
+    const crowd = mates.find(q => d2(q.p, p) < 5);
+    if (crowd){ const u = toward(crowd.p, p); p = [p[0] + u[0]*2, p[1] + u[1]*2]; }
+    /* and never off my own patch */
+    if (zoneR && d2(p, slot) > zoneR){ const u = toward(slot, p); p = [slot[0] + u[0]*zoneR, slot[1] + u[1]*zoneR]; }
+    return p;
+  }
   function thinkAttacker(me, S){
     const ball = S.ballPerceived, def = S.players.filter(q => q.team !== me.team && q.role !== 'GK'), backs = def.filter(q => q.role.startsWith('back')).sort((a, b) => a.p[0] - b.p[0]);
     const lineZ = Math.min(...backs.map(b => b.p[1]));
     const onside = z => Math.max(z, lineZ + 0.4);
     if (me.role === 'N9'){
       if (me.run){ me.want = [me.p[0] + me.runDir[0]*8, me.p[1] + me.runDir[1]*8]; me.speedWant = SPD.sprint; return; }
-      if (me.drop){ me.want = [ball[0]*0.4, ball[1] - 7]; me.speedWant = SPD.run; return; }
-      /* a gap between two backs I can get through? */
+      if (me.drop){ me.want = show(me, S, [ball[0]*0.4, ball[1] - 7], 4); me.speedWant = SPD.run; return; }
       if (S.t >= me.traits.goAt){
         let best = null;
         for (let i = 0; i + 1 < backs.length; i++){ const a = backs[i], b = backs[i+1], gap = b.p[0] - a.p[0], mid = (a.p[0] + b.p[0])/2;
           if (gap > 7.5 && Math.abs(mid - me.p[0]) < 7 && (!best || Math.abs(mid - me.p[0]) < best.d)) best = { mid, d: Math.abs(mid - me.p[0]), gap }; }
         if (best && me.traits.wants === 'run'){ me.run = true; me.runAt = S.t; me.runDir = unit((best.mid - me.p[0])*0.35, -1); return; }
-        if (me.traits.wants === 'drop' && !me.drop && S.t >= me.traits.goAt){ me.drop = true; me.dropAt = S.t; return; }
+        if (me.traits.wants === 'drop' && !me.drop){ me.drop = true; me.dropAt = S.t; return; }
       }
-      me.want = [clamp(0.3*ball[0], -4, 4) + me.traits.lean, onside(lineZ + 0.6)]; me.speedWant = SPD.jog; return;
+      me.want = show(me, S, [clamp(0.3*ball[0], -4, 4) + me.traits.lean, onside(lineZ + 0.6)], 3); me.want[1] = onside(me.want[1]); me.speedWant = SPD.jog; return;
     }
     if (me.role === 'N10'){
       if (me.run){ me.want = [me.p[0] + me.runDir[0]*8, me.p[1] + me.runDir[1]*8]; me.speedWant = SPD.sprint; return; }
@@ -482,32 +525,27 @@ const BOTS = (() => {
       }
       const between = (lineZ + S.midZ)/2;
       const sx = me.slot ? me.slot[0] : me.traits.slotX, sz = me.slot && me.slot[1] ? ball[1] - 2 : between;
-      me.want = [sx, sz]; me.speedWant = me.slot ? SPD.run : SPD.jog; return;
+      me.want = show(me, S, [sx, sz], 4); me.speedWant = me.slot ? SPD.run : SPD.jog; return;
     }
     if (me.role === 'FW'){
       const farFB = backs[0];
       if (me.run){ me.want = [me.p[0] + me.runDir[0]*8, me.p[1] + me.runDir[1]*8]; me.speedWant = SPD.sprint; return; }
-      /* the full-back has tucked in: attack the space behind him */
-      if (S.t >= me.traits.goAt && farFB && (farFB.p[0] - me.p[0]) > 7.5 && me.traits.wants === 'behind'){ me.run = true; me.runAt = S.t; me.runDir = unit(0.3, -1); return; }   // the full-back tucked in: the space behind him is mine
-      me.want = [(ball[0] > 6 ? -21 : -26) + me.traits.lean, onside(lineZ + 2)]; me.speedWant = SPD.jog; return;
+      if (S.t >= me.traits.goAt && farFB && (farFB.p[0] - me.p[0]) > 7.5 && me.traits.wants === 'behind'){ me.run = true; me.runAt = S.t; me.runDir = unit(0.3, -1); return; }
+      me.want = show(me, S, [(ball[0] > 6 ? -21 : -26) + me.traits.lean, onside(lineZ + 2)], 3); me.want[1] = onside(me.want[1]); me.speedWant = SPD.jog; return;
     }
     if (me.role === 'WB'){
       if (me.run){ me.want = [me.p[0] + me.runDir[0]*9, me.p[1] + me.runDir[1]*9]; me.speedWant = SPD.sprint; return; }
       if (S.wingerInside && S.t >= me.traits.goAt && me.traits.wants === 'overlap'){ me.run = true; me.runAt = S.t; me.runDir = unit(-0.12, -1); return; }
-      me.want = [26, ball[1] + 4]; me.speedWant = SPD.jog; return;
+      me.want = show(me, S, [26, ball[1] + 4], 3); me.speedWant = SPD.jog; return;
     }
-    if (me.role === 'SUP'){ me.want = [ball[0] - 6, ball[1] + 8]; me.speedWant = SPD.walk; return; }
+    if (me.role === 'SUP'){ me.want = show(me, S, [ball[0] - 6, ball[1] + 8], 3); me.speedWant = SPD.walk; return; }
     me.want = me.p; me.speedWant = 0;
   }
 
   /* ---------- the world ---------- */
   function step(S){
-    /* who is nearest the ball, and who is next: decided once per think so it does not flicker */
-    const defs = S.players.filter(q => q.team === 'opp' && q.role !== 'GK');
-    const byDist = defs.slice().sort((a, b) => d2(a.p, S.ball) - d2(b.p, S.ball));
-    const free = byDist.filter(q => !(q.job === 'mark' || q.job === 'track' || q.job === 'follow'));
-    S.pressers = free.length && d2(free[0].p, S.ball) < 14 ? [free[0].id] : [];
-    S.coverer = free.length > 1 && d2(free[1].p, S.ball) < 18 ? free[1].id : null;
+    /* the defence's plan, remade every tenth of a second */
+    if (S.t >= (S.nextPlan === undefined ? -1e9 : S.nextPlan)){ S.jobs = plan(S); S.nextPlan = S.t + 0.1; }
     S.lineZ = S.lineZ0 + clamp((S.ball[1] - S.ballZ0)*0.3, -4, 4);                      // the line moves a little with the ball
     for (const me of S.players){
       if (S.t >= me.nextThink){ me.nextThink = S.t + 0.1; S.ballPerceived = S.ballHist[Math.max(0, S.ballHist.length - 1 - Math.round(me.react/DT))] || S.ball;
@@ -528,7 +566,7 @@ const BOTS = (() => {
 
   /* run from -pre to +post seconds around the moment the ball reaches him (t = 0) */
   function run(setup){
-    const S = { t: -setup.pre, players: setup.players, ball: setup.ballFrom.slice(), ballHist: [], lineZ0: setup.lineZ, ballZ0: setup.ballFrom[1], midZ: setup.midZ, wingerInside: false, pressers: [], coverer: null, holder: null };
+    const S = { t: -setup.pre, players: setup.players, ball: setup.ballFrom.slice(), ballHist: [], lineZ0: setup.lineZ, ballZ0: setup.ballFrom[1], midZ: setup.midZ, wingerInside: false, jobs: {}, traits: setup.traits || {}, holder: null };
     const W = setup.W, from = setup.ballFrom, L = d2(from, W), T = ballT(L);
     S.players.forEach(q => { q.nextThink = S.t + Math.random()*0.2; });
     while (S.t < setup.post){
@@ -585,7 +623,7 @@ const BOTS = (() => {
       /* how dangerous the ball is, by where it lands: behind their line in the middle, behind it wide, between
          their lines in the middle, or wide / in front of their midfield (a progression, not a chance) */
       const central = Math.abs(land[0]) < 15;
-      const danger = land[1] < lastZ - 1 ? (central ? 1.0 : 0.8) : (central && land[1] < lastZ + 12) ? 0.65 : 0.35;
+      const danger = land[1] < lastZ - 1 ? (central ? 1.0 : 0.8) : (kind === 'run' && !central && land[1] < lastZ + 3) ? 0.7 : (central && land[1] < lastZ + 12) ? 0.65 : 0.35;   // a wide runner reaching their line is a cut-back coming
       let tier, why;
       if (laneCut){ tier = 0; why = 'the lane was cut: ' + NAME(laneCut.role) + ' could step into the line of the ball'; }
       else if (margin < o.workMargin){ tier = 0; why = NAME(bestD.role) + ' gets to the spot first (' + (-margin).toFixed(1) + ' s before the ball)'; }
@@ -660,7 +698,10 @@ function candidate(side, key){
   P.push(mkPlayer('SUP', 'own', 'SUP', [W[0] - rand(5, 7), W[1] + rand(7, 9)], {}));
   /* the pass to him, from his 8, inside and behind */
   const from = [W[0] - rand(10, 14), W[1] + rand(8, 12)];
-  const R = BOTS.run({ players: P, W, ballFrom: from, lineZ, midZ, pre: 1.6, post: 1.0 });
+  /* the defence's habits: which man they care about first (some sides mark the 10, some sit on the 9, some
+     are drawn to the ball), drawn fresh every rep */
+  const prio = pick([['N9', 'N10', 'FW', 'WB', 'SUP'], ['N10', 'N9', 'FW', 'WB', 'SUP'], ['N9', 'FW', 'N10', 'WB', 'SUP'], ['N10', 'FW', 'N9', 'WB', 'SUP'], ['N9', 'N10', 'WB', 'FW', 'SUP']]);
+  const R = BOTS.run({ players: P, W, ballFrom: from, lineZ, midZ, pre: 1.6, post: 1.0, traits: { prio } });
   const T0 = FLASH_S;                                           // the end of his look: the ball is at his feet, he plays it now
   /* what every man offers */
   const by = id => P.find(q => q.id === id);
