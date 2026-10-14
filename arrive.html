@@ -4,7 +4,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="Winger">
-<title>Arrive — read, run, finish</title>
+<title>Arrive 2.0 — read, run, finish, played</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
@@ -199,7 +199,7 @@ a.iconbtn{text-decoration:none;display:inline-flex;align-items:center;white-spac
       <button data-side="alt" aria-pressed="false">Both</button>
     </div>
     <button class="cta" id="start">Start session</button>
-    <p class="note">16 reps, about eight minutes. One move, three reads. The first man plays it into your 9 or 10, who has a man on his back and lays it off first time. <b>Your lane:</b> your full-back and your 8 tell you where to run &mdash; in behind their full-back, the gap inside him, or the pocket between their lines; or, when you have pinched in and he has his back to goal with a man tight on him, onto his set between their 6 and 8 (the N). <b>Your moment:</b> tap the space as the ball is played into him. Get both right and the lay-off meets you in stride; carry it at the edge of the box with someone sprinting at you, head up. <b>Your finish:</b> is one corner open past the bodies in front of you &mdash; a metre past the nearest leg &mdash; and is the man closing you set? If someone has stepped out square in front of you, both corners are shut: who did he leave &mdash; your 9 or your runner? Wrong lane or wrong moment and the move dies there, just as it would.</p>
+    <p class="note">16 reps, about eight minutes. One move, three reads. The first man plays it into your 9 or 10, who has a man on his back and lays it off first time. <b>Your lane:</b> your full-back and your 8 tell you where to run &mdash; in behind their full-back, the gap inside him, or the pocket between their lines; or, when you have pinched in and he has his back to goal with a man tight on him, onto his set between their 6 and 8 (the N). <b>Your moment:</b> tap the space as the ball is played into him. Get both right and the lay-off meets you in stride; carry it at the edge of the box with someone sprinting at you, head up. <b>Your finish:</b> is one corner open past the bodies in front of you &mdash; a metre past the nearest leg &mdash; and is the man closing you set? If someone has stepped out square in front of you, both corners are shut: who did he leave &mdash; your 9 or your runner? Wrong lane or wrong moment and the move dies there, just as it would.<br><br><b>2.0:</b> nobody is posed from the answer. Their centre-back decides whether to stay on your 9 or step out, their full-back whether to stay on your runner or step in, their keeper takes his own position on the angle. The finish is read off what they did.</p>
   </div>
 
   <div id="panelAsk" class="hide">
@@ -262,7 +262,7 @@ const CFG = {
 };
 
 /* ---------------- storage ---------------- */
-const KEY = 'arrive:v1';
+const KEY = 'arrive:v2';
 let stats = { L:{pts:0,max:0}, R:{pts:0,max:0}, side:'R' };
 async function loadStats(){
   try{
@@ -360,94 +360,117 @@ function newBag(){
   return out;
 }
 
+/* ===================== Third Man 2.0: the defence is drawn as men, the space is read off them =====================
+   The template asks only who plays the first ball (six / centre-back / full-back) and, for the overlap rep, that the
+   full-back goes. Everything else is drawn as players: who the second man is, whether their full-back tucks in or stays
+   wide on you, whether their centre-back goes with the dropping 9 or holds, whether their 6 presses the first man or
+   sits in the pocket, whether their 8 marks the second man. The three spaces are then raced from the physics - can the
+   man responsible get there before the lay-off? - and the rep is kept only when exactly one space is his. The label
+   (out / in / pocket / stay) is read off that, never the other way round. */
+const pickT = a => a[Math.floor(Math.random()*a.length)];
+function meetFrom(W, dir, Brecv, tLay, tMid, layV, v){
+  const vr = v || RUN, pos = sd => [W[0] + dir[0]*sd, W[1] + dir[1]*sd];
+  const gap = sd => (tLay + d2(Brecv, pos(sd))/layV*1000) - (tMid + sd/vr*1000);
+  let lo = 0, hi = 60; if (gap(hi) > 0) return null;
+  for (let i = 0; i < 40; i++){ const m = (lo + hi)/2; if (gap(m) > 0) lo = m; else hi = m; }
+  return pos((lo + hi)/2);
+}
+/* the race for a space: the man responsible for it, from where he stands when the run goes, against the lay-off */
+function zoneState(s, k){
+  const z = s.Z[k], opp = [s.LB, s.CBn, s.CBf, s.RB, s.M6, s.M8, s.P].filter(Boolean);
+  if (Math.min(...opp.map(q => d2(q, z))) < (k === 'pocket' ? 5 : 6)) return 'covered';     // somebody is standing in it
+  if (k === 'out' && s.overlap) return 'covered';
+  if (!s.viable[k]) return 'covered';                                                          // from where he stands that run is not on: too late to be level, or too shallow                                             // the overlap takes that lane, and their full-back goes with it
+  const cov = coverOf(s, k), cp = s[cov] || s.B0;
+  const tMid = (s.win[k][0] + s.win[k][1])/2, tLay = s.t_recv + TOUCH;
+  const onYou = cov === 'LB' && !!s.lbOnYou;                                                   // their full-back is on you, side-on: he goes when you go
+  const behind = !onYou && (z[0] - cp[0])*(s.Brecv[0] - cp[0]) + (z[1] - cp[1])*(s.Brecv[1] - cp[1]) < 0;     // the space is behind a man watching the ball: he has to turn
+  const tGet = tMid + (onYou ? 200 : 250) + (behind ? 300 : 0) + d2(cp, z)/6*1000, tArr = tLay + d2(s.Brecv, z)/PASS2*1000;
+  return tGet <= tArr - 100 ? 'covered' : tGet > tArr + 150 ? 'free' : 'close';
+}
 function buildCandidate(side, id){
-  const sp = SPEC[id], kase = sp.kase, overlap = !!sp.overlap;
+  const sp = SPEC[id], want = sp.kase;
   const first = sp.first === 'mix' ? (Math.random() < 0.5 ? 'six' : 'cb') : sp.first;
-  if (kase === 'set') return buildSet(side, id, first);
-  /* built backwards from the timing: line, second man, first man and the space first;
-     then the winger goes exactly where a well-timed run meets a real lay-off in stride */
-  const Wx = rand(25, 28.5);
-  const lineZ = kase === 'pocket' ? rand(-34, -31) : kase === 'in' ? rand(-31, -27.5) : rand(-28, -24);   // higher than in Third Man: room to carry it to the box
-  const midZ = lineZ + rand(9, 11);
-  const inShape = kase === 'in';
-  const Z = {
-    out:    overlap ? [Wx - rand(1, 2.5), lineZ - rand(5.5, 7.5)]
-          : inShape ? [Wx - rand(1.5, 3), lineZ - rand(5.5, 7.5)] : [Wx - rand(0.5, 2), lineZ - rand(4, 6)],
-    in:     [Wx - rand(9, 11.5), lineZ - rand(2.5, 4)],
-    pocket: inShape ? [Wx - rand(9, 11), lineZ + rand(5.5, 7)] : [Wx - rand(5, 7), lineZ + rand(5, 7)]
-  };
+  if (want === 'set') return buildSet(side, id, first);
+  const overlap = first === 'fb' && (sp.overlap ? true : Math.random() < 0.35);
+  if (sp.overlap && !overlap) return null;
+  const Wx = rand(25, 28.5), lineZ = rand(-38, -29), midZ = lineZ + rand(9, 11);
+  /* the second man: the 9 dropping off their line, or the 10 coming from midfield */
+  const who9 = Math.random() < 0.5;
   let B0, Brecv, who;
-  if (inShape){ B0 = [Wx - rand(12.5, 15.5), lineZ + 0.8]; Brecv = [B0[0] + rand(-1, 1.5), lineZ + rand(6, 8)]; who = 'your 9'; }
-  else if (kase === 'out'){ B0 = [Wx - rand(9, 12), midZ - rand(0, 1)]; Brecv = [B0[0] + rand(-1, 1), lineZ + rand(4.5, 6.5)]; who = 'your 10'; }
-  else if (kase === 'pocket'){ B0 = [Wx - rand(12, 15), lineZ + 1]; Brecv = [B0[0] + rand(-1, 1), lineZ + rand(5.5, 7)]; who = 'your 9'; }
-  else { /* free between the lines: he drifts across into space, side-on, facing up the pitch */
-    Brecv = [Wx - rand(10.5, 13), lineZ + rand(7, 9)]; B0 = [Brecv[0] - rand(4, 6), Brecv[1] + rand(-0.5, 0.8)]; who = 'your 10'; }
+  if (who9){ B0 = [Wx - rand(12.5, 15.5), lineZ + 0.8]; Brecv = [B0[0] + rand(-1, 1.5), lineZ + rand(6, 8)]; who = 'your 9'; }
+  else { B0 = [Wx - rand(9, 12), midZ - rand(0, 1)]; Brecv = [B0[0] + rand(-1, 1), lineZ + rand(4.5, 6.5)]; who = 'your 10'; }
+  /* the defence's habits, drawn fresh */
+  const D = { lb: Math.random() < 0.45 ? 'tuck' : 'wide', cb: who9 && Math.random() < 0.4 ? 'follow' : overlap && Math.random() < 0.7 ? 'inside' : 'hold',
+              m6: Math.random() < 0.5 ? 'press' : 'sit', m8: Math.random() < 0.65 ? 'mark' : 'zonal' };
+  const cbFollows = D.cb === 'follow', marked = D.m8 === 'mark' && !cbFollows, freeMan = !marked && !cbFollows;
+  /* a 10 nobody is on drifts across into space, side-on, facing up the pitch */
+  if (freeMan && !who9){ Brecv = [Wx - rand(10.5, 13), lineZ + rand(7, 9)]; B0 = [Brecv[0] - rand(4, 6), Brecv[1] + rand(-0.5, 0.8)]; }
+  if (freeMan && who9) return null;                                                          // a free 9 on the line is another drill
   /* the first man */
   let A;
-  if (first === 'six') A = inShape ? [Brecv[0] - rand(8.5, 11), Brecv[1] + rand(3, 5.5)] : [Brecv[0] - rand(7.5, 10.5), Brecv[1] + rand(5, 8)];
+  if (first === 'six') A = who9 ? [Brecv[0] - rand(8.5, 11), Brecv[1] + rand(3, 5.5)] : [Brecv[0] - rand(7.5, 10.5), Brecv[1] + rand(5, 8)];
   else if (first === 'cb') A = [Brecv[0] - rand(2, 7), Brecv[1] + rand(17, 23)];
   else A = [Wx - rand(0.5, 4), lineZ + rand(15, 19)];
   const t_pass = rand(1500, 2000);
   const t_recv = t_pass + d2(A, Brecv)/PASS1[first]*1000;
-  const onTime = [Math.max(t_pass - 150, t_recv - 950), t_recv];  // a long pass: the trigger is the ball arriving, not the strike
-  const tMid = (onTime[0] + onTime[1])/2, tLay = t_recv + TOUCH;
-  const layV = rand(11.5, 14);
-  /* their back line, drawn first: its deepest man is what keeps him onside */
+  const tLay = t_recv + TOUCH, layV = rand(11.5, 14);
   const dz = { LB: rand(0, 1), CBn: -rand(0, 1), CBf: rand(-0.5, 0.5), RB: rand(-0.5, 0.5) };
-  const cbFollows = inShape && !overlap;
+  /* him: wide, a few strides in front of their line - where a winger holds as the ball goes in, ready to go any way */
   const deepest = lineZ + Math.min(dz.LB, cbFollows ? 9 : dz.CBn, dz.CBf, dz.RB);
-  let W;
-  if (kase === 'stay') W = [Wx, lineZ + rand(6, 9)];
-  else if (kase === 'pocket'){
-    const zr = Z.pocket;
-    const runL = RUN*((tLay - tMid)/1000 + d2(Brecv, zr)/layV);       // the run that meets it in stride
-    const dx = Wx - zr[0];
-    if (runL <= Math.abs(dx) + 1) return null;
-    W = [Wx, zr[1] + Math.sqrt(runL*runL - dx*dx)];
-  } else {
-    /* in behind: the earliest on-time run is still level with their line when the lay-off is played,
-       and the space is where a run from the middle of the window meets the ball in stride */
-    let dir = kase === 'out' ? [-rand(0.12, 0.35), -1] : [-rand(1.5, 2.0), -1];
-    const n = Math.hypot(dir[0], dir[1]); dir = [dir[0]/n, dir[1]/n];
-    const byLay = RUN*(tLay - onTime[0])/1000;                        // how far the earliest run has got
-    W = [Wx, deepest - 0.15 + rand(0.1, 0.7) - dir[1]*byLay];
-    const pos = sd => [W[0] + dir[0]*sd, W[1] + dir[1]*sd];
-    const gap = sd => (tLay + d2(Brecv, pos(sd))/layV*1000) - (tMid + sd/RUN*1000);
-    let lo = 0, hi = 60;
-    if (gap(hi) > 0) return null;
-    for (let i = 0; i < 40; i++){ const m = (lo + hi)/2; if (gap(m) > 0) lo = m; else hi = m; }
-    const M = pos((lo + hi)/2), depth = lineZ - M[1];
-    if (depth < (kase === 'in' ? 1.0 : 2) || depth > 8 || M[0] > 32 || M[1] < -47) return null;
-    Z[kase] = M;
+  const W = [Wx, deepest + rand(1.5, 6)];
+  if (first === 'fb' && A[1] < W[1] + 7) return null;
+  /* the three spaces, each with its own window: the earliest a run can leave and still be level with their line when
+     the lay-off is played (a straight run in behind has to leave later than a diagonal one), and where a run from the
+     middle of that window meets the lay-off in stride */
+  const nrm = v => { const n = Math.hypot(v[0], v[1]); return [v[0]/n, v[1]/n]; };
+  const dirs = { out: nrm([-rand(0.12, 0.35), -1]), in: nrm([-rand(1.4, 2.0), -1]), pocket: nrm([-rand(8, 10), rand(2.5, 4)]) };   // down the line; the diagonal into the gap; inside, between their lines
+  const Z = {}, win = {}, viable = {};
+  for (const k of ['out', 'in', 'pocket']){
+    const dir = dirs[k];
+    let t0 = Math.max(t_pass - 150, t_recv - 950), ok = true;
+    if (dir[1] < -0.05) t0 = Math.max(t0, tLay - (W[1] - deepest + 0.15)/(RUN*(-dir[1]))*1000);
+    if (t_recv - t0 < 400){ ok = false; t0 = t_recv - 400; }                                  // no window to go in from here: that run is not on
+    win[k] = [t0, t_recv];
+    const M = meetFrom(W, dir, Brecv, tLay, (t0 + t_recv)/2, layV);
+    if (!M || M[0] > 32 || M[1] < -47) return null;
+    if (k === 'pocket'){ if (M[1] < lineZ + 4 || M[1] > midZ - 1 || M[0] > Wx - 5) return null; }
+    else { const depth = lineZ - M[1]; if (depth < (k === 'in' ? -1.0 : 2) || depth > (k === 'in' ? 8 : 12.5)) ok = false; }
+    Z[k] = M; viable[k] = ok;
   }
-  if (first === 'fb' && A[1] < W[1] + 7) return null;                 // your full-back is behind you
   /* their back line */
-  const LB = kase === 'out' ? [Brecv[0] + rand(0.8, 1.8), lineZ + dz.LB]       // tucked right in, watching the second man
-                            : [W[0] - rand(0.8, 2.2), lineZ + dz.LB];          // wide, on you
-  const CBn = cbFollows ? null
-            : overlap ? [Z.in[0] - rand(6.5, 8), lineZ + dz.CBn]               // holding inside
-            : [Z.in[0] + rand(-1, 1), lineZ + dz.CBn];                         // holds the gap
+  const LB = D.lb === 'tuck' ? [Brecv[0] + rand(0.8, 1.8), lineZ + dz.LB] : [W[0] - rand(0.8, 2.2), lineZ + dz.LB];
+  const CBn = cbFollows ? null : D.cb === 'inside' ? [Z.in[0] - rand(6.5, 8), lineZ + dz.CBn] : [Z.in[0] + rand(-1, 1), lineZ + dz.CBn];
   const CBf = [(CBn ? CBn[0] : B0[0]) - rand(9, 11), lineZ + dz.CBf];
   const RB  = [CBf[0] - rand(9, 11), lineZ + dz.RB];
   /* their midfield */
-  const pressing = kase === 'pocket' || kase === 'stay';
-  const M6 = pressing ? [A[0] - rand(0.3, 1.3), A[1] + rand(1.6, 2.4)]        // gone to press the first man, from behind
-                      : [Z.pocket[0] + rand(-1.2, 1.2), Z.pocket[1] + rand(-1, 1)];   // sitting in the pocket
-  /* the man on the second man's back: goal-side, on his inside shoulder */
-  const marked = kase !== 'stay' && !cbFollows;
+  const M6 = D.m6 === 'press' ? [A[0] - rand(0.3, 1.3), A[1] + rand(1.6, 2.4)] : [Z.pocket[0] + rand(-1.2, 1.2), Z.pocket[1] + rand(-1, 1)];
   const M8 = marked ? [Brecv[0] - rand(0.8, 1.3), Brecv[1] - rand(1.0, 1.5)]
                     : first === 'six' ? [A[0] - rand(5, 8), midZ + rand(-1, 1)] : [Brecv[0] - rand(8, 11), midZ + rand(-1, 1)];
-  const P  = first === 'fb' ? [A[0] + rand(2, 3), A[1] - rand(2.5, 3.5)]          // their winger, closing your full-back from in front
-                           : [A[0] - rand(2.8, 3.8), A[1] - rand(1.5, 2.5)];       // someone closing the first man
-  /* the rest of yours */
-  const farW = [-rand(21.5, 24), lineZ + rand(1, 3)];            // the far winger keeps his lane: inside edge of the far wide lane
-  const eight = [-rand(11.5, 17), midZ + rand(-1.5, 1.5)];       // the other 8 in the far inside lane, between their lines
+  const P  = first === 'fb' ? [A[0] + rand(2, 3), A[1] - rand(2.5, 3.5)] : [A[0] - rand(2.8, 3.8), A[1] - rand(1.5, 2.5)];
+  const farW = [-rand(21.5, 24), lineZ + rand(1, 3)];
+  const eight = [-rand(11.5, 17), midZ + rand(-1.5, 1.5)];
   const firstName = first === 'six' ? 'your 6' : first === 'cb' ? 'your centre-back' : 'your ' + (side === 1 ? 'right-back' : 'left-back');
-  return { side, id, kase, first, firstName, overlap, cbFollows, marked, who, W, lineZ, midZ, A, B0, Brecv, Z,
-           LB, CBn, CBf, RB, M6, M8, P, farW, eight,
-           keeper: [rand(-1, 1), -51.3], t_pass, t_recv,
-           onTime, intended: kase, layV,
-           wingX: W[0], zBase: W[1], recv: [0, 0], passerAt: [0, 0] };
+  const s = { side, id, kase: null, first, firstName, overlap, cbFollows, marked, who, W, lineZ, midZ, A, B0, Brecv, Z, D, m6Press: D.m6 === 'press', lbOnYou: D.lb === 'wide', win, viable,
+              LB, CBn, CBf, RB, M6, M8, P, farW, eight, keeper: [rand(-1, 1), -51.3], t_pass, t_recv, onTime: win.out, layV,
+              wingX: W[0], zBase: W[1], recv: [0, 0], passerAt: [0, 0], bots: true };
+  /* read the picture */
+  if (freeMan){
+    const opp = [LB, CBn, CBf, RB, M6, M8, P].filter(Boolean);
+    if (Math.min(...opp.map(q => d2(q, Brecv))) < 7) return null;                           // somebody is close enough to be on him
+    if (zoneState(s, 'out') === 'free' || zoneState(s, 'in') === 'free') return null;         // a free man AND a space in behind: no single read
+    s.kase = 'stay';
+  } else {
+    const st = { out: zoneState(s, 'out'), in: zoneState(s, 'in'), pocket: zoneState(s, 'pocket') };
+    if (Object.values(st).some(v => v === 'close')) return null;                              // a race too tight to teach
+    const free = Object.keys(st).filter(k => st[k] === 'free');
+    if (free.length !== 1) return null;
+    s.kase = free[0];
+  }
+  if (s.kase !== want) return null;
+  s.onTime = s.kase === 'stay' ? win.out : win[s.kase];                                         // the window for the space that is his
+  s.intended = s.kase;
+  return s;
 }
 /* THE SET (the "N"): up into a false 9 or 10 with his back to goal and a man tight on him;
    he cannot turn, so he sets it first time, slightly back and across, into the space in
@@ -551,7 +574,7 @@ function sceneOK(s){
   } else {
     /* nobody near the free man */
     if (Math.min(...opp.map(q => d2(q, s.Brecv))) < 7) return false;
-    if (d2(s.LB, s.Z.out) > 7) return false;                          // in behind is watched
+    if (!s.bots && d2(s.LB, s.Z.out) > 7) return false;               // in behind is watched (2.0: raced in the generator)
   }
   /* what he has to see. The spaces and the second man in one look (hFov 108);
      the first man too, or he checks him first and then turns to the play */
@@ -646,7 +669,7 @@ function tmPlan(s, tap){
     const lbTo = [s.Z.out[0] - 1.0, s.Z.out[1] + 0.2], t0 = s.t_pass + 350;
     key('LB', [[0, ...s.LB], [t0, ...s.LB], [t0 + d2(s.LB, lbTo)/6.2*1000, ...lbTo]]);
   } else key('LB', [[0, ...s.LB]]);
-  key('M6', (s.kase === 'pocket' || stay) ? [[0, s.M6[0] - 1, s.M6[1] - 2], [s.t_pass - 1100, s.M6[0] - 1, s.M6[1] - 2], [s.t_pass - 600, ...s.M6]] : [[0, ...s.M6]]);
+  key('M6', (s.m6Press || stay) ? [[0, s.M6[0] - 1, s.M6[1] - 2], [s.t_pass - 1100, s.M6[0] - 1, s.M6[1] - 2], [s.t_pass - 600, ...s.M6]] : [[0, ...s.M6]]);
 
   /* Nobody at this level stands still while the ball is live. Before the pass, everyone off the
      ball is already adjusting at a walk into the spot the pass finds him in. Whoever holds his
@@ -919,7 +942,15 @@ function gaps(s){
   return { near: aN - kN, far: kF - aF };
 }
 function buildCandidate(side, answer, Wf, Rf){
-  const on = answer;
+  /* 2.0: nobody is posed from the answer. Their near centre-back decides whether to stay on your 9 or step out at you,
+     their full-back whether to stay on your runner or step in, and their keeper takes up his own position on the angle,
+     well set or a step too far across. The finish is read off what they did; a picture with two men stepping out, or a
+     keeper neither set nor beaten, is thrown away. */
+  const cbSteps = Math.random() < 0.3, lbSteps = Math.random() < 0.3, kOff = rand(-1.3, 0.5);
+  if (cbSteps && lbSteps) return null;
+  const on = cbSteps ? 'square' : lbSteps ? 'reverse' : kOff <= -0.9 ? 'near' : kOff >= 0 ? 'far' : null;
+  if (!on || (answer && on !== answer)) return null;
+  if ((on === 'square' || on === 'reverse') && (kOff < -0.15 || kOff > 0.3)) return null;   // with the shot blocked, the keeper's step does not make the rep
   const W  = Wf || [rand(9, 12), rand(-37.5, -35.5)];
   const R  = Rf || [W[0] + rand(4.5, 5.5), W[1] + rand(0.4, 1.4)];  // where the carry began
   const O = p => [p[0] - W[0], p[1] - W[1]];
@@ -961,7 +992,7 @@ function buildCandidate(side, answer, Wf, Rf){
      your ball and his two posts, a metre or so off his line, square to you.
      Far post is the default finish from here. The near post only opens when
      he has taken a step too far across, reading the curler.               */
-  const keeper = keeperSpot(W, on === 'near' ? -rand(0.9, 1.25) : on === 'far' ? rand(0, 0.45) : rand(-0.15, 0.3));
+  const keeper = keeperSpot(W, kOff);
 
   /* the rest of their shape */
   /* their other centre-back. When the shot is on he has got across into the line to one
@@ -1013,7 +1044,7 @@ function buildCandidate(side, answer, Wf, Rf){
     blocker: on === 'square' ? 'cbA' : on === 'reverse' ? 'lb' : null,
     from: Object.fromEntries(Object.entries(from).map(([k, p]) => [k, O(p)])), sgn,
     press, screen: shotOn ? 'cbB' : null, cmScreen, posts: [O([ZONE.post, ZONE.goalZ]), O([-ZONE.post, ZONE.goalZ])],
-    intended: answer
+    intended: on, bots: true
   };
 }
 
@@ -1092,8 +1123,8 @@ function inPlay(s){
 }
 function makeScene(side, answer){
   let last = null;
-  for (let attempt = 0; attempt < 600; attempt++){
-    const s = buildCandidate(side, answer);
+  for (let attempt = 0; attempt < 3000; attempt++){
+    const s = buildCandidate(side, answer); if (!s) continue;
     if (sceneOK(s) && onside(s) && inPlay(s)) return s;
     last = s;
   }
@@ -1309,6 +1340,7 @@ function makeScene(side, id){
       const Wf = [rand(9, 12.5), rand(-37.5, -35.5)], d = d2(M, Wf);
       if (d < 5 || d > 16 || Wf[1] - M[1] > 1.5) continue;           // never carrying it back toward his own goal
       const f = FIN.build(side, fAns, Wf, M);
+      if (!f) continue;
       if (!(FIN.sceneOK(f) && FIN.onside(f) && FIN.inPlay(f))) continue;
       s.fin = f; s.fAns = fAns; s.Wf = Wf; s.rOff = [rand(1.5, 3.5), rand(13, 17)]; s.rStart = null;
       const m8 = trackAt(P0.tr.M8, P0.t_lay).p, m6 = trackAt(P0.tr.M6, P0.t_lay).p;
@@ -2453,12 +2485,11 @@ function buildScene(s){
   };
   mk('A', 'own', s.A, s.firstName + ' · the first man' + (s.first === 'fb' ? (s.overlap ? ', plays it in and overlaps' : ', plays it in and stays') : ''));
   mk('B', 'own', s.B0, s.who + ' · the second man, ' + (s.kase === 'stay' ? 'free and half-turned' : s.kase === 'set' ? 'back to goal, a man tight on him' : 'back to goal'));
-  mk('LB', 'opp', s.LB, s.kase === 'set' ? 'their ' + fb + ' · holding wide' : s.kase === 'out' ? 'their ' + fb + ' · tucked in to watch ' + s.who
-                      : s.overlap ? 'their ' + fb + ' · went with your overlapping ' + ourFB : 'their ' + fb + ' · wide, on you');
+  mk('LB', 'opp', s.LB, s.kase === 'set' ? 'their ' + fb + ' · holding wide' : s.overlap ? 'their ' + fb + ' · went with your overlapping ' + ourFB
+                      : (s.D && s.D.lb === 'tuck') ? 'their ' + fb + ' · tucked in to watch ' + s.who : 'their ' + fb + ' · wide, on you');
   mk('CBn', 'opp', s.CBn || s.B0, s.kase === 'set' ? 'their centre-back · tight on ' + s.who + ', he cannot turn' : s.cbFollows ? 'their centre-back · followed your 9'
-                                 : s.overlap ? 'their centre-back · holding inside'
-                                 : s.kase === 'pocket' ? 'their centre-back · line dropped deep' : 'their centre-back · holding the gap');
-  mk('M6', 'opp', s.M6, s.kase === 'set' ? 'their 6 · one side of the gap' : (s.kase === 'pocket' || s.kase === 'stay') ? 'their 6 · gone to press' : 'their 6 · sitting in the pocket');
+                                 : (s.D && s.D.cb === 'inside') ? 'their centre-back · holding inside' : 'their centre-back · holding the gap');
+  mk('M6', 'opp', s.M6, s.kase === 'set' ? 'their 6 · one side of the gap' : s.m6Press ? 'their 6 · gone to press' : 'their 6 · sitting in the pocket');
   mk('M8', 'opp', s.M8, s.kase === 'set' ? 'their 8 · the other side of it' : s.marked ? 'their 8 · tight on ' + s.who : null);
   mk('CBf', 'opp', s.CBf, s.kase === 'set' ? 'their other centre-back · covering across' : null); mk('RB', 'opp', s.RB, null); mk('P', 'opp', s.P, null);
   mk('farW', 'own', s.farW, null); mk('eight', 'own', s.eight, null); mk('keeper', 'gk', s.keeper, null);
@@ -2549,8 +2580,8 @@ function thirdResult(){
                      set: 'onto the set, between their 6 and their 8' };
   const cue = { out: 'their ' + fb + ' tucked in to watch ' + s.who + (s.first === 'fb' ? ', and your ' + ourFB + ' stayed behind you, so the lane was yours' : ''),
                 in: s.overlap ? 'your ' + ourFB + ' overlapped and their ' + fb + ' went with him — that lane was his, so you go inside'
-                              : 'their centre-back followed your 9 when he dropped',
-                pocket: 'their line dropped deep and their 6 went to press — nothing in behind, room in front of them',
+                              : s.cbFollows ? 'their centre-back followed your 9 when he dropped' : 'their centre-back was holding inside and their ' + fb + ' was wide on you: the gap between them was open',
+                pocket: 'their 6 went to press and their line held — nothing in behind, room in front of them',
                 set: s.who + ' had his back to goal and a man tight on him, so he could not turn — he set it first time, back into the space in front of you. Up, back, through: the N' };
   const covered = { out: s.overlap ? 'That was your ' + ourFB + '’s lane — he was already going there, and their ' + fb + ' went with him'
                                    : 'Their ' + fb + ' was wide on you — he was already there',
