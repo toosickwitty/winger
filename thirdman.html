@@ -368,8 +368,8 @@ function newBag(){
 
    Principles encoded
    ours (JdP)      five lanes, two per lane, three per line, staggered heights; amplitud (wingers on the touchline) and
-                   profundidad (the 9 pins the centre-backs); the full-back overlaps only past a winger who has come
-                   inside, or following his own pass down the line (pass and go); the 9 drops only when both
+                   profundidad (the 9 pins the centre-backs); the full-back overlaps past a winger who has come inside, following his own
+                   pass down the line (pass and go), or to take the width and send the winger inside (desdoblamiento); the 9 drops only when both
                    centre-backs are tight on him and an 8 is high enough to run beyond; a receiver with his back to goal
                    and a man on him needs a support angle and a runner; a free man facing play needs nobody.
    theirs (block)  basculación: the back four slides with the ball; the near full-back stays goal-side of a winger on his
@@ -443,14 +443,17 @@ const JDP = (() => {
   /* ---- ours ---- */
   /* the full-back overlaps past a winger who has come inside, or follows his own pass down the line; never past a
      winger who is holding the touchline with the ball elsewhere (two in a lane) */
-  function overlap({ wingerInside, justPassed }){
+  function overlap({ wingerInside, justPassed, invite }){
     if (wingerInside) return Math.random() < 0.75;
     if (justPassed) return Math.random() < 0.5;
+    if (invite) return Math.random() < 0.5;                   // the ball behind him with a 6: he pushes past the winger to take the width and send him inside (desdoblamiento)
     return false;
   }
+  /* the 8 drops out of the half-space to get the ball when the 6 cannot be found (screened): otherwise he stays between the lines */
+  function eightDrops({ sixScreened }){ return sixScreened ? Math.random() < 0.8 : Math.random() < 0.2; }
   /* the 9 drops off the line only when both centre-backs are tight on him and an 8 is high enough to run beyond */
   function nineDrops({ cbsTight, eightHigh }){ return cbsTight && eightHigh && Math.random() < 0.8; }
-  return { man, why, reset, fullBack, centreBack, six, eight, markDistance, permuta, crossLine, overlap, nineDrops, rand, clamp };
+  return { man, why, reset, fullBack, centreBack, six, eight, markDistance, permuta, crossLine, overlap, eightDrops, nineDrops, rand, clamp };
 })();
 
 /* ===================== Third Man 2.0: the defence is drawn as men, the space is read off them =====================
