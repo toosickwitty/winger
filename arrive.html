@@ -505,7 +505,7 @@ function buildCandidate(side, id){
   const men = { lb: JDP.man(), cb: JDP.man(), m6: JDP.man(), m8: JDP.man() };
   const sixSpot = [Wx - rand(6.5, 9), lineZ + rand(6, 9)];                                  // the 6's zone: the pocket between the lines on this side
   const m6 = JDP.six({ triggerDist: d2(sixSpot, A), facing: true, manInZone: d2(sixSpot, Brecv) < 4, m: men.m6 });
-  const sixScreens = m6 !== 'press';
+  const sixScreens = m6 !== 'press' && d2(sixSpot, Brecv) < 6.5;                           // the 6 covers the zone the 9 drops into only if he is actually in it
   const cbRaw = JDP.centreBack({ nineDrops: who9, sixScreens, m: men.cb });
   const D = { lb: JDP.fullBack({ ballNear: A[0] > 2, wideMan: true, m: men.lb }),
               cb: cbRaw === 'follow' ? 'follow' : (overlap && Math.random() < 0.7 ? 'inside' : 'hold'),
