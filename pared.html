@@ -222,7 +222,7 @@ a.iconbtn{text-decoration:none;display:inline-flex;align-items:center;white-spac
       <button data-mode="test" aria-pressed="false">Test</button>
     </div>
     <button class="cta" id="start">Start session</button>
-    <p class="note">16 reps, about six minutes. You are the 8, between their lines in the half-space, ball at your feet. You play it into a team-mate 9-15 m away &mdash; your 9 with his back to goal, your 10 between the lines, or your winger come off the touchline &mdash; and while it travels you <b>call where you go next</b>. The Spanish school calls the habit <i>pasar y ofrecerse</i>: pass and offer yourself. The four offers: <b>Give and go</b> (<i>pared</i>), run past the far shoulder of the man on his back and take the return first time; <b>Hold the angle</b> (<i>apoyo</i>), he can turn, so stay where he can find you facing forward; <b>Drag him away</b> (<i>arrastre</i>), run the other way, take your own marker with you, and the ball goes to the third man (<i>tercer hombre</i>) through the lane you opened; <b>Drop for the bounce</b> (<i>dar salida</i>), two men are closing him, so drop a step and take it back first time.<br><br>The read is three men: <b>the man on his back</b> (in front of you), <b>the man on yours</b> (behind you &mdash; a look over the inside shoulder: tap the left or right half of the screen, on a computer the &larr; &rarr; keys, 0.3 s), and <b>whether a second man is closing him</b>. Man on his back, nobody on yours: give and go. He can turn: hold. Man on his back and a man on yours: drag him, the third man gets it. Two closing him: drop. In Learn, the distance of the man on your back sits over his head while you look. Everything after your call is played out.<br><br><b>2.0:</b> the men are not posed from the answer. Whether the marker sits on the receiver&rsquo;s back or stands off, whether yours comes tight, whether their 6 steps across: drawn fresh, as habits, and the call is read off what they do.<br><br><b>Learn</b> paints the lanes on the grass. <b>Test</b> takes that away.</p>
+    <p class="note">16 reps, about six minutes. You are the 8, between their lines in the half-space, ball at your feet. You play it into a team-mate 9-15 m away &mdash; your 9 with his back to goal, your 10 between the lines, or your winger come off the touchline &mdash; and while it travels you <b>call where you go next</b>. The Spanish school calls the habit <i>pasar y ofrecerse</i>: pass and offer yourself. The four offers: <b>Give and go</b> (<i>pared</i>), run past the far shoulder of the man on his back and take the return first time; <b>Hold the angle</b> (<i>apoyo</i>), he can turn, so stay where he can find you facing forward; <b>Drag him away</b> (<i>arrastre</i>), run the other way, take your own marker with you, and the ball goes to the third man (<i>tercer hombre</i>) through the lane you opened; <b>Drop for the bounce</b> (<i>dar salida</i>), two men are closing him, so drop a step and take it back first time.<br><br>The read is three men: <b>the man on his back</b> (in front of you), <b>the man on yours</b> (behind you &mdash; a look over the inside shoulder: tap the left or right half of the screen, on a computer the &larr; &rarr; keys, 0.3 s), and <b>whether a second man is closing him</b>. Man on his back, nobody on yours: give and go. He can turn: hold. Man on his back and a man on yours: drag him, the third man gets it. Two closing him: drop. In Learn, the distance of the man on your back sits over his head while you look. Everything after your call is played out.<br><br><b>2.0:</b> the men are not posed from the answer. Their men start from the block&rsquo;s principles: a marker on the back of a receiver facing his own goal, their 8 closing the man on the ball in his zone, their 6 pressing only on a trigger. Each has his own temperament and now and then a lapse; the call is read off what they do, and the review names the lapse.<br><br><b>Learn</b> paints the lanes on the grass. <b>Test</b> takes that away.</p>
   </div>
 
   <div id="panelAsk" class="hide">
@@ -3124,6 +3124,99 @@ function newBag(){
   return out;
 }
 /* the picture, for the right 8 (x > 0); the shell mirrors it for the left */
+/* ===================== JDP: the doctrine every bot starts from =====================
+   Both sides play a 4-3-3. Ours attacks with juego de posición; theirs defends as a zonal block that slides with the
+   ball. Every decision a bot makes in a drill starts here, as a principle with a trigger; personality (reaction time,
+   pace, keenness) and the occasional lapse are noise on top, never the rule. Where a man breaks a principle the
+   generator records it (JDP.why) so the review can name it.
+
+   Principles encoded
+   ours (JdP)      five lanes, two per lane, three per line, staggered heights; amplitud (wingers on the touchline) and
+                   profundidad (the 9 pins the centre-backs); the full-back overlaps only past a winger who has come
+                   inside, or following his own pass down the line (pass and go); the 9 drops only when both
+                   centre-backs are tight on him and an 8 is high enough to run beyond; a receiver with his back to goal
+                   and a man on him needs a support angle and a runner; a free man facing play needs nobody.
+   theirs (block)  basculación: the back four slides with the ball; the near full-back stays goal-side of a winger on his
+                   touchline, the far full-back tucks in; a centre-back passes a dropping 9 on to the 6 if the 6 is
+                   screening, and goes with him only if nobody covers the zone; the 6 presses on a trigger (the ball is
+                   coming to a man facing him within ~8 m, a back pass, a slow pass) and otherwise screens between the
+                   lines; the 8 marks zonally: tight on a man in his zone, holding his line otherwise; permuta: when one
+                   man jumps the nearest covers behind him, and two men do not jump at once; marking distance follows
+                   the ball (tight when it is close, looser the longer the pass); on a byline cross the whole line drops
+                   onto the six-yard box, on a deep cross it holds and the men who lose their man are the ball-watchers. */
+const JDP = (() => {
+  const rand = (a, b) => a + Math.random()*(b - a), clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+  /* a man: how quick he reads, how fast he runs, how keen he is to jump, and whether he is prone to ball-watching */
+  const man = (o) => Object.assign({ react: rand(0.2, 0.6), v: rand(5.4, 6.2), keen: Math.random(), lapse: Math.random() < 0.18 }, o || {});
+  const why = [];
+  const note = (who, text) => { why.push({ who, text }); return text; };
+  const reset = () => { why.length = 0; };
+
+  /* ---- their back four ---- */
+  /* the near full-back with a winger on his touchline and the ball on his side: goal-side of him ('wide'). The ball on
+     the far side, or no wide man to hold him: tuck in ('tuck'). Tucking in with the ball on his side is ball-watching. */
+  function fullBack({ ballNear, wideMan, m }){
+    if (!wideMan) return 'tuck';
+    if (!ballNear) return 'tuck';
+    if (m.lapse){ note('their full-back', 'tucked in to watch the ball with a winger on his touchline and the ball on his side: ball-watching'); return 'tuck'; }
+    return 'wide';
+  }
+  /* the centre-back and a dropping 9: pass him on if the 6 is screening the zone he drops into; go with him if nobody
+     covers it. Following when the 6 has it covered leaves the gap for nothing; holding when nobody covers leaves the
+     9 free between the lines. */
+  function centreBack({ nineDrops, sixScreens, m }){
+    if (!nineDrops) return 'hold';
+    if (sixScreens){ if (m.lapse && m.keen > 0.5){ note('their centre-back', 'followed the 9 out although his 6 had the zone: the gap he left was for nothing'); return 'follow'; } return 'hold'; }
+    if (m.lapse && m.keen < 0.5){ note('their centre-back', 'let the 9 drop off him with nobody covering: a man free between the lines'); return 'hold'; }
+    return 'follow';
+  }
+  /* the 6: presses when the trigger is there - a ball coming to a man within reach who will face him (a first man
+     facing forward, a back pass, a slow pass) - otherwise screens the pocket between the lines; a man standing in his
+     zone with the ball near gets him tight ('onyou'). */
+  function six({ triggerDist, facing, manInZone, m }){
+    const reach = 8 + 2*m.keen;
+    if (facing && triggerDist <= reach) return 'press';
+    if (manInZone) return 'onyou';
+    if (facing && triggerDist <= reach + 3 && m.lapse && m.keen > 0.6){ note('their 6', 'jumped to press from too far out and left the pocket behind him'); return 'press'; }
+    return 'sit';
+  }
+  /* the 8: zonal marking - tight on a man who comes into his zone, holding the line otherwise */
+  function eight({ manInZone, m }){
+    if (manInZone){ if (m.lapse){ note('their 8', 'let the second man drop into his zone without going with him'); return 'zonal'; } return 'mark'; }
+    return 'zonal';
+  }
+  /* marking distance follows the ball: tight when it is close, looser the longer the pass (a man 25 m from the ball
+     need not be on his man's back). Keen men sit tighter, lazy men looser. */
+  function markDistance(passLen, m){
+    const base = clamp(passLen*0.28 - 1.5 + (0.5 - m.keen)*3, 1.2, 15);
+    return clamp(base*rand(0.8, 1.25), 1.2, 15);
+  }
+  /* permuta: of the men who want to jump, one goes (the keenest), the rest cover */
+  function permuta(candidates){
+    const go = candidates.filter(c => c.wants);
+    if (!go.length) return null;
+    go.sort((a, b) => b.m.keen - a.m.keen);
+    return go[0].id;
+  }
+  /* the box on a cross: byline -> everyone drops onto the six-yard box; deep -> the line holds, and a lapse is a
+     ball-watcher who loses his man */
+  function crossLine({ byline, m }){
+    if (byline) return m.lapse ? 'late' : 'six';
+    return m.lapse ? 'watch' : 'hold';
+  }
+  /* ---- ours ---- */
+  /* the full-back overlaps past a winger who has come inside, or follows his own pass down the line; never past a
+     winger who is holding the touchline with the ball elsewhere (two in a lane) */
+  function overlap({ wingerInside, justPassed }){
+    if (wingerInside) return Math.random() < 0.75;
+    if (justPassed) return Math.random() < 0.5;
+    return false;
+  }
+  /* the 9 drops off the line only when both centre-backs are tight on him and an 8 is high enough to run beyond */
+  function nineDrops({ cbsTight, eightHigh }){ return cbsTight && eightHigh && Math.random() < 0.8; }
+  return { man, why, reset, fullBack, centreBack, six, eight, markDistance, permuta, crossLine, overlap, nineDrops, rand, clamp };
+})();
+
 function candidate(side, key){
   const lineZ = -rand(29, 33);                                         // their back line
   const you = [rand(9, 13), lineZ + rand(14, 19)];                      // you, between their lines in the half-space, ball at your feet
@@ -3138,7 +3231,17 @@ function candidate(side, key){
   /* 2.0: the three men who decide the rep are drawn as men - does the marker sit on the receiver's back or stand off,
      does yours come tight or hang back, does their 6 step across to close - and the call is read off what they do;
      a picture with no clean call is thrown away */
-  const tight = Math.random() < 0.72, yTight = Math.random() < 0.4, sCloses = Math.random() < 0.4;
+  JDP.reset();
+  const men = { m: JDP.man(), y: JDP.man(), s: JDP.man() };
+  /* the man on the receiver: a man with his back to goal between the lines gets a marker on his back - unless the marker
+     has been pulled or is ball-watching. Your marker: their 8 in the block closes the man on the ball in his zone, so you
+     are free only when he is late. Their 6: presses the receiver on the trigger (the ball going into a man who will face
+     him, within reach), otherwise screens. */
+  const tight = !men.m.lapse; if (!tight) JDP.why.push({ who: 'the man on him', text: 'stood off a receiver with his back to goal and let him turn' });
+  const yTight = !men.y.lapse; if (!yTight) JDP.why.push({ who: 'their 8', text: 'was late closing you with the ball at your feet between the lines' });
+  const Ssit = [R[0] - 7.5, R[1] + 3.5];
+  const sCloses = JDP.six({ triggerDist: d2(Ssit, R), facing: tight, manInZone: false, m: men.s }) === 'press';
+  const why = JDP.why.slice();
   let dkey;
   if (!tight){ if (yTight || sCloses) return null; dkey = 'turn'; }                 // free to turn - and nobody is arriving to change that
   else if (yTight && sCloses) return null;                                            // two on him and one on you: no single read
@@ -3182,7 +3285,7 @@ function candidate(side, key){
   if (key === 'cover' && d2(S, M) < 2.0) return null;
   for (const o of others) if (o.id !== 'Y' && o.id !== 'S' && laneD(o.at, you, R) < 1.8) return null;         // the pass is on
   if (laneD(Y, you, R) < 1.5) return null;
-  const sc = { side, key, who, you, R, M, Y, S, TM, TMd, L, u, Tb, ts, lineZ, inside, others, start: you, wingX: you[0], zBase: you[1], scans: [], action: null, td: null, decided: false, bots: true };
+  const sc = { side, key, who, you, R, M, Y, S, TM, TMd, L, u, Tb, ts, lineZ, inside, others, why, start: you, wingX: you[0], zBase: you[1], scans: [], action: null, td: null, decided: false, bots: true };
   sc.ev = []; sc.tFreeze = RC.strike + (Tb + RC.after/1000)*1000;
   if (key === 'wall' && !WALL_RAW && tracksFor(sc, 'wall', 0.3).outcome !== 'wall') return null;      // the one-two is on, for a call made as the ball leaves
   if (key === 'drag' && tracksFor(sc, 'wall', 0.1).outcome === 'wall') return null;      // and with a man on you, it is not
@@ -3475,6 +3578,7 @@ function verdict(c){
   else if (!sc.length){ look = 'You looked only after you had called. A look that comes after the decision cannot inform it.'; lookGrade = 'Incorrect'; }
   else if (!insideLooks){ look = 'You looked over the outside shoulder (' + sc.map(q => nm(q.t)).join(', ') + ') and saw the touchline. The man on your back sits on your inside shoulder.'; lookGrade = needsLook ? 'Workable' : 'Correct'; }
   else { look = 'You looked over the inside shoulder at ' + sc.filter(q => q.dir === insideDir).map(q => nm(q.t)).join(', ') + ' and saw ' + (key === 'drag' ? 'a man ' + m(d2(c.you, c.Y)) + ' off, on you.' : 'nobody within ' + m(d2(c.you, c.Y)) + '.') + (after ? ' (' + after + ' more after the call.)' : ''); lookGrade = 'Correct'; }
+  if (c.why && c.why.length) text += ' The lapse: ' + c.why.map(w => w.who + ' ' + w.text).join('; ') + '.';
   return { tier, text, look, callGrade, lookGrade };
 }
 function finish(){
