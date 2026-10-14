@@ -4,7 +4,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="Winger">
-<title>Pocket — winger movement trainer</title>
+<title>Pocket 2.0 — winger movement, played</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
@@ -198,7 +198,7 @@ a.iconbtn{text-decoration:none;display:inline-flex;align-items:center;white-spac
       <button data-side="alt" aria-pressed="false">Both</button>
     </div>
     <button class="cta" id="start">Start session</button>
-    <p class="note">16 reps, about six minutes. Each rep starts with a check over your shoulder at the ball, then your head comes round to read the lanes. Is your full-back overlapping outside you, and is your 8 in the half-space inside you?</p>
+    <p class="note">16 reps, about six minutes. Each rep starts with a check over your shoulder at the ball, then your head comes round to read the lanes. Is your full-back overlapping outside you, and is your 8 in the half-space inside you?<br><br><b>2.0:</b> nobody is posed from the answer. Whether your full-back goes past you and whether your 8 drops out to get the ball are their own decisions, drawn fresh; the movement is read off the pair.</p>
   </div>
 
   <div id="panelAsk" class="hide">
@@ -258,7 +258,7 @@ const CFG = {
 };
 
 /* ---------------- storage ---------------- */
-const KEY = 'shoulder:scan:v2';
+const KEY = 'movement:v2';
 let stats = { L:{pts:0,max:0}, R:{pts:0,max:0}, side:'R' };
 async function loadStats(){
   try{
@@ -406,7 +406,12 @@ function recvPoint(answer, lineOz){
 }
 
 function buildCandidate(side, answer){
-  const t = nextVariant(answer);
+  /* 2.0: the two cues are your team-mates' own decisions, drawn fresh: does your full-back go past you, does your 8
+     drop out of the half-space to get the ball. The movement is read off the pair, never posed from the answer. */
+  const t = { fb: Math.random() < 0.5, eight: Math.random() < 0.5 };
+  const derived = t.fb ? (t.eight ? 'short' : 'half') : (t.eight ? 'width' : 'behind');
+  if (answer && derived !== answer) return null;
+  answer = derived;
   const wingX = rand(26.5, 29.5);
   const zBase = rand(-21, -17);                          // start of the attacking third
   const lineOz = rand(-12.0, -10.0);                     // their line, constant: not a cue
@@ -473,7 +478,7 @@ function buildCandidate(side, answer){
     fbAt, eightAt, markerAt, lineAt, holderAt, passerAt, strikerAt,
     farWAt, farEAt, sixAt, fbBackAt, oppRBAt, oppMidAt,
     keeperAt: W(rand(-1.5,1.5), rand(-50.0,-49.2)),
-    toOff: W, intended: answer
+    toOff: W, intended: answer, bots: true
   };
 }
 
@@ -557,8 +562,8 @@ function cuesStandOut(sc){
 }
 function makeScene(side, answer){
   let last = null;
-  for (let attempt = 0; attempt < 300; attempt++){
-    const sc = buildCandidate(side, answer);
+  for (let attempt = 0; attempt < 1500; attempt++){
+    const sc = buildCandidate(side, answer); if (!sc) continue;
     if (laneOK(sc, answer) && inPlay(sc) && cuesStandOut(sc) && spacedScene(sc)) return sc;
     last = sc;
   }
