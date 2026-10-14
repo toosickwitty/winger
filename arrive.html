@@ -360,6 +360,99 @@ function newBag(){
   return out;
 }
 
+/* ===================== JDP: the doctrine every bot starts from =====================
+   Both sides play a 4-3-3. Ours attacks with juego de posición; theirs defends as a zonal block that slides with the
+   ball. Every decision a bot makes in a drill starts here, as a principle with a trigger; personality (reaction time,
+   pace, keenness) and the occasional lapse are noise on top, never the rule. Where a man breaks a principle the
+   generator records it (JDP.why) so the review can name it.
+
+   Principles encoded
+   ours (JdP)      five lanes, two per lane, three per line, staggered heights; amplitud (wingers on the touchline) and
+                   profundidad (the 9 pins the centre-backs); the full-back overlaps only past a winger who has come
+                   inside, or following his own pass down the line (pass and go); the 9 drops only when both
+                   centre-backs are tight on him and an 8 is high enough to run beyond; a receiver with his back to goal
+                   and a man on him needs a support angle and a runner; a free man facing play needs nobody.
+   theirs (block)  basculación: the back four slides with the ball; the near full-back stays goal-side of a winger on his
+                   touchline, the far full-back tucks in; a centre-back passes a dropping 9 on to the 6 if the 6 is
+                   screening, and goes with him only if nobody covers the zone; the 6 presses on a trigger (the ball is
+                   coming to a man facing him within ~8 m, a back pass, a slow pass) and otherwise screens between the
+                   lines; the 8 marks zonally: tight on a man in his zone, holding his line otherwise; permuta: when one
+                   man jumps the nearest covers behind him, and two men do not jump at once; marking distance follows
+                   the ball (tight when it is close, looser the longer the pass); on a byline cross the whole line drops
+                   onto the six-yard box, on a deep cross it holds and the men who lose their man are the ball-watchers. */
+const JDP = (() => {
+  const rand = (a, b) => a + Math.random()*(b - a), clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+  /* a man: how quick he reads, how fast he runs, how keen he is to jump, and whether he is prone to ball-watching */
+  const man = (o) => Object.assign({ react: rand(0.2, 0.6), v: rand(5.4, 6.2), keen: Math.random(), lapse: Math.random() < 0.18 }, o || {});
+  const why = [];
+  const note = (who, text) => { why.push({ who, text }); return text; };
+  const reset = () => { why.length = 0; };
+
+  /* ---- their back four ---- */
+  /* the near full-back with a winger on his touchline and the ball on his side: goal-side of him ('wide'). The ball on
+     the far side, or no wide man to hold him: tuck in ('tuck'). Tucking in with the ball on his side is ball-watching. */
+  function fullBack({ ballNear, wideMan, m }){
+    if (!wideMan) return 'tuck';
+    if (!ballNear) return 'tuck';
+    if (m.lapse){ note('their full-back', 'tucked in to watch the ball with a winger on his touchline and the ball on his side: ball-watching'); return 'tuck'; }
+    return 'wide';
+  }
+  /* the centre-back and a dropping 9: pass him on if the 6 is screening the zone he drops into; go with him if nobody
+     covers it. Following when the 6 has it covered leaves the gap for nothing; holding when nobody covers leaves the
+     9 free between the lines. */
+  function centreBack({ nineDrops, sixScreens, m }){
+    if (!nineDrops) return 'hold';
+    if (sixScreens){ if (m.lapse && m.keen > 0.5){ note('their centre-back', 'followed the 9 out although his 6 had the zone: the gap he left was for nothing'); return 'follow'; } return 'hold'; }
+    if (m.lapse && m.keen < 0.5){ note('their centre-back', 'let the 9 drop off him with nobody covering: a man free between the lines'); return 'hold'; }
+    return 'follow';
+  }
+  /* the 6: presses when the trigger is there - a ball coming to a man within reach who will face him (a first man
+     facing forward, a back pass, a slow pass) - otherwise screens the pocket between the lines; a man standing in his
+     zone with the ball near gets him tight ('onyou'). */
+  function six({ triggerDist, facing, manInZone, m }){
+    const reach = 8 + 2*m.keen;
+    if (facing && triggerDist <= reach) return 'press';
+    if (manInZone) return 'onyou';
+    if (facing && triggerDist <= reach + 3 && m.lapse && m.keen > 0.6){ note('their 6', 'jumped to press from too far out and left the pocket behind him'); return 'press'; }
+    return 'sit';
+  }
+  /* the 8: zonal marking - tight on a man who comes into his zone, holding the line otherwise */
+  function eight({ manInZone, m }){
+    if (manInZone){ if (m.lapse){ note('their 8', 'let the second man drop into his zone without going with him'); return 'zonal'; } return 'mark'; }
+    return 'zonal';
+  }
+  /* marking distance follows the ball: tight when it is close, looser the longer the pass (a man 25 m from the ball
+     need not be on his man's back). Keen men sit tighter, lazy men looser. */
+  function markDistance(passLen, m){
+    const base = clamp(passLen*0.28 - 1.5 + (0.5 - m.keen)*3, 1.2, 15);
+    return clamp(base*rand(0.8, 1.25), 1.2, 15);
+  }
+  /* permuta: of the men who want to jump, one goes (the keenest), the rest cover */
+  function permuta(candidates){
+    const go = candidates.filter(c => c.wants);
+    if (!go.length) return null;
+    go.sort((a, b) => b.m.keen - a.m.keen);
+    return go[0].id;
+  }
+  /* the box on a cross: byline -> everyone drops onto the six-yard box; deep -> the line holds, and a lapse is a
+     ball-watcher who loses his man */
+  function crossLine({ byline, m }){
+    if (byline) return m.lapse ? 'late' : 'six';
+    return m.lapse ? 'watch' : 'hold';
+  }
+  /* ---- ours ---- */
+  /* the full-back overlaps past a winger who has come inside, or follows his own pass down the line; never past a
+     winger who is holding the touchline with the ball elsewhere (two in a lane) */
+  function overlap({ wingerInside, justPassed }){
+    if (wingerInside) return Math.random() < 0.75;
+    if (justPassed) return Math.random() < 0.5;
+    return false;
+  }
+  /* the 9 drops off the line only when both centre-backs are tight on him and an 8 is high enough to run beyond */
+  function nineDrops({ cbsTight, eightHigh }){ return cbsTight && eightHigh && Math.random() < 0.8; }
+  return { man, why, reset, fullBack, centreBack, six, eight, markDistance, permuta, crossLine, overlap, nineDrops, rand, clamp };
+})();
+
 /* ===================== Third Man 2.0: the defence is drawn as men, the space is read off them =====================
    The template asks only who plays the first ball (six / centre-back / full-back) and, for the overlap rep, that the
    full-back goes. Everything else is drawn as players: who the second man is, whether their full-back tucks in or stays
@@ -380,6 +473,7 @@ function zoneState(s, k){
   const z = s.Z[k], opp = [s.LB, s.CBn, s.CBf, s.RB, s.M6, s.M8, s.P].filter(Boolean);
   if (Math.min(...opp.map(q => d2(q, z))) < (k === 'pocket' ? 5 : 6)) return 'covered';     // somebody is standing in it
   if (k === 'out' && s.overlap) return 'covered';
+  if (k === 'out' && s.lbOnYou) return 'covered';                                              // a full-back goal-side of you on the touchline has the run down the line: he goes when you go
   if (!s.viable[k]) return 'covered';                                                          // from where he stands that run is not on: too late to be level, or too shallow                                             // the overlap takes that lane, and their full-back goes with it
   const cov = coverOf(s, k), cp = s[cov] || s.B0;
   const tMid = (s.win[k][0] + s.win[k][1])/2, tLay = s.t_recv + TOUCH;
@@ -392,7 +486,8 @@ function buildCandidate(side, id){
   const sp = SPEC[id], want = sp.kase;
   const first = sp.first === 'mix' ? (Math.random() < 0.5 ? 'six' : 'cb') : sp.first;
   if (want === 'set') return buildSet(side, id, first);
-  const overlap = first === 'fb' && (sp.overlap ? true : Math.random() < 0.35);
+  /* ours: the full-back overlaps only following his own pass down the line (pass and go); the winger holds the touchline */
+  const overlap = first === 'fb' && JDP.overlap({ wingerInside: false, justPassed: true });
   if (sp.overlap && !overlap) return null;
   const Wx = rand(25, 28.5), lineZ = rand(-38, -29), midZ = lineZ + rand(9, 11);
   /* the second man: the 9 dropping off their line, or the 10 coming from midfield */
@@ -400,18 +495,28 @@ function buildCandidate(side, id){
   let B0, Brecv, who;
   if (who9){ B0 = [Wx - rand(12.5, 15.5), lineZ + 0.8]; Brecv = [B0[0] + rand(-1, 1.5), lineZ + rand(6, 8)]; who = 'your 9'; }
   else { B0 = [Wx - rand(9, 12), midZ - rand(0, 1)]; Brecv = [B0[0] + rand(-1, 1), lineZ + rand(4.5, 6.5)]; who = 'your 10'; }
-  /* the defence's habits, drawn fresh */
-  const D = { lb: Math.random() < 0.45 ? 'tuck' : 'wide', cb: who9 && Math.random() < 0.4 ? 'follow' : overlap && Math.random() < 0.7 ? 'inside' : 'hold',
-              m6: Math.random() < 0.5 ? 'press' : 'sit', m8: Math.random() < 0.65 ? 'mark' : 'zonal' };
-  const cbFollows = D.cb === 'follow', marked = D.m8 === 'mark' && !cbFollows, freeMan = !marked && !cbFollows;
-  /* a 10 nobody is on drifts across into space, side-on, facing up the pitch */
-  if (freeMan && !who9){ Brecv = [Wx - rand(10.5, 13), lineZ + rand(7, 9)]; B0 = [Brecv[0] - rand(4, 6), Brecv[1] + rand(-0.5, 0.8)]; }
-  if (freeMan && who9) return null;                                                          // a free 9 on the line is another drill
-  /* the first man */
+  /* the first man, before the defence reads the picture */
   let A;
   if (first === 'six') A = who9 ? [Brecv[0] - rand(8.5, 11), Brecv[1] + rand(3, 5.5)] : [Brecv[0] - rand(7.5, 10.5), Brecv[1] + rand(5, 8)];
   else if (first === 'cb') A = [Brecv[0] - rand(2, 7), Brecv[1] + rand(17, 23)];
   else A = [Wx - rand(0.5, 4), lineZ + rand(15, 19)];
+  /* their block, by the doctrine (JDP): each man decides from the picture, with his own temperament; lapses are noted */
+  JDP.reset();
+  const men = { lb: JDP.man(), cb: JDP.man(), m6: JDP.man(), m8: JDP.man() };
+  const sixSpot = [Wx - rand(6.5, 9), lineZ + rand(6, 9)];                                  // the 6's zone: the pocket between the lines on this side
+  const m6 = JDP.six({ triggerDist: d2(sixSpot, A), facing: true, manInZone: d2(sixSpot, Brecv) < 4, m: men.m6 });
+  const sixScreens = m6 !== 'press';
+  const cbRaw = JDP.centreBack({ nineDrops: who9, sixScreens, m: men.cb });
+  const D = { lb: JDP.fullBack({ ballNear: A[0] > 2, wideMan: true, m: men.lb }),
+              cb: cbRaw === 'follow' ? 'follow' : (overlap && Math.random() < 0.7 ? 'inside' : 'hold'),
+              m6: m6 === 'press' ? 'press' : 'sit',
+              m8: JDP.eight({ manInZone: Brecv[1] > lineZ + 3 && Math.abs(Brecv[0] - (Wx - 11)) < 9, m: men.m8 }) };
+  const cbFollows = D.cb === 'follow', marked = D.m8 === 'mark' && !cbFollows, freeMan = !marked && !cbFollows;
+  const why = JDP.why.slice();
+  /* a 10 nobody is on drifts across into space, side-on, facing up the pitch */
+  if (freeMan && !who9){ Brecv = [Wx - rand(10.5, 13), lineZ + rand(7, 9)]; B0 = [Brecv[0] - rand(4, 6), Brecv[1] + rand(-0.5, 0.8)];
+    if (first === 'six') A = [Brecv[0] - rand(7.5, 10.5), Brecv[1] + rand(5, 8)]; else if (first === 'cb') A = [Brecv[0] - rand(2, 7), Brecv[1] + rand(17, 23)]; }
+  if (freeMan && who9) return null;                                                          // a free 9 on the line is another drill
   const t_pass = rand(1500, 2000);
   const t_recv = t_pass + d2(A, Brecv)/PASS1[first]*1000;
   const tLay = t_recv + TOUCH, layV = rand(11.5, 14);
@@ -440,7 +545,7 @@ function buildCandidate(side, id){
   }
   /* their back line */
   const LB = D.lb === 'tuck' ? [Brecv[0] + rand(0.8, 1.8), lineZ + dz.LB] : [W[0] - rand(0.8, 2.2), lineZ + dz.LB];
-  const CBn = cbFollows ? null : D.cb === 'inside' ? [Z.in[0] - rand(6.5, 8), lineZ + dz.CBn] : [Z.in[0] + rand(-1, 1), lineZ + dz.CBn];
+  const CBn = cbFollows ? null : D.cb === 'inside' ? [Z.in[0] - rand(6.5, 8), lineZ + dz.CBn] : [Z.in[0] - rand(1, 3), lineZ + dz.CBn];   // holding the gap: midway between his full-back and the other centre-back
   const CBf = [(CBn ? CBn[0] : B0[0]) - rand(9, 11), lineZ + dz.CBf];
   const RB  = [CBf[0] - rand(9, 11), lineZ + dz.RB];
   /* their midfield */
@@ -451,7 +556,7 @@ function buildCandidate(side, id){
   const farW = [-rand(21.5, 24), lineZ + rand(1, 3)];
   const eight = [-rand(11.5, 17), midZ + rand(-1.5, 1.5)];
   const firstName = first === 'six' ? 'your 6' : first === 'cb' ? 'your centre-back' : 'your ' + (side === 1 ? 'right-back' : 'left-back');
-  const s = { side, id, kase: null, first, firstName, overlap, cbFollows, marked, who, W, lineZ, midZ, A, B0, Brecv, Z, D, m6Press: D.m6 === 'press', lbOnYou: D.lb === 'wide', win, viable,
+  const s = { side, id, kase: null, first, firstName, overlap, cbFollows, marked, who, W, lineZ, midZ, A, B0, Brecv, Z, D, why, m6Press: D.m6 === 'press', lbOnYou: D.lb === 'wide', win, viable,
               LB, CBn, CBf, RB, M6, M8, P, farW, eight, keeper: [rand(-1, 1), -51.3], t_pass, t_recv, onTime: win.out, layV,
               wingX: W[0], zBase: W[1], recv: [0, 0], passerAt: [0, 0], bots: true };
   /* read the picture */
@@ -2601,8 +2706,8 @@ function thirdResult(){
     text = 'You went ' + Math.max(0.1, P.late).toFixed(1) + ' s after ' + s.who + ' had it — with ' + back + ' on his back he had to hold it, and got closed down.'; }
   const rows = [[chip, cls, text]];
   if (s.tap){
-    if (P.right) rows.push(['Right space', 't3', 'Right space: ' + zoneName[s.kase] + ' — ' + cue[s.kase] + '.']);
-    else rows.push(['Wrong space', 't0', covered[s.tap.zone] + '. The space was ' + zoneName[s.kase] + ' — ' + cue[s.kase] + '.']);
+    if (P.right) rows.push(['Right space', 't3', 'Right space: ' + zoneName[s.kase] + ' — ' + cue[s.kase] + '.' + (s.why && s.why.length ? ' The lapse: ' + s.why.map(w => w.who + ' ' + w.text).join('; ') + '.' : '')]);
+    else rows.push(['Wrong space', 't0', covered[s.tap.zone] + '. The space was ' + zoneName[s.kase] + ' — ' + cue[s.kase] + '.' + (s.why && s.why.length ? ' The lapse: ' + s.why.map(w => w.who + ' ' + w.text).join('; ') + '.' : '')]);
   } else rows.push(['The space', 't2', 'It was ' + zoneName[s.kase] + ' — ' + cue[s.kase] + '.']);
   return rows;
 }
