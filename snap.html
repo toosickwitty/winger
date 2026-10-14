@@ -327,7 +327,7 @@ const pick = a => a[Math.floor(Math.random()*a.length)];
    Right-wing coordinates (x across, z along, their goal at z = -52.5), stored as
    offsets from where he stands. Mirrored for the left wing.                 */
 const ZONE = { box: 20.15, six: 9.16, goalZ: -52.5 };
-const TYPES = ['ruptura', 'espalda', 'overlap', 'entrelineas', 'apoyo', 'cambio'];
+const TYPES = ['ruptura', 'espalda', 'entrelineas', 'apoyo'];
 const TEMPLATES = {};
 TYPES.forEach(t => { TEMPLATES[t + '-wing'] = [1]; TEMPLATES[t + '-ten'] = [1]; });
 let ARC_SAFE = 49; const FLASH_S = 0.7, MIN_PASS = 18;  // the look: half the horizontal field of view the screen actually gives him, less a body width and a margin (set in setFov)
@@ -377,7 +377,7 @@ const halfSpaceX = (sign, x) => sign*Math.min(19.5, Math.max(9.8, Math.abs(x)));
    The engine is pure: BOTS.run(setup) -> { tracks, at(t), players } and BOTS.evaluate(state, W, opts). */
 const BOTS = (() => {
   const GOAL = [0, -52.5], DT = 0.05;
-  const SPD = { sprint: 6.4, run: 5.4, press: 4.2, jog: 3.0, jockey: 1.8, walk: 1.2 };
+  const SPD = { sprint: 6.4, run: 5.4, press: 4.6, jog: 3.4, jockey: 3.0, walk: 2.6 };   // nobody strolls while the ball is live: the slowest a man moves is a jog
   const rand = (a, b) => a + Math.random()*(b - a), pick = a => a[Math.floor(Math.random()*a.length)];
   const d2 = (a, b) => Math.hypot(a[0] - b[0], a[1] - b[1]);
   const unit = (x, z) => { const l = Math.hypot(x, z) || 1; return [x/l, z/l]; };
@@ -390,7 +390,7 @@ const BOTS = (() => {
   const flight = (L, kind) => kind === 'switch' ? L/19 : kind === 'run' ? ballTv(L, 15.5) : ballTv(L, 13.0);
   /* a man from a standing start: accelerates at a to v, then holds it */
   const runT = (d, v, a) => { if (d <= 0) return 0; const ta = v/a, da = a*ta*ta/2; return d <= da ? Math.sqrt(2*d/a) : ta + (d - da)/v; };
-  const ACC = 5.5;
+  const ACC = 8.0;
 
   /* ---------- agents ---------- */
   /* Every player: { id, team, role, p, v, vmax, want (target point), speedWant, react (s), seen (a delayed copy
@@ -415,9 +415,13 @@ const BOTS = (() => {
     const ball = S.ball, defs = S.players.filter(q => q.team === 'opp' && q.role !== 'GK'), att = S.players.filter(q => q.team === 'own');
     const jobs = {}; const taken = new Set();
     const byDist = (p, pool) => pool.filter(q => !taken.has(q.id)).sort((a, b) => d2(a.p, p) - d2(b.p, p));
-    /* 1. the ball */
-    const pr = byDist(ball, defs)[0];
-    if (pr && d2(pr.p, ball) < 15){ jobs[pr.id] = { job: 'press' }; taken.add(pr.id); }
+    /* 1. the ball. A pass in flight is pressed where it is going, by the man who can get there goal-side of the receiver
+       (the block passes the press on: the man who was on the passer does not chase the ball across the pitch) */
+    const bvP = S.ballVel || [0, 0], inFlight = Math.hypot(bvP[0], bvP[1]) > 8 && S.W;
+    const target = inFlight ? S.W : ball;
+    const cost = q => d2(q.p, target) + (inFlight && q.p[1] > target[1] + 1 ? 8 : 0);          // behind the receiver (the passer's side): a long way round
+    const pr = defs.filter(q => !taken.has(q.id)).sort((a, b) => cost(a) - cost(b))[0];
+    if (pr && d2(pr.p, target) < 15){ jobs[pr.id] = { job: 'press' }; taken.add(pr.id); }
     /* 2. every option, in the order the side cares (a personality: some sides mark the 10 first) */
     const order = S.traits.prio || PRIORITY;
     for (const id of order){
@@ -444,11 +448,20 @@ const BOTS = (() => {
     const J = me.cur || { job: me.role.startsWith('back') ? 'hold' : 'cover' };
     me.job = J.job;
     const dBall = d2(me.p, ball);
+    /* a man who is not the presser and finds the ball being carried at him gives ground goal-side, so the presser can engage
+       and he is not run into: he backs off at a jog, keeping his angle */
+    if (J.job !== 'press'){ const bv = S.ballVel || [0, 0], bs = Math.hypot(bv[0], bv[1]); const dr = d2(me.p, S.ball);
+      if (bs > 1.0 && bs < 8 && dr < 3.5){ const tb = toward(S.ball, me.p);   /* a ball being carried, not a pass flying past him */ if ((bv[0]*tb[0] + bv[1]*tb[1])/bs > 0.6){ const g = toward(S.ball, GOAL); me.want = [me.p[0] + g[0]*3.5, me.p[1] + g[1]*3.5]; me.speedWant = SPD.press; me.face = 'ball'; me.giving = true; return; } } }
+    me.giving = false;
     if (J.job === 'press'){
       const g = toward(ball, GOAL), a = (me.traits.pressSide || 1)*0.6, c = Math.cos(a), sn = Math.sin(a), ga = [g[0]*c - g[1]*sn, g[0]*sn + g[1]*c];
+      const bvA = S.ballVel || [0, 0], bsA = Math.hypot(bvA[0], bvA[1]);
+      if (bsA > 8 && S.W){ me.want = [S.W[0] + ga[0]*1.2, S.W[1] + ga[1]*1.2]; me.speedWant = dBall > 9 ? SPD.run : SPD.press; me.face = 'ball'; return; }   // a pass in flight: he goes to where it is going
       if (d2(me.p, S.ball) < 4.0){ const ball = S.ball;                                            // this close he is watching the ball itself, not a memory of it                                                                            // arrived: jockeys in front of the ball, a step to the side he shows, giving ground as it comes
         const bv = S.ballVel || [0, 0], mvg = Math.hypot(bv[0], bv[1]) > 1.0 ? unit(bv[0], bv[1]) : g, perp = [-mvg[1], mvg[0]], sd = me.traits.pressSide || 1;
-        me.want = [ball[0] + mvg[0]*3.0 + perp[0]*1.1*sd, ball[1] + mvg[1]*3.0 + perp[1]*1.1*sd]; me.speedWant = SPD.press; me.face = 'ball'; return; }
+        const carried = Math.hypot(bv[0], bv[1]) > 1.0 && Math.hypot(bv[0], bv[1]) < 8;
+        me.want = carried ? [ball[0] + mvg[0]*3.0 + perp[0]*1.1*sd, ball[1] + mvg[1]*3.0 + perp[1]*1.1*sd] : [ball[0] + ga[0]*1.2, ball[1] + ga[1]*1.2];   // a ball being carried: he jockeys three strides ahead of it, showing it one way; a ball at feet: straight at it, pulling up a stride short
+        me.speedWant = SPD.press; me.face = 'ball'; return; }
       me.want = [ball[0] + ga[0]*0.8, ball[1] + ga[1]*0.8]; me.speedWant = dBall > 9 ? SPD.run : SPD.press; return;
     }
     if (J.job === 'mark' || J.job === 'lane'){
@@ -465,7 +478,7 @@ const BOTS = (() => {
     }
     if (J.job === 'cover'){
       const g = toward(ball, GOAL), pr = S.players.find(q => S.jobs[q.id] && S.jobs[q.id].job === 'press'), sd = pr ? -(pr.traits.pressSide || 1) : 1, perp = [-g[1], g[0]];
-      me.want = [ball[0] + g[0]*8 + perp[0]*sd*3, ball[1] + g[1]*8 + perp[1]*sd*3]; me.speedWant = SPD.jockey; me.face = 'ball'; return;
+      me.want = [ball[0] + g[0]*8 + perp[0]*sd*3, ball[1] + g[1]*8 + perp[1]*sd*3]; me.speedWant = SPD.run; me.face = 'ball'; return;
     }
     /* hold: the line, in my slot, shifted to the ball; a runner into my zone is mine */
     const line = S.lineZ, slot = me.traits.slotX + clamp(0.35*ball[0], -8, 8);
@@ -475,7 +488,7 @@ const BOTS = (() => {
     const runner = att.find(q => q.run && Math.abs(q.p[0] - me.p[0]) < 7 && q.p[1] < me.p[1] + 6 && q.p[1] > me.p[1] - 8 && (S.t - q.runAt) > me.react);
     if (runner){ const g = toward(runner.p, GOAL), sgt = toward(ball, runner.p), perp = [-sgt[1], sgt[0]], sd = runner.p[0] < me.p[0] ? 1 : -1;
       me.want = [runner.p[0] + g[0]*1.0 + perp[0]*1.4*sd, runner.p[1] + g[1]*1.0 + perp[1]*1.4*sd]; me.speedWant = SPD.sprint*0.93; me.job = 'track'; return; }
-    me.want = [x, line]; me.speedWant = SPD.jog; me.face = 'ball';
+    me.want = [x, line]; me.speedWant = d2(me.p, [x, line]) > 3 ? SPD.run : SPD.jog; me.face = 'ball';
   }
 
   /* ---------- the attacking side ----------
@@ -506,6 +519,10 @@ const BOTS = (() => {
     const ball = S.ballPerceived, def = S.players.filter(q => q.team !== me.team && q.role !== 'GK'), backs = def.filter(q => q.role.startsWith('back')).sort((a, b) => a.p[0] - b.p[0]);
     const lineZ = Math.min(...backs.map(b => b.p[1]));
     const onside = z => Math.max(z, lineZ + 0.4);
+    /* a man who is going to run is set before he goes: for the last second before his moment he stands on his shoulder, so
+       the run is one movement from a standing start, not a turn out of a jog */
+    const wnt = me.traits.wants || me.traits.react, pending = !me.run && !me.drop && !me.moved && (wnt === 'run' || wnt === 'behind' || wnt === 'overlap') && me.traits.goAt !== undefined && S.t < me.traits.goAt + 0.12 && S.t > me.traits.goAt - 1.0;
+    if (pending && me.role !== 'WB'){ me.want = me.p; me.speedWant = 0; return; }
     if (me.role === 'N9'){
       if (me.run){ me.want = [me.p[0] + me.runDir[0]*8, me.p[1] + me.runDir[1]*8]; me.speedWant = SPD.sprint; return; }
       if (me.drop){ me.want = show(me, S, [ball[0]*0.4, ball[1] - 7], 4); me.speedWant = SPD.run; return; }
@@ -542,21 +559,36 @@ const BOTS = (() => {
       if (S.wingerInside && S.t >= me.traits.goAt && me.traits.wants === 'overlap'){ me.run = true; me.runAt = S.t; me.runDir = unit(-0.12, -1); return; }
       me.want = show(me, S, [26, ball[1] + 4], 3); me.speedWant = SPD.jog; return;
     }
-    if (me.role === 'SUP'){ me.want = show(me, S, [ball[0] - 6, ball[1] + 8], 3); me.speedWant = SPD.walk; return; }
+    if (me.role === 'SUP'){ me.want = show(me, S, [ball[0] - 6, ball[1] + 8], 3); me.speedWant = SPD.jog; return; }
     me.want = me.p; me.speedWant = 0;
   }
 
   /* ---------- the world ---------- */
   function step(S){
     /* the defence's plan, remade every tenth of a second */
-    if (S.t >= (S.nextPlan === undefined ? -1e9 : S.nextPlan)){ S.jobs = plan(S); S.nextPlan = S.t + 0.1; }
+    /* the plan is remade every tenth of a second - except through the look itself (the ball at his feet, his eyes up):
+       the men keep the jobs they had as it arrived, so what he sees is each man doing one thing */
+    const inLook = S.t >= 0 && S.t <= (S.lookUntil === undefined ? 0.8 : S.lookUntil);
+    if (!inLook && S.t >= (S.nextPlan === undefined ? -1e9 : S.nextPlan)){ S.jobs = plan(S); S.nextPlan = S.t + 0.1; }
     S.lineZ = S.lineZ0 + clamp((S.ball[1] - S.ballZ0)*0.3, -4, 4);                      // the line moves a little with the ball
     for (const me of S.players){
       if (S.t >= me.nextThink){ me.nextThink = S.t + 0.1; S.ballPerceived = S.ballHist[Math.max(0, S.ballHist.length - 1 - Math.round(me.react/DT))] || S.ball;
         if (me.team === 'opp') thinkDefender(me, S); else thinkAttacker(me, S); }
+      /* a man who has set off holds his direction: a new spot more than ~45 degrees off the way he is going waits until
+         he gets where he was going (he does not turn round mid-stride because the picture shifted half a metre) */
+      const urgent = me.job === 'press' || me.job === 'track' || !!me.run || !!me.giving;
+      if (me.moving && me.commit && !urgent) me.want = me.commit;                              // one spot, one direction, until he gets there (a presser follows the ball, a tracker his runner, a runner keeps going)
       /* move toward want at speedWant, with acceleration and a stop at the point */
       const d = d2(me.p, me.want), u = d > 1e-3 ? toward(me.p, me.want) : [0, 0];
-      const vWant = Math.min(me.speedWant, Math.sqrt(2*ACC*Math.max(0, d - 0.1)) );
+      /* at pace, or standing. A man does not creep: he sets off only when his spot is a real step away (1.5 m) and then
+         goes to it at his pace; nobody shuffles half a metre */
+      const backAgain = !urgent && me.lastDir && (u[0]*me.lastDir[0] + u[1]*me.lastDir[1]) < -0.3;      // the spot he just left: he does not go back for it
+      if (!me.moving && d > (urgent ? 1.2 : 2.0) && !backAgain && (urgent || S.t >= (me.settleUntil || -1e9))){ me.moving = true; me.commit = me.want.slice(); me.lastDir = u.slice(); const sp0 = Math.hypot(me.v[0], me.v[1]); if (sp0 < 0.5*me.speedWant) me.v = [u[0]*0.5*me.speedWant, u[1]*0.5*me.speedWant]; }   // the first stride is a real one
+      else if (me.moving && (d < 0.4 || (!urgent && (u[0]*me.v[0] + u[1]*me.v[1]) < 0))){ me.moving = false; me.commit = null; me.v = [0, 0]; me.settleUntil = S.t + (S.t >= 0 ? 1.2 : 0.6); }   // a man who gets there during the look stays there for the look   // there (or past it): he stops and settles for a beat; no stepping back
+      /* nobody runs into the man on the ball: a man whose next strides would take him within two metres of the ball pulls up
+         (the presser is the exception: he is meant to get there) */
+      if (me.moving && me.job !== 'press'){ const db = d2(me.p, S.ball); if (db < 2.2){ const tb = toward(me.p, S.ball); if (u[0]*tb[0] + u[1]*tb[1] > 0.3){ me.moving = false; me.commit = null; me.v = [0, 0]; me.settleUntil = S.t + 0.4; } } }
+      const vWant = me.moving ? me.speedWant : 0;
       const sp = Math.hypot(me.v[0], me.v[1]);
       const vNew = sp + clamp(vWant - sp, -2*ACC*DT, ACC*DT);
       me.v = [u[0]*vNew, u[1]*vNew];
@@ -574,21 +606,19 @@ const BOTS = (() => {
     if (!log || log.length < 3 || !tol) return log;
     const P = log.map(e => [e[1], e[2]]), T = log.map(e => e[0]);
     const keep = new Array(P.length).fill(false); keep[0] = keep[P.length - 1] = true;
-    const segD = (q, a, b) => { const vx = b[0]-a[0], vz = b[1]-a[1], L2 = vx*vx + vz*vz || 1; const t = clamp(((q[0]-a[0])*vx + (q[1]-a[1])*vz)/L2, 0, 1); return Math.hypot(q[0] - (a[0]+vx*t), q[1] - (a[1]+vz*t)); };
-    const dp = (i, j) => { if (j - i < 2) return; let best = -1, bi = -1; for (let k = i + 1; k < j; k++){ const d = segD(P[k], P[i], P[j]); if (d > best){ best = d; bi = k; } } if (best > tol){ keep[bi] = true; dp(i, bi); dp(bi, j); } };
-    dp(0, P.length - 1);
+    /* the moment a man sets off, and the moment he stops, are kept: a stand followed by a run is not a slow walk */
+    const spd = log.map(e => Math.hypot(e[3], e[4]));
+    const pivot = new Array(P.length).fill(false);
+    for (let i = 1; i < P.length - 1; i++){ if ((spd[i] < 0.5 && spd[i + 1] >= 0.5) || (spd[i] >= 0.5 && spd[i + 1] < 0.5)){ keep[i] = true; pivot[i] = true; } }
+    /* the deviation is measured in space AND time (a man who ran then stood is not a man who jogged the whole way): the
+       point on the straight leg at the same moment must be within tol of where he really was */
+    const dp = (i, j) => { if (j - i < 2) return; let best = -1, bi = -1; const dt = Math.max(1e-6, T[j] - T[i]);
+      for (let k = i + 1; k < j; k++){ const f = (T[k] - T[i])/dt, qx = P[i][0] + (P[j][0] - P[i][0])*f, qz = P[i][1] + (P[j][1] - P[i][1])*f, d = Math.hypot(P[k][0] - qx, P[k][1] - qz); if (d > best){ best = d; bi = k; } }
+      if (best > tol){ keep[bi] = true; dp(i, bi); dp(bi, j); } };
+    { let last = 0; for (let i = 1; i < P.length; i++) if (keep[i]){ dp(last, i); last = i; } }
     let idx = []; keep.forEach((k, i) => { if (k) idx.push(i); });
-    /* one direction: a vertex whose next leg turns more than ~45 degrees from the one before is dropped, until none does */
-    for (let pass = 0; pass < 6; pass++){
-      const out = [idx[0]];
-      for (let n = 1; n < idx.length - 1; n++){
-        const a = P[out[out.length - 1]], b = P[idx[n]], c = P[idx[n + 1]];
-        const u = [b[0]-a[0], b[1]-a[1]], v = [c[0]-b[0], c[1]-b[1]], lu = Math.hypot(u[0], u[1]), lv = Math.hypot(v[0], v[1]);
-        if (lu > 0.3 && lv > 0.3 && (u[0]*v[0] + u[1]*v[1])/(lu*lv) < 0.7) continue;      // a leg that turns more than ~45 degrees from the one before is not a leg: one direction
-        out.push(idx[n]);
-      }
-      out.push(idx[idx.length - 1]); if (out.length === idx.length){ idx = out; break; } idx = out;
-    }
+    /* (no vertex is dropped for turning: the simulation itself holds each man to one direction per leg, and dropping
+       vertices would move men metres from where they really were) */
     /* resample along the straight legs */
     const res = []; let k = 0;
     for (let i = 0; i < log.length; i++){
@@ -600,7 +630,7 @@ const BOTS = (() => {
     return res;
   }
   function run(setup){
-    const S = { t: -setup.pre, players: setup.players, ball: setup.ballFrom.slice(), ballHist: [], lineZ0: setup.lineZ, ballZ0: setup.ballFrom[1], midZ: setup.midZ, wingerInside: false, jobs: {}, traits: setup.traits || {}, holder: null };
+    const S = { t: -setup.pre, players: setup.players, W: setup.W, lookUntil: setup.lookUntil, ball: setup.ballFrom.slice(), ballHist: [], lineZ0: setup.lineZ, ballZ0: setup.ballFrom[1], midZ: setup.midZ, wingerInside: false, jobs: {}, traits: setup.traits || {}, holder: null };
     const W = setup.W, from = setup.ballFrom, L = d2(from, W), T = ballT(L);
     S.players.forEach(q => { q.nextThink = S.t + Math.random()*0.2; });
     while (S.t < setup.post){
@@ -614,7 +644,7 @@ const BOTS = (() => {
        corrections (a marker edging round his man, a presser bending to the ball, a job that changed mid-look) are
        taken out of the tracks: each track is reduced to the few straight legs that explain it (a stand, a run, a
        change of mind at most once or twice over the clip), with no leg doubling back on the one before. */
-    S.players.forEach(q => { q.log = straighten(q.log, setup.straight === undefined ? 1.0 : setup.straight); });
+    S.players.forEach(q => { q.rawLog = q.log; q.log = straighten(q.log, setup.straight === undefined ? 0.7 : setup.straight); });
     return { players: S.players, at: (id, t) => { const lg = S.players.find(q => q.id === id).log; let best = lg[0]; for (const e of lg){ if (e[0] <= t) best = e; else break; } return { p: [best[1], best[2]], v: [best[3], best[4]] }; } };
   }
 
@@ -634,6 +664,7 @@ const BOTS = (() => {
         kind = 'run'; let lead = 4; const dir = sp > 0.5 ? [m.v[0]/sp, m.v[1]/sp] : (tg.dir || [0, -1]);
         for (let i = 0; i < 12; i++){ land = [m.p[0] + dir[0]*lead, m.p[1] + dir[1]*lead]; Tb = flight(d2(W, land), 'run'); const tr = runT(lead, Math.max(sp, 5.5), ACC) * 0.75; lead += (Tb - tr)*2.5; lead = clamp(lead, 2, 12); if (land[1] < -49.5) lead = Math.max(2, lead - 2); }
         land = [m.p[0] + dir[0]*lead, m.p[1] + dir[1]*lead]; Tb = flight(d2(W, land), 'run');
+        if (d2(W, land) > 26 && Math.abs(land[0] - W[0]) > 15){ Tb = flight(d2(W, land), 'switch'); lead = clamp(lead + 1.5, 2, 13); land = [m.p[0] + dir[0]*lead, m.p[1] + dir[1]*lead]; }   // a long ball in behind is lofted over the middle: it hangs, so it goes a touch further in front of him
       } else { kind = tg.wide ? 'switch' : 'feet'; const g = toward(m.p, W); land = [m.p[0] + g[0]*0.8 + m.v[0]*0.3, m.p[1] + g[1]*0.8 + m.v[1]*0.3]; Tb = flight(d2(W, land), kind); }
       const L = d2(W, land);
       if (!isFinite(Tb) || L > 44 || L < 7 || Math.abs(land[0]) > 33 || land[1] < -51){ out.push({ id: tg.id, label: tg.label, kind, tier: 0, land, why: 'not a ball he can play from here', margin: -9 }); continue; }
@@ -649,7 +680,8 @@ const BOTS = (() => {
         if (bestD === null || tD < bestD.t) bestD = { t: tD, id: d.id, role: d.role, dist: d2(dp.p, land) };
         /* the lane: a body within reach of the line of the ball while it passes him */
         const ax = land[0] - W[0], az = land[1] - W[1], rel = [dp.p[0] - W[0], dp.p[1] - W[1]], along = (rel[0]*ax + rel[1]*az)/(L*L);
-        if (along > 0.08 && along < 0.92 && kind !== 'switch'){ const px = W[0] + ax*along, pz = W[1] + az*along, off = d2(dp.p, [px, pz]);
+        const lofted = kind === 'switch' || (L > 26 && Math.abs(land[0] - W[0]) > 15);                                           // a lofted ball clears everyone but the men right on top of the kicker
+        if (along > 0.08 && along < 0.92 && (!lofted || d2(dp.p, W) < 6.5)){ const px = W[0] + ax*along, pz = W[1] + az*along, off = d2(dp.p, [px, pz]);
           const near = d2(dp.p, W) < 6.5, tPass = flight(along*L, kind);
           /* a man on top of the ball is beaten by a pass played past him unless he is dead on the line; anyone else cuts it
              if he can get a foot to the line of the ball before it passes (his reaction, then a run) */
@@ -750,7 +782,7 @@ function candidate(side, key){
   /* offside at the moment he plays it: a runner beyond their last man is no option */
   const defsAt = P.filter(q => q.team === 'opp' && q.role !== 'GK').map(q => R.at(q.id, T0).p[1]), offZ = Math.min(...defsAt);
   E.opts.forEach(o => { const m = R.at(o.id, T0); if (m.p[1] < offZ - 0.3){ if (E.best === o) E.best = null; o.tier = 0; o.why = 'offside: he was beyond their last man when you had to play it'; } });
-  window.__dbg = { E, at: P.map(q => ({ id: q.id, job: q.job, run: !!q.run, drop: !!q.drop, p0: R.at(q.id, 0).p.map(v=>+v.toFixed(1)), p1: R.at(q.id, T0).p.map(v=>+v.toFixed(1)) })), W: W.map(v=>+v.toFixed(1)), lineZ: +lineZ.toFixed(1) };
+  window.__R = R; window.__dbg = { E, at: P.map(q => ({ id: q.id, job: q.job, run: !!q.run, drop: !!q.drop, p0: R.at(q.id, 0).p.map(v=>+v.toFixed(1)), p1: R.at(q.id, T0).p.map(v=>+v.toFixed(1)) })), W: W.map(v=>+v.toFixed(1)), lineZ: +lineZ.toFixed(1) };
   if (!E.best) return null;
   const B = E.best, pat = PATTERN[B.id + '-' + B.kind]; if (!pat) return null;
   if (wantType && pat[0] !== wantType) return null;
@@ -826,16 +858,18 @@ function sceneOK(s){
     if (!must.every(p => inArc(p, s.lookDeg, ARC_SAFE) && Math.abs(s.wingX + p[0]) < 33.5)) return false;
   }
   /* and the man the ball is for is never hidden behind a defender nearer to him */
-  const ch = s.players.find(p => p.role === 'chosen');
+  const ch = s.players.find(p => p.role === 'chosen'); let hiddenN = 0;
   for (const t of [0, FLASH_S*0.25, FLASH_S*0.5, FLASH_S*0.75, FLASH_S]){
-    const c = at(ch, t), dc = Math.hypot(c[0], c[1]), bc = Math.atan2(c[1], c[0]);
+    const c = at(ch, t), dc = Math.hypot(c[0], c[1]), bc = Math.atan2(c[1], c[0]); let hidden = false;
     for (const q of s.players.filter(p => p.team === 'opp')){
       const o = at(q, t), dq = Math.hypot(o[0], o[1]);
       if (dq > dc + 1) continue;
       let d = Math.abs(Math.atan2(o[1], o[0]) - bc); if (d > Math.PI) d = 2*Math.PI - d;
-      if (d*180/Math.PI < Math.atan((dq < 8 ? 0.45 : 0.9)/dq)*180/Math.PI + (dq < 8 ? 0.5 : 1.2)) return false;
+      if (d*180/Math.PI < Math.atan((dq < 8 ? 0.25 : 0.9)/dq)*180/Math.PI + (dq < 8 ? 0 : 1.2)) hidden = true;   // a man close to him hides only what is dead behind him: a tilt of the head sees past
     }
+    if (hidden) hiddenN++;
   }
+  if (hiddenN > 3) return false;                                              // he must be clear for at least two of the five moments: a glimpse of a man running behind a tucked-in full-back is the point
   /* and no man of ours is ever lined up with a defender in his eyes: a marker hidden behind the 9 makes a
      covered man look free, a defender in front of him makes a free man look covered. Every pair of bodies
      is separated by at least a body's width, through the whole look */
@@ -876,7 +910,7 @@ function ownSpaced(s){
 }
 function makeScene(side, key){
   let last = null;
-  for (let i = 0; i < 400; i++){ const s = candidate(side, key); if (s && sceneOK(s)) return s; if (s) last = s; }
+  for (let i = 0; i < 1200; i++){ const s = candidate(side, key); if (s && sceneOK(s)) return s; if (s) last = s; }
   for (let i = 0; i < 400; i++){ const s = candidate(side, null); if (s && sceneOK(s)) return s; if (s) last = s; }   // any clear picture
   return last;
 }
