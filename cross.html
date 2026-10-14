@@ -4,7 +4,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="Winger">
-<title>Byline — winger crossing trainer</title>
+<title>Byline 2.0 — winger crossing, played</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
@@ -182,7 +182,7 @@ a.iconbtn{text-decoration:none;display:inline-flex;align-items:center;white-spac
       <button data-side="alt" aria-pressed="false">Both</button>
     </div>
     <button class="cta" id="start">Start session</button>
-    <p class="note">16 reps, about six minutes. Half a second of live play, then pick where the first touch goes. Read his distance, which way he is moving, and where the grass is.</p>
+    <p class="note">16 reps, about six minutes. Half a second of live play, then pick where the first touch goes. Read his distance, which way he is moving, and where the grass is.<br><br><b>2.0:</b> nobody is posed from the answer. Each marker decides for himself whether he stays with his man or gets drawn to the ball and loses him; who is free is read off that.</p>
   </div>
 
   <div id="panelAsk" class="hide">
@@ -231,7 +231,7 @@ const CFG = {
 };
 
 /* ---------------- storage ---------------- */
-const KEY = 'shoulder:scan:v2';
+const KEY = 'cross:v2';
 let stats = { L:{pts:0,max:0}, R:{pts:0,max:0}, side:'R' };
 async function loadStats(){
   try{
@@ -426,8 +426,14 @@ function buildCandidate(side, answer){
      good cross; on a phone screen at twenty-five metres that is invisible. The
      free man is given a gap you cannot miss, and the marked men are glued. */
   const freeLag = { near:[4.5,6.5], cut:[5.0,7.0], far:[5.5,7.5] };
+  /* 2.0: each marker decides for himself. Most stay with their man; one in three gets drawn to the ball or drops and
+     loses him. Who is free is read off that - nobody, or one man; two men free at once is thrown away as no single read */
+  const beaten = {}; keys.forEach(k => beaten[k] = Math.random() < 0.3);
+  const nB = keys.filter(k => beaten[k]).length; if (nB > 1) return null;
+  const freeK = nB ? keys.find(k => beaten[k]) : 'none';
+  if (answer && freeK !== answer) return null;
   keys.forEach(k => {
-    const free = (t.free === k);
+    const free = beaten[k];
     lag[k]      = free ? rand(freeLag[k][0], freeLag[k][1]) : rand(1.0, 2.0);
     mDest[k]    = free ? wrongWay[k]() : dest[k];
     /* A beaten man is flat-footed or turning, not still sprinting \u2014 leaving him
@@ -476,8 +482,8 @@ function buildCandidate(side, answer){
         const q = W(rand(-8, 6), rand(-50.5, -45.5));
         const clearOfRunners = ['near','cut','far']
           .every(r => Math.hypot(q[0]-runner[r][0], q[1]-runner[r][1]) > 4.0);
-        const clearOfOpenLane = t.free === 'none' ||
-          distToSeg(q, [0,0], runner[t.free]) > 4.0;
+        const clearOfOpenLane = freeK === 'none' ||
+          distToSeg(q, [0,0], runner[freeK]) > 4.0;
         if (clearOfRunners && clearOfOpenLane) return q;
       }
       return W(7.5, -45);
@@ -485,8 +491,8 @@ function buildCandidate(side, answer){
 
   return {
     side, wingX, zBase,
-    free: t.free, runner, marker, dest, pace, mDest, mPace, sep, lag, clear:{},
-    keeperAt, extras, toOff: W, intended: answer
+    free: freeK, runner, marker, dest, pace, mDest, mPace, sep, lag, clear:{},
+    keeperAt, extras, toOff: W, intended: freeK, bots: true
   };
 }
 
@@ -582,8 +588,8 @@ function obvious(sc){
 
 function makeScene(side, answer){
   let last = null;
-  for (let attempt = 0; attempt < 250; attempt++){
-    const sc = buildCandidate(side, answer);
+  for (let attempt = 0; attempt < 2500; attempt++){
+    const sc = buildCandidate(side, answer); if (!sc) continue;
     if (obvious(sc) && onPitch(sc) && unobstructed(sc)) return sc;
     last = sc;
   }
