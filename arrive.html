@@ -1051,8 +1051,16 @@ function buildCandidate(side, answer, Wf, Rf){
      their full-back whether to stay on your runner or step in, and their keeper takes up his own position on the angle,
      well set or a step too far across. The finish is read off what they did; a picture with two men stepping out, or a
      keeper neither set nor beaten, is thrown away. */
-  const cbSteps = Math.random() < 0.3, lbSteps = Math.random() < 0.3, kOff = rand(-1.3, 0.5);
-  if (cbSteps && lbSteps) return null;
+  JDP.reset();
+  const men = { cb: JDP.man(), lb: JDP.man() };
+  /* the man closing you: set on you about 2 m off (nobody else needs to jump), or still 3-4 m away sprinting in. Only in the
+     second case does a defender step out of the line at you - and by the doctrine he does it only when his man is covered
+     (permuta). Stepping out and leaving the 9, or the runner, is the lapse the review names. */
+  const pressClose = Math.random() < 0.5;
+  const cbSteps = !pressClose && men.cb.lapse && men.cb.keen > 0.3, lbSteps = !pressClose && !cbSteps && men.lb.lapse && men.lb.keen > 0.3, kOff = rand(-1.3, 0.5);
+  if (cbSteps) JDP.why.push({ who: 'their centre-back', text: 'stepped out at you and left your 9 with nobody on him' });
+  if (lbSteps) JDP.why.push({ who: 'their full-back', text: 'stepped in at you and left your runner free down the side' });
+  const why = JDP.why.slice();
   const on = cbSteps ? 'square' : lbSteps ? 'reverse' : kOff <= -0.9 ? 'near' : kOff >= 0 ? 'far' : null;
   if (!on || (answer && on !== answer)) return null;
   if ((on === 'square' || on === 'reverse') && (kOff < -0.15 || kOff > 0.3)) return null;   // with the shot blocked, the keeper's step does not make the rep
@@ -1117,7 +1125,7 @@ function buildCandidate(side, answer, Wf, Rf){
   /* when the shot is on, either he is still 3-4.5 m off and sprinting, coming from the shut
      side (not set: shoot before he gets there), or he is set about 2 m off you but off the
      line (one touch out of his lunge, then shoot) */
-  const press = shotOn ? (Math.random() < 0.5 ? 'early' : 'shift') : 'block';
+  const press = shotOn ? (pressClose ? 'shift' : 'early') : 'block';
   const sgn = press === 'early' ? (on === 'far' ? 1 : -1) : (Math.random() < 0.5 ? 1 : -1);
   const pd = press === 'early' ? rand(3.0, 4.5) : press === 'shift' ? rand(1.7, 2.3) : rand(3.2, 4.2);
   const pa = press === 'early' ? sgn*rand(0.05, 0.4)
@@ -1149,7 +1157,7 @@ function buildCandidate(side, answer, Wf, Rf){
     blocker: on === 'square' ? 'cbA' : on === 'reverse' ? 'lb' : null,
     from: Object.fromEntries(Object.entries(from).map(([k, p]) => [k, O(p)])), sgn,
     press, screen: shotOn ? 'cbB' : null, cmScreen, posts: [O([ZONE.post, ZONE.goalZ]), O([-ZONE.post, ZONE.goalZ])],
-    intended: on, bots: true
+    intended: on, why, bots: true
   };
 }
 
@@ -1283,7 +1291,7 @@ function scoreScene(s){
   }
   const list = OPTIONS.map(o => {
     const tier = o.id === s.on ? 3 : 0;
-    return { id: o.id, label: o.label, tier, v: 1 + tier, why: [tier ? ON[o.id] : OFF[o.id]] };
+    return { id: o.id, label: o.label, tier, v: 1 + tier, why: [tier ? ON[o.id] + (s.why && s.why.length ? ' The lapse: ' + s.why.map(w => w.who + ' ' + w.text).join('; ') + '.' : '') : OFF[o.id]] };
   });
   list.sort((a, b) => b.tier - a.tier);
   return list;
