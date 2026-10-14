@@ -4,7 +4,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="Winger">
-<title>Nine — striker and false 9, juego de posición</title>
+<title>Nine 2.0 — striker and false 9, played</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
@@ -222,7 +222,7 @@ a.iconbtn{text-decoration:none;display:inline-flex;align-items:center;white-spac
       <button data-mode="test" aria-pressed="false">Test</button>
     </div>
     <button class="cta" id="start">Start session</button>
-    <p class="note">16 reps, about five minutes. You are the <b>centre-forward</b> of a 4-3-3, and each rep tells you which one: the <b>striker</b> or the <b>false 9</b>. Spanish positional play (<i>juego de posici&oacute;n</i>) cuts the pitch into <b>five lanes</b> and puts players in different lanes and at different heights: no more than two team-mates in a lane, no more than three on a line. A few seconds of play, then it freezes as the last pass is struck: tap where you should be, and run there.<br><br><b>We have it, as the striker</b> &mdash; on their last line, in the middle, up against their centre-backs: pin them (<i>fijar a los centrales</i>) and stay onside for the run in behind.<br><b>We have it, as the false 9</b> &mdash; come off their centre-backs into the gap between their midfield and back line, in the middle (<i>falso nueve</i>). Your wingers start wide, ready to run in behind if a centre-back follows you.<br><b>They have it</b> &mdash; you are the front of the block, the highest man in the middle: in our block, screen the pass into their 6 (<i>tapar al pivote</i>); when we press high, press the centre-back who gets it.<br><b>We just lost it</b> &mdash; the ball near you: press it. Away from you: do not chase it, shut the pass to the man nearest you (<i>presi&oacute;n tras p&eacute;rdida</i>).<br><br><b>Learn</b> paints the lanes on the grass and shows everyone on the map when you tap. <b>Test</b> takes all of that away.</p></p></p></p>
+    <p class="note">16 reps, about five minutes. You are the <b>centre-forward</b> of a 4-3-3, and each rep tells you which one: the <b>striker</b> or the <b>false 9</b>. Spanish positional play (<i>juego de posici&oacute;n</i>) cuts the pitch into <b>five lanes</b> and puts players in different lanes and at different heights: no more than two team-mates in a lane, no more than three on a line. A few seconds of play, then it freezes as the last pass is struck: tap where you should be, and run there.<br><br><b>We have it, as the striker</b> &mdash; on their last line, in the middle, up against their centre-backs: pin them (<i>fijar a los centrales</i>) and stay onside for the run in behind.<br><b>We have it, as the false 9</b> &mdash; come off their centre-backs into the gap between their midfield and back line, in the middle (<i>falso nueve</i>). Your wingers start wide, ready to run in behind if a centre-back follows you.<br><b>They have it</b> &mdash; you are the front of the block, the highest man in the middle: in our block, screen the pass into their 6 (<i>tapar al pivote</i>); when we press high, press the centre-back who gets it.<br><b>We just lost it</b> &mdash; the ball near you: press it. Away from you: do not chase it, shut the pass to the man nearest you (<i>presi&oacute;n tras p&eacute;rdida</i>).<br><br><b>2.0:</b> the passes are not steered to the answer any more. Who is on the ball and what he sees on is drawn fresh, and the men on the ball play what is there. The principle is read off the picture, not the other way round.<br><br><b>Learn</b> paints the lanes on the grass and shows everyone on the map when you tap. <b>Test</b> takes all of that away.</p></p></p></p>
   </div>
 
   <div id="panelAsk" class="hide">
@@ -285,7 +285,7 @@ const CFG = {
 };
 
 /* ---------------- storage ---------------- */
-const KEY = 'nine:v1';
+const KEY = 'nine:v2';
 let stats = { L:{pts:0,max:0}, R:{pts:0,max:0}, side:'alt' };
 async function loadStats(){
   try{
@@ -534,7 +534,9 @@ function chain(phase, D, holder, n, finals, jit, opt){
       if (L < PASS_MIN || L > PASS_MAX) return;
       if (!laneClear(h.at, c.at, phase === 'att' ? h.sh.opp : h.sh.own)) return;
       const fwd = (phase === 'att' ? h.at[1] - c.at[1] : c.at[1] - h.at[1]);
-      opts.push({ r, c, L, w: fwd > 4 ? 2.5 : fwd > -4 ? 1.5 : 0.7 });  // mostly forward or across, sometimes back
+      /* 2.0: the man on the ball plays what is on - forward when he can, and to the free man */
+      const them = phase === 'att' ? h.sh.opp : h.sh.own; let near = 99; for (const k in them) near = Math.min(near, d2(them[k], c.at));
+      opts.push({ r, c, L, w: (fwd > 4 ? 2.5 : fwd > -4 ? 1.5 : 0.7)*clamp(near/4, 0.25, 2.5) });
     });
     if (!opts.length) return null;
     const o = pickW(opts);
@@ -549,11 +551,19 @@ function candidate(side, key){
   const turn = key === 'turnover';
   let solved, kind = key, extra = {};
   if (!turn){
-    const phase = key.startsWith('def') ? 'def' : 'att';
-    const D = phase === 'att' ? rand(-8, 8) : key === 'defPress' ? rand(-26, -18) : rand(-16, 4);
-    const holders = phase === 'att' ? ['LCB', 'RCB', 'LB', 'RB', 'S6', 'L8', 'R8'] : key === 'defPress' ? ['TB1', 'TB4', 'TGK', 'TM2', 'TM3'] : ['TB1', 'TB4', 'TM1', 'TM2', 'TM3', 'TM4'];
-    solved = chain(phase, D, pickOne(holders), 3, FINAL[key], jit, key === 'defPress' ? { high: true } : null);
+    /* 2.0: the bag asks only for the role (striker or false 9) and the situation (we have it; they have it in our
+       block, or under our high press). The men on the ball pick what is on, and the principle - the ball wide or
+       central, their centre-back under a screen or a press - is read off the picture that results. */
+    const phase = key.startsWith('def') ? 'def' : 'att', role = key.startsWith('f9') ? 'f9' : 'st';
+    const high = key === 'defPress';
+    const D = phase === 'att' ? rand(-8, 8) : high ? rand(-26, -18) : rand(-16, 4);
+    const holders = phase === 'att' ? ['LCB', 'RCB', 'LB', 'RB', 'S6', 'L8', 'R8'] : high ? ['TB1', 'TB4', 'TGK', 'TM2', 'TM3'] : ['TB1', 'TB4', 'TM1', 'TM2', 'TM3', 'TM4'];
+    solved = chain(phase, D, pickOne(holders), 3, null, jit, high ? { high: true } : null);
     if (!solved) return null;
+    const last = solved[solved.length - 1].role;
+    kind = phase === 'att' ? (FINAL.stWide.includes(last) ? role + 'Wide' : FINAL.stCentral.includes(last) ? role + 'Central' : null)
+         : (FINAL.defScreen.includes(last) ? (high ? 'defPress' : 'defScreen') : null);
+    if (!kind || kind !== key) return null;
   } else {
     /* we have it, one pass goes in, the next is cut out; they play one pass. Freeze. */
     const D = rand(-10, 6);
@@ -987,7 +997,7 @@ function sceneOK(s){
 function makeScene(side, key){
   if (!BAG_COUNT[key]) key = 'stCentral';
   const turn = key.startsWith('turn');
-  for (let i = 0; i < (turn ? 1500 : 900); i++){ const s = candidate(side, turn ? 'turnover' : key);
+  for (let i = 0; i < (turn ? 1500 : key.startsWith('def') ? 4000 : 1500); i++){ const s = candidate(side, turn ? 'turnover' : key);
     if (turn && s && (key === 'turnPress' ? !(d2(s.start, s.extra.recv) < 15 && s.extra.recv[0] > 6) : d2(s.start, s.extra.recv) < 13)) continue;
     if (sceneOK(s) && (!turn || s.kind === key)) return s; }
   if (key !== 'stCentral') return makeScene(side, 'stCentral');
