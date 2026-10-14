@@ -729,13 +729,20 @@ function candidate(side, key){
     const track = []; for (let tt = 0; tt <= T0 + 1e-6; tt += 0.05){ const r = R.at(q.id, tt); track.push([tt, ...O(r.p)]); }
     return { team: q.team, role: q.id === B.id ? 'chosen' : q.id, end: O(b.p), vel: v, tag, track, state: opt ? (opt.tier === 3 ? 'best' : opt.tier === 1 ? (opt.danger >= 0.6 ? 'work' : 'workwide') : 'shut') : null, /* a wide ball that is merely on need not be in his look */ run: sp > 3.0 || !!q.run, laneCut: false }; });
   const opts = E.opts.map(o => ({ role: o.id, label: LABEL[o.id][o.kind] || LABEL[o.id].feet, tier: o.tier, at: O(o.land), why: o.why, lofted: o.kind === 'switch' }));
-  /* his eyes: on the men who matter */
+  /* his eyes: on the picture, not on the answer. A winger who has cut inside looks at the goal and the men in the middle -
+     the 9, the 10 - with the wide men at the edges of the picture. The ball that is on only has to be inside that look,
+     never its centre: a look aimed at a wing-back on the touchline is a look at the corner flag. */
   const bear = p => Math.atan2(p[1] - W[1], p[0] - W[0])*180/Math.PI;
-  /* centred on the ball that is on and the men who are live; the rest of our shape only if it fits */
+  const arc = (typeof ARC_SAFE === 'number' ? ARC_SAFE : 40) - 4;
+  const core = [[0, -50], R.at('N9', T0).p, R.at('N10', T0).p];                              // the goal, the 9, the 10: the heart of the picture
+  const ref = bear(core[0]), rel = b => ((b - ref + 540) % 360) - 180;
+  const rc = core.map(q => rel(bear(q)));
+  let look = ref + (Math.max(...rc) + Math.min(...rc))/2;
+  /* the ball that is on, and every man who is live, must sit inside the look: swing it the least that does that */
   const liveIds = E.opts.filter(o => o.tier === 3 || (o.tier === 1 && o.danger >= 0.6)).map(o => o.id);
-  const keyPts = [B.land, R.at(B.id, T0).p, ...P.filter(q => q.team === 'own' && liveIds.includes(q.id)).map(q => R.at(q.id, T0).p)];
-  const edges = keyPts.map(bear), ref = edges[0], rel = edges.map(b => ((b - ref + 540) % 360) - 180);
-  const look = ref + (Math.max(...rel) + Math.min(...rel))/2;
+  const need = [[0, -50], B.land, R.at(B.id, T0).p, ...P.filter(q => q.team === 'own' && liveIds.includes(q.id)).map(q => R.at(q.id, T0).p)].map(q => rel(bear(q)));   // the goal is always in the picture
+  const lo = Math.min(...need), hi = Math.max(...need), lk = rel(look);
+  if (hi - lo <= 2*arc){ if (hi > lk + arc) look = ref + hi - arc; else if (lo < lk - arc) look = ref + lo + arc; }
   return { side, view: 'wing', type: pat[0], key: pat[0] + '-wing', wingX: W[0], zBase: W[1], lookDeg: (look + 360) % 360, lineZ, midZ, deep,
            players, opts, target: O(B.land), runnerAt: O(R.at(B.id, T0).p), title: pat[1], why: WHY[pat[0]],
            recv: [0, 0], passerAt: [0, 0], intended: pat[0] + '-wing', bots: true };
