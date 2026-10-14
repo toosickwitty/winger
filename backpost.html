@@ -199,7 +199,7 @@ a.iconbtn{text-decoration:none;display:inline-flex;align-items:center;white-spac
       <button data-side="alt" aria-pressed="false">Both</button>
     </div>
     <button class="cta" id="start">Start session</button>
-    <p class="note">16 reps, about six minutes. The ball is on the far wing, about to be crossed, and you are the far winger jogging into the box. Read two things. Where is the crosser? At the byline, the ball comes back &mdash; hold the edge of the box. Out wide, it gets whipped in &mdash; so where is their full-back on you? Tucked in, watching the ball: arrive behind him at the back post. Tight and goal-side: step in front of him into the middle of the goal.<br><br><b>2.0:</b> nobody is posed from the answer. Where the cross comes from, whether their full-back watches the ball, stays on you or drops onto the six, whether their centre-back holds the middle or gets dragged near post, whether their holding man covers the edge: all drawn as habits, and the arrival is read off where the room is.</p>
+    <p class="note">16 reps, about six minutes. The ball is on the far wing, about to be crossed, and you are the far winger jogging into the box. Read two things. Where is the crosser? At the byline, the ball comes back &mdash; hold the edge of the box. Out wide, it gets whipped in &mdash; so where is their full-back on you? Tucked in, watching the ball: arrive behind him at the back post. Tight and goal-side: step in front of him into the middle of the goal.<br><br><b>2.0:</b> nobody is posed from the answer. Their line starts from the doctrine: on a byline cross everyone drops onto the six-yard box; on a deep cross the line holds, the full-back goal-side of you, the centre-back in the middle, the holding man on the edge. The room comes from a man who is late or ball-watching, and the review names him.</p>
   </div>
 
   <div id="panelAsk" class="hide">
@@ -368,15 +368,122 @@ function newBag(){
 }
 function recvPoint(answer, s){ return s.target[answer] || s.target.back; }
 
+/* ===================== JDP: the doctrine every bot starts from =====================
+   Both sides play a 4-3-3. Ours attacks with juego de posición; theirs defends as a zonal block that slides with the
+   ball. Every decision a bot makes in a drill starts here, as a principle with a trigger; personality (reaction time,
+   pace, keenness) and the occasional lapse are noise on top, never the rule. Where a man breaks a principle the
+   generator records it (JDP.why) so the review can name it.
+
+   Principles encoded
+   ours (JdP)      five lanes, two per lane, three per line, staggered heights; amplitud (wingers on the touchline) and
+                   profundidad (the 9 pins the centre-backs); the full-back overlaps only past a winger who has come
+                   inside, or following his own pass down the line (pass and go); the 9 drops only when both
+                   centre-backs are tight on him and an 8 is high enough to run beyond; a receiver with his back to goal
+                   and a man on him needs a support angle and a runner; a free man facing play needs nobody.
+   theirs (block)  basculación: the back four slides with the ball; the near full-back stays goal-side of a winger on his
+                   touchline, the far full-back tucks in; a centre-back passes a dropping 9 on to the 6 if the 6 is
+                   screening, and goes with him only if nobody covers the zone; the 6 presses on a trigger (the ball is
+                   coming to a man facing him within ~8 m, a back pass, a slow pass) and otherwise screens between the
+                   lines; the 8 marks zonally: tight on a man in his zone, holding his line otherwise; permuta: when one
+                   man jumps the nearest covers behind him, and two men do not jump at once; marking distance follows
+                   the ball (tight when it is close, looser the longer the pass); on a byline cross the whole line drops
+                   onto the six-yard box, on a deep cross it holds and the men who lose their man are the ball-watchers. */
+const JDP = (() => {
+  const rand = (a, b) => a + Math.random()*(b - a), clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+  /* a man: how quick he reads, how fast he runs, how keen he is to jump, and whether he is prone to ball-watching */
+  const man = (o) => Object.assign({ react: rand(0.2, 0.6), v: rand(5.4, 6.2), keen: Math.random(), lapse: Math.random() < 0.18 }, o || {});
+  const why = [];
+  const note = (who, text) => { why.push({ who, text }); return text; };
+  const reset = () => { why.length = 0; };
+
+  /* ---- their back four ---- */
+  /* the near full-back with a winger on his touchline and the ball on his side: goal-side of him ('wide'). The ball on
+     the far side, or no wide man to hold him: tuck in ('tuck'). Tucking in with the ball on his side is ball-watching. */
+  function fullBack({ ballNear, wideMan, m }){
+    if (!wideMan) return 'tuck';
+    if (!ballNear) return 'tuck';
+    if (m.lapse){ note('their full-back', 'tucked in to watch the ball with a winger on his touchline and the ball on his side: ball-watching'); return 'tuck'; }
+    return 'wide';
+  }
+  /* the centre-back and a dropping 9: pass him on if the 6 is screening the zone he drops into; go with him if nobody
+     covers it. Following when the 6 has it covered leaves the gap for nothing; holding when nobody covers leaves the
+     9 free between the lines. */
+  function centreBack({ nineDrops, sixScreens, m }){
+    if (!nineDrops) return 'hold';
+    if (sixScreens){ if (m.lapse && m.keen > 0.5){ note('their centre-back', 'followed the 9 out although his 6 had the zone: the gap he left was for nothing'); return 'follow'; } return 'hold'; }
+    if (m.lapse && m.keen < 0.5){ note('their centre-back', 'let the 9 drop off him with nobody covering: a man free between the lines'); return 'hold'; }
+    return 'follow';
+  }
+  /* the 6: presses when the trigger is there - a ball coming to a man within reach who will face him (a first man
+     facing forward, a back pass, a slow pass) - otherwise screens the pocket between the lines; a man standing in his
+     zone with the ball near gets him tight ('onyou'). */
+  function six({ triggerDist, facing, manInZone, m }){
+    const reach = 8 + 2*m.keen;
+    if (facing && triggerDist <= reach) return 'press';
+    if (manInZone) return 'onyou';
+    if (facing && triggerDist <= reach + 3 && m.lapse && m.keen > 0.6){ note('their 6', 'jumped to press from too far out and left the pocket behind him'); return 'press'; }
+    return 'sit';
+  }
+  /* the 8: zonal marking - tight on a man who comes into his zone, holding the line otherwise */
+  function eight({ manInZone, m }){
+    if (manInZone){ if (m.lapse){ note('their 8', 'let the second man drop into his zone without going with him'); return 'zonal'; } return 'mark'; }
+    return 'zonal';
+  }
+  /* marking distance follows the ball: tight when it is close, looser the longer the pass (a man 25 m from the ball
+     need not be on his man's back). Keen men sit tighter, lazy men looser. */
+  function markDistance(passLen, m){
+    const base = clamp(passLen*0.28 - 1.5 + (0.5 - m.keen)*3, 1.2, 15);
+    return clamp(base*rand(0.8, 1.25), 1.2, 15);
+  }
+  /* permuta: of the men who want to jump, one goes (the keenest), the rest cover */
+  function permuta(candidates){
+    const go = candidates.filter(c => c.wants);
+    if (!go.length) return null;
+    go.sort((a, b) => b.m.keen - a.m.keen);
+    return go[0].id;
+  }
+  /* the box on a cross: byline -> everyone drops onto the six-yard box; deep -> the line holds, and a lapse is a
+     ball-watcher who loses his man */
+  function crossLine({ byline, m }){
+    if (byline) return m.lapse ? 'late' : 'six';
+    return m.lapse ? 'watch' : 'hold';
+  }
+  /* ---- ours ---- */
+  /* the full-back overlaps past a winger who has come inside, or follows his own pass down the line; never past a
+     winger who is holding the touchline with the ball elsewhere (two in a lane) */
+  function overlap({ wingerInside, justPassed }){
+    if (wingerInside) return Math.random() < 0.75;
+    if (justPassed) return Math.random() < 0.5;
+    return false;
+  }
+  /* the 9 drops off the line only when both centre-backs are tight on him and an 8 is high enough to run beyond */
+  function nineDrops({ cbsTight, eightHigh }){ return cbsTight && eightHigh && Math.random() < 0.8; }
+  return { man, why, reset, fullBack, centreBack, six, eight, markDistance, permuta, crossLine, overlap, nineDrops, rand, clamp };
+})();
+
 function buildCandidate(side, answer){
   /* 2.0: nobody is posed from the answer. The cross comes from the byline or from deep (the crosser's situation);
      their full-back watches the ball or stays on you or drops onto the six, their far centre-back holds the middle,
      gets dragged near post or drops, their holding man covers the edge or drops. Each man by his habits, and the
      arrival is read off where the room is; a picture with no single room, or two, is thrown away. */
   const byline = Math.random() < 0.35;
-  const H = { lb: byline ? (Math.random() < 0.75 ? 'six' : 'tuck') : (Math.random() < 0.5 ? 'tuck' : 'onhim'),
-              cb: byline ? (Math.random() < 0.75 ? 'six' : 'centre') : (Math.random() < 0.55 ? 'centre' : 'near'),
-              dm: byline ? (Math.random() < 0.7 ? 'six' : 'edge') : (Math.random() < 0.8 ? 'edge' : 'six') };
+  /* by the doctrine (JDP.crossLine): on a byline cross the whole line drops onto the six-yard box (a man who is late is
+     still where he was); on a deep cross the line holds - the full-back goal-side of you, the centre-back in the middle,
+     the holding man on the edge - and a lapse is a ball-watcher: the full-back tucks in to watch it, the centre-back is
+     dragged to the near post with the 9, the holding man drops in. */
+  JDP.reset();
+  const men = { lb: JDP.man(), cb: JDP.man(), dm: JDP.man() };
+  const c = { lb: JDP.crossLine({ byline, m: men.lb }), cb: JDP.crossLine({ byline, m: men.cb }), dm: JDP.crossLine({ byline, m: men.dm }) };
+  const H = { lb: c.lb === 'six' ? 'six' : c.lb === 'late' ? 'tuck' : c.lb === 'hold' ? 'onhim' : 'tuck',
+              cb: c.cb === 'six' ? 'six' : c.cb === 'late' ? 'centre' : c.cb === 'hold' ? 'centre' : 'near',
+              dm: c.dm === 'six' ? 'six' : c.dm === 'late' ? 'edge' : c.dm === 'hold' ? 'edge' : 'six' };
+  if (c.lb === 'watch') JDP.why.push({ who: 'their full-back', text: 'tucked in to watch the ball and let you off his shoulder' });
+  if (c.lb === 'late') JDP.why.push({ who: 'their full-back', text: 'was late dropping onto the six with the rest of the line' });
+  if (c.cb === 'watch') JDP.why.push({ who: 'their centre-back', text: 'was dragged to the near post with your 9 and left the middle' });
+  if (c.cb === 'late') JDP.why.push({ who: 'their centre-back', text: 'was late dropping with the line' });
+  if (c.dm === 'watch') JDP.why.push({ who: 'their holding man', text: 'dropped into the box and left the edge' });
+  if (c.dm === 'late') JDP.why.push({ who: 'their holding man', text: 'was late dropping with the line and left the edge' });
+  const why = JDP.why.slice();
   let on = null;
   const W = [rand(15, 19), rand(-40.5, -38)];               // arriving on his side of the box
   const R = [W[0] + rand(3.5, 4.5), W[1] + rand(1.5, 2.5)];  // where his jog in began
@@ -423,7 +530,7 @@ function buildCandidate(side, answer){
     if (free.length !== 1) return null;
     on = free[0]; if (answer && on !== answer) return null; }
   return {
-    side, wingX: W[0], zBase: W[1], on, byline, habits: H, bots: true,
+    side, wingX: W[0], zBase: W[1], on, byline, habits: H, why, bots: true,
     recv: O(R), passerAt: O(C),
     crosser: O(C), nine: O(nine), eight: O(eight),
     target: { back: O(T.back), centre: O(T.centre), edge: O(T.edge) },
@@ -492,7 +599,7 @@ function scoreScene(s){
   };
   const list = OPTIONS.map(o => {
     const tier = o.id === s.on ? 3 : 0;
-    return { id: o.id, label: o.label, tier, v: 1 + tier, why: [tier ? ON[o.id] : OFF[o.id]] };
+    return { id: o.id, label: o.label, tier, v: 1 + tier, why: [tier ? ON[o.id] + (s.why && s.why.length ? ' The lapse: ' + s.why.map(w => w.who + ' ' + w.text).join('; ') + '.' : '') : OFF[o.id]] };
   });
   list.sort((a, b) => b.tier - a.tier);
   return list;
