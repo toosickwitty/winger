@@ -570,6 +570,35 @@ const BOTS = (() => {
   }
 
   /* run from -pre to +post seconds around the moment the ball reaches him (t = 0) */
+  function straighten(log, tol){
+    if (!log || log.length < 3 || !tol) return log;
+    const P = log.map(e => [e[1], e[2]]), T = log.map(e => e[0]);
+    const keep = new Array(P.length).fill(false); keep[0] = keep[P.length - 1] = true;
+    const segD = (q, a, b) => { const vx = b[0]-a[0], vz = b[1]-a[1], L2 = vx*vx + vz*vz || 1; const t = clamp(((q[0]-a[0])*vx + (q[1]-a[1])*vz)/L2, 0, 1); return Math.hypot(q[0] - (a[0]+vx*t), q[1] - (a[1]+vz*t)); };
+    const dp = (i, j) => { if (j - i < 2) return; let best = -1, bi = -1; for (let k = i + 1; k < j; k++){ const d = segD(P[k], P[i], P[j]); if (d > best){ best = d; bi = k; } } if (best > tol){ keep[bi] = true; dp(i, bi); dp(bi, j); } };
+    dp(0, P.length - 1);
+    let idx = []; keep.forEach((k, i) => { if (k) idx.push(i); });
+    /* one direction: a vertex whose next leg turns more than ~45 degrees from the one before is dropped, until none does */
+    for (let pass = 0; pass < 6; pass++){
+      const out = [idx[0]];
+      for (let n = 1; n < idx.length - 1; n++){
+        const a = P[out[out.length - 1]], b = P[idx[n]], c = P[idx[n + 1]];
+        const u = [b[0]-a[0], b[1]-a[1]], v = [c[0]-b[0], c[1]-b[1]], lu = Math.hypot(u[0], u[1]), lv = Math.hypot(v[0], v[1]);
+        if (lu > 0.3 && lv > 0.3 && (u[0]*v[0] + u[1]*v[1])/(lu*lv) < 0.7) continue;      // a leg that turns more than ~45 degrees from the one before is not a leg: one direction
+        out.push(idx[n]);
+      }
+      out.push(idx[idx.length - 1]); if (out.length === idx.length){ idx = out; break; } idx = out;
+    }
+    /* resample along the straight legs */
+    const res = []; let k = 0;
+    for (let i = 0; i < log.length; i++){
+      const t = T[i]; while (k < idx.length - 2 && T[idx[k + 1]] <= t) k++;
+      const i0 = idx[k], i1 = idx[k + 1], dt = Math.max(1e-6, T[i1] - T[i0]), f = clamp((t - T[i0])/dt, 0, 1);
+      const vx = (P[i1][0] - P[i0][0])/dt, vz = (P[i1][1] - P[i0][1])/dt;
+      res.push([t, P[i0][0] + (P[i1][0] - P[i0][0])*f, P[i0][1] + (P[i1][1] - P[i0][1])*f, vx, vz]);
+    }
+    return res;
+  }
   function run(setup){
     const S = { t: -setup.pre, players: setup.players, ball: setup.ballFrom.slice(), ballHist: [], lineZ0: setup.lineZ, ballZ0: setup.ballFrom[1], midZ: setup.midZ, wingerInside: false, jobs: {}, traits: setup.traits || {}, holder: null };
     const W = setup.W, from = setup.ballFrom, L = d2(from, W), T = ballT(L);
@@ -581,6 +610,11 @@ const BOTS = (() => {
       S.wingerInside = S.t >= (setup.insideAt === undefined ? -setup.pre + 0.3 : setup.insideAt);   // he has cut in: everyone can see it
       step(S);
     }
+    /* what he sees is simple: every man picks a direction from his incentives and holds it. The simulation's small
+       corrections (a marker edging round his man, a presser bending to the ball, a job that changed mid-look) are
+       taken out of the tracks: each track is reduced to the few straight legs that explain it (a stand, a run, a
+       change of mind at most once or twice over the clip), with no leg doubling back on the one before. */
+    S.players.forEach(q => { q.log = straighten(q.log, setup.straight === undefined ? 1.0 : setup.straight); });
     return { players: S.players, at: (id, t) => { const lg = S.players.find(q => q.id === id).log; let best = lg[0]; for (const e of lg){ if (e[0] <= t) best = e; else break; } return { p: [best[1], best[2]], v: [best[3], best[4]] }; } };
   }
 
