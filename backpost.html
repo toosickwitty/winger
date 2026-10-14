@@ -4,7 +4,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="Winger">
-<title>Back Post — far-post arrival trainer</title>
+<title>Back Post 2.0 — far-post arrival, played</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
@@ -199,7 +199,7 @@ a.iconbtn{text-decoration:none;display:inline-flex;align-items:center;white-spac
       <button data-side="alt" aria-pressed="false">Both</button>
     </div>
     <button class="cta" id="start">Start session</button>
-    <p class="note">16 reps, about six minutes. The ball is on the far wing, about to be crossed, and you are the far winger jogging into the box. Read two things. Where is the crosser? At the byline, the ball comes back &mdash; hold the edge of the box. Out wide, it gets whipped in &mdash; so where is their full-back on you? Tucked in, watching the ball: arrive behind him at the back post. Tight and goal-side: step in front of him into the middle of the goal.</p>
+    <p class="note">16 reps, about six minutes. The ball is on the far wing, about to be crossed, and you are the far winger jogging into the box. Read two things. Where is the crosser? At the byline, the ball comes back &mdash; hold the edge of the box. Out wide, it gets whipped in &mdash; so where is their full-back on you? Tucked in, watching the ball: arrive behind him at the back post. Tight and goal-side: step in front of him into the middle of the goal.<br><br><b>2.0:</b> nobody is posed from the answer. Where the cross comes from, whether their full-back watches the ball, stays on you or drops onto the six, whether their centre-back holds the middle or gets dragged near post, whether their holding man covers the edge: all drawn as habits, and the arrival is read off where the room is.</p>
   </div>
 
   <div id="panelAsk" class="hide">
@@ -262,7 +262,7 @@ const CFG = {
 };
 
 /* ---------------- storage ---------------- */
-const KEY = 'backpost:v1';
+const KEY = 'backpost:v2';
 let stats = { L:{pts:0,max:0}, R:{pts:0,max:0}, side:'R' };
 async function loadStats(){
   try{
@@ -369,7 +369,15 @@ function newBag(){
 function recvPoint(answer, s){ return s.target[answer] || s.target.back; }
 
 function buildCandidate(side, answer){
-  const on = answer, byline = on === 'edge';
+  /* 2.0: nobody is posed from the answer. The cross comes from the byline or from deep (the crosser's situation);
+     their full-back watches the ball or stays on you or drops onto the six, their far centre-back holds the middle,
+     gets dragged near post or drops, their holding man covers the edge or drops. Each man by his habits, and the
+     arrival is read off where the room is; a picture with no single room, or two, is thrown away. */
+  const byline = Math.random() < 0.35;
+  const H = { lb: byline ? (Math.random() < 0.75 ? 'six' : 'tuck') : (Math.random() < 0.5 ? 'tuck' : 'onhim'),
+              cb: byline ? (Math.random() < 0.75 ? 'six' : 'centre') : (Math.random() < 0.55 ? 'centre' : 'near'),
+              dm: byline ? (Math.random() < 0.7 ? 'six' : 'edge') : (Math.random() < 0.8 ? 'edge' : 'six') };
+  let on = null;
   const W = [rand(15, 19), rand(-40.5, -38)];               // arriving on his side of the box
   const R = [W[0] + rand(3.5, 4.5), W[1] + rand(1.5, 2.5)];  // where his jog in began
   const O = p => [p[0] - W[0], p[1] - W[1]];
@@ -392,31 +400,35 @@ function buildCandidate(side, answer){
   const cbA  = [nine[0] - rand(0.5, 0.9), nine[1] - rand(0.3, 0.7)]; taken.push(cbA);
 
   let lb, cbB, dm;
-  if (on === 'edge'){                       // everybody has dropped onto the six
-    lb  = drop(taken, () => [T.back[0] + rand(-0.8, 0.8), T.back[1] + rand(-0.6, 0.8)], 1.0);
-    cbB = drop(taken, () => [T.centre[0] + rand(-1, 1), T.centre[1] + rand(-1.2, 0.2)], 1.0);
-    dm  = drop(taken, () => [rand(-3, 0.5), rand(-45, -43)], 2.0);
-  } else if (on === 'back'){               // their full-back has tucked in to watch the ball
-    lb  = drop(taken, () => [rand(-0.5, 2.5), rand(-46.5, -44.5)], 1.6);
-    cbB = drop(taken, () => [T.centre[0] + rand(-1.4, 0.6), T.centre[1] + rand(-1, 0.4)], 1.2);
-    dm  = drop(taken, () => [T.edge[0] + rand(-1.2, 1.2), T.edge[1] + rand(-0.8, 0.8)], 1.0);
-  } else {                                  // their full-back is on him; the middle has been dragged near post
-    lb  = [W[0] - rand(0.6, 1.4), W[1] - rand(1.3, 2.0)]; taken.push(lb);
-    cbB = drop(taken, () => [rand(-6.5, -4), rand(-49.5, -47.5)], 1.6);
-    dm  = drop(taken, () => [T.edge[0] + rand(-1.2, 1.2), T.edge[1] + rand(-0.8, 0.8)], 1.0);
-  }
+  if (H.lb === 'six') lb = drop(taken, () => [T.back[0] + rand(-0.8, 0.8), T.back[1] + rand(-0.6, 0.8)], 1.0);            // dropped onto the six, at the back post
+  else if (H.lb === 'tuck') lb = drop(taken, () => [rand(-0.5, 2.5), rand(-46.5, -44.5)], 1.6);                             // tucked in, watching the ball
+  else { lb = [W[0] - rand(0.6, 1.4), W[1] - rand(1.3, 2.0)]; taken.push(lb); }                                            // on him, goal-side
+  if (H.cb === 'six') cbB = drop(taken, () => [T.centre[0] + rand(-1, 1), T.centre[1] + rand(-1.2, 0.2)], 1.0);           // on the six, in the middle
+  else if (H.cb === 'centre') cbB = drop(taken, () => [T.centre[0] + rand(-1.4, 0.6), T.centre[1] + rand(-1, 0.4)], 1.2); // holding the middle
+  else cbB = drop(taken, () => [rand(-6.5, -4), rand(-49.5, -47.5)], 1.6);                                                 // dragged across to the near post
+  if (H.dm === 'six') dm = drop(taken, () => [rand(-3, 0.5), rand(-45, -43)], 2.0);                                        // dropped in
+  else dm = drop(taken, () => [T.edge[0] + rand(-1.2, 1.2), T.edge[1] + rand(-0.8, 0.8)], 1.0);                            // covering the edge
   const eight = drop(taken, () => [rand(-9, -5), rand(-36, -33)], 3);     // your 8, holding the far edge
   const cm    = drop(taken, () => [eight[0] + rand(1, 2), eight[1] - rand(0.8, 1.5)], 0.8);
   const keeper = [rand(-2.2, -0.8), -51.3];                                 // shading toward the ball side
 
   const opp = { lb, cbA, cbB, dm, rbC, cm, keeper };
+  /* read the room off them, with the same thresholds the drill has always used */
+  { const rel = Object.fromEntries(Object.entries(opp).map(([k, p]) => [k, O(p)])), tg = { back: O(T.back), centre: O(T.centre), edge: O(T.edge) };
+    const fs = { opp: rel, target: tg }, b = zoneState(fs, 'back'), c = zoneState(fs, 'centre'), e = zoneState(fs, 'edge');
+    const free = [];
+    if (byline && e.near >= 5 && b.near <= 1.6 && c.near <= 1.8) free.push('edge');
+    if (!byline && b.near >= 5 && b.lane >= 2.5 && c.near <= 2.0 && e.near <= 2.0) free.push('back');
+    if (!byline && c.near >= 4.5 && b.lbLane <= 1.5 && e.near <= 2.0) free.push('centre');
+    if (free.length !== 1) return null;
+    on = free[0]; if (answer && on !== answer) return null; }
   return {
-    side, wingX: W[0], zBase: W[1], on, byline,
+    side, wingX: W[0], zBase: W[1], on, byline, habits: H, bots: true,
     recv: O(R), passerAt: O(C),
     crosser: O(C), nine: O(nine), eight: O(eight),
     target: { back: O(T.back), centre: O(T.centre), edge: O(T.edge) },
     opp: Object.fromEntries(Object.entries(opp).map(([k, p]) => [k, O(p)])),
-    intended: answer
+    intended: on
   };
 }
 
@@ -448,8 +460,8 @@ function inPlay(s){
 }
 function makeScene(side, answer){
   let last = null;
-  for (let attempt = 0; attempt < 600; attempt++){
-    const s = buildCandidate(side, answer);
+  for (let attempt = 0; attempt < 3000; attempt++){
+    const s = buildCandidate(side, answer); if (!s) continue;
     if (sceneOK(s) && onside(s) && inPlay(s)) return s;
     last = s;
   }
