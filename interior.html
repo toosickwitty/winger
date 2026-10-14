@@ -4,7 +4,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="Winger">
-<title>Interior — juego de posición from the 8</title>
+<title>Interior 2.0 — juego de posición from the 8, played</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
@@ -222,7 +222,7 @@ a.iconbtn{text-decoration:none;display:inline-flex;align-items:center;white-spac
       <button data-mode="test" aria-pressed="false">Test</button>
     </div>
     <button class="cta" id="start">Start session</button>
-    <p class="note">16 reps, about five minutes. You are the <b>interior</b> (the 8) on the right of a 4-3-3: in Spanish positional play (<i>juego de posici&oacute;n</i>) this is where the attacking midfielder plays. The pitch is cut into <b>five lanes</b>: two wide lanes, two inside lanes (<i>pasillos interiores</i>, the half-spaces) and the middle. Spread out: no more than two team-mates in a lane and no more than three on a line. A few seconds of play, then it freezes as the last pass is struck: tap where you should be, and run there.<br><br><b>We have it</b> &mdash; ball with a centre-back: come short in your half-space, into the gap behind their front two (<i>apoyo en la salida</i>). Ball past their first line: get between their lines, in your half-space (<i>entre l&iacute;neas</i>). If your winger comes inside into your lane, you take the width.<br><b>They have it</b> &mdash; in our block you are in the midfield line, compact, sliding with the ball. When we press high and their centre-back on your side gets it, jump to him. When it goes wide to their full-back, shut the pass back inside.<br><b>We just lost it</b> &mdash; the nearest men press (<i>presi&oacute;n tras p&eacute;rdida</i>): their outlet right by you, you press him; away from you, do not chase the ball: shut the pass to the man nearest you.<br><br><b>Learn</b> paints the lanes on the grass and shows everyone on the map when you tap. <b>Test</b> takes all of that away.</p></p></p></p>
+    <p class="note">16 reps, about five minutes. You are the <b>interior</b> (the 8) on the right of a 4-3-3: in Spanish positional play (<i>juego de posici&oacute;n</i>) this is where the attacking midfielder plays. The pitch is cut into <b>five lanes</b>: two wide lanes, two inside lanes (<i>pasillos interiores</i>, the half-spaces) and the middle. Spread out: no more than two team-mates in a lane and no more than three on a line. A few seconds of play, then it freezes as the last pass is struck: tap where you should be, and run there.<br><br><b>We have it</b> &mdash; ball with a centre-back: come short in your half-space, into the gap behind their front two (<i>apoyo en la salida</i>). Ball past their first line: get between their lines, in your half-space (<i>entre l&iacute;neas</i>). If your winger comes inside into your lane, you take the width.<br><b>They have it</b> &mdash; in our block you are in the midfield line, compact, sliding with the ball. When we press high and their centre-back on your side gets it, jump to him. When it goes wide to their full-back, shut the pass back inside.<br><b>We just lost it</b> &mdash; the nearest men press (<i>presi&oacute;n tras p&eacute;rdida</i>): their outlet right by you, you press him; away from you, do not chase the ball: shut the pass to the man nearest you.<br><br><br><br><b>2.0:</b> the passes are not steered to the answer any more. Whether we press high, whether your winger comes inside, who is on the ball and what he sees on: all drawn fresh, and the men on the ball play what is there. The principle is read off the picture, not the other way round.<br><br><b>Learn</b> paints the lanes on the grass and shows everyone on the map when you tap. <b>Test</b> takes all of that away.</p></p></p></p>
   </div>
 
   <div id="panelAsk" class="hide">
@@ -285,7 +285,7 @@ const CFG = {
 };
 
 /* ---------------- storage ---------------- */
-const KEY = 'interior:v1';
+const KEY = 'interior:v2';
 let stats = { L:{pts:0,max:0}, R:{pts:0,max:0}, side:'R' };
 async function loadStats(){
   try{
@@ -540,7 +540,10 @@ function chain(phase, D, holder, n, finals, jit, opt){
       if (L < PASS_MIN || L > PASS_MAX) return;
       if (!laneClear(h.at, c.at, phase === 'att' ? h.sh.opp : h.sh.own)) return;
       const fwd = (phase === 'att' ? h.at[1] - c.at[1] : c.at[1] - h.at[1]);
-      opts.push({ r, c, L, w: fwd > 4 ? 2.5 : fwd > -4 ? 1.5 : 0.7 });  // mostly forward or across, sometimes back
+      /* 2.0: the man on the ball plays what is on - forward when he can, and to the free man: an option with a marker
+         within a couple of metres is barely one, a man with nobody near him is the pass */
+      const them = phase === 'att' ? h.sh.opp : h.sh.own; let near = 99; for (const k in them) near = Math.min(near, d2(them[k], c.at));
+      opts.push({ r, c, L, w: (fwd > 4 ? 2.5 : fwd > -4 ? 1.5 : 0.7)*clamp(near/4, 0.25, 2.5) });
     });
     if (!opts.length) return null;
     const o = pickW(opts);
@@ -555,12 +558,22 @@ function candidate(side, key){
   const turn = key === 'turnover';
   let solved, kind = key, extra = {};
   if (!turn){
+    /* 2.0: only the phase comes from the bag (who has the ball). How the sides are set up is drawn fresh -
+       are we pressing high, does the winger come inside - and the men on the ball pick what is on. The
+       principle is read off the picture that results; a picture no principle here covers is thrown away. */
     const phase = key.slice(0, 3);
-    const D = phase === 'att' ? rand(-8, 8) : key === 'defJump' ? rand(-26, -18) : rand(-16, 4);
-    const holders = phase === 'att' ? (key === 'attWide' ? ['LCB', 'RCB', 'LB', 'RB', 'S6', 'L8'] : ['LCB', 'RCB', 'LB', 'RB', 'S6', 'L8', 'RW']) : key === 'defJump' ? ['TB1', 'TB2', 'TGK'] : ['TB1', 'TB2', 'TB3', 'TB4', 'TM2', 'TM3'];
-    const opt = key === 'attWide' ? (i => ({ rwIn: i >= 1, wideRep: true })) : key === 'defJump' ? { high: true } : null;
-    solved = chain(phase, D, pickOne(holders), 3, FINAL[key], jit, opt);
+    const high = key === 'defJump' || (!key && phase === 'def' && Math.random() < 0.35), wideRep = key === 'attWide' || (!key && phase === 'att' && Math.random() < 0.3);   // the bag asks for a situation (a high press, the winger coming in); what happens in it is played
+    const D = phase === 'att' ? rand(-8, 8) : high ? rand(-26, -18) : rand(-16, 4);
+    const holders = phase === 'att' ? (wideRep ? ['LCB', 'RCB', 'LB', 'RB', 'S6', 'L8'] : ['LCB', 'RCB', 'LB', 'RB', 'S6', 'L8', 'RW']) : high ? ['TB1', 'TB2', 'TGK'] : ['TB1', 'TB2', 'TB3', 'TB4', 'TM2', 'TM3'];
+    const opt = wideRep ? (i => ({ rwIn: i >= 1, wideRep: true })) : high ? { high: true } : null;
+    solved = chain(phase, D, pickOne(holders), 3, null, jit, opt);
     if (!solved) return null;
+    const last = solved[solved.length - 1].role;
+    kind = wideRep ? (FINAL.attWide.includes(last) ? 'attWide' : null)
+         : high ? (last === 'TB3' ? 'defJump' : null)
+         : phase === 'att' ? (FINAL.attDrop.includes(last) ? 'attDrop' : FINAL.attNear.includes(last) ? 'attNear' : FINAL.attMid.includes(last) ? 'attMid' : null)
+         : (FINAL.defWide.includes(last) ? 'defWide' : FINAL.defMid.includes(last) ? 'defMid' : null);
+    if (!kind || (key && kind !== key)) return null;
   } else {
     /* we have it, one pass goes in, the next is cut out; they play one pass. Freeze. */
     const D = rand(-10, 6);
@@ -606,7 +619,7 @@ function candidate(side, key){
   }
   const last = ev[ev.length - 1], tFreeze = last.ts + 150;
   const st0 = idealFor(startKind(ev[0]), ev[0].sh, {}).at, st = [Math.min(st0[0], 31.5), st0[1]];
-  if (key === 'attWide') st[0] = 17.5;             // the width rep: he starts on the outer edge of his half-space, so going wide is one short diagonal, not a sprint across the winger
+  if (kind === 'attWide') st[0] = 17.5;             // the width rep: he starts on the outer edge of his half-space, so going wide is one short diagonal, not a sprint across the winger
   if (turn) kind = 'turnCover';                   // settled once we know who is pressing (sceneOK)
   const I = idealFor(kind, last.sh, extra);
   return { side, key, kind, turn, ev, tFreeze, ideal: I.at, ref: I.ref, start: st, jit, extra,
@@ -997,7 +1010,7 @@ function sceneOK(s){
 function makeScene(side, key){
   if (!BAG_COUNT[key]) key = 'attMid';
   const turn = key.startsWith('turn');
-  for (let i = 0; i < (turn ? 1500 : 900); i++){ const s = candidate(side, turn ? 'turnover' : key);
+  for (let i = 0; i < (turn ? 1500 : key === 'defJump' ? 4000 : 1200); i++){ const s = candidate(side, turn ? 'turnover' : key);
     if (turn && s && (key === 'turnPress' ? !(d2(s.start, s.extra.recv) < 15 && s.extra.recv[0] > 6) : d2(s.start, s.extra.recv) < 13)) continue;
     if (sceneOK(s) && (!turn || s.kind === key)) return s; }
   if (key !== 'attMid') return makeScene(side, 'attMid');
