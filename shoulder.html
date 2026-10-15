@@ -4,7 +4,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="Winger">
-<title>Shoulder 2.0 — the man behind you, played</title>
+<title>Shoulder — receiving from the back</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
@@ -224,7 +224,7 @@ a.iconbtn{text-decoration:none;display:inline-flex;align-items:center;white-spac
       <button data-mode="test" aria-pressed="false">Test</button>
     </div>
     <button class="cta" id="start">Start session</button>
-    <p class="note">16 reps, about six minutes. The ball is played to you on the wing from your own defensive line, 17-26 m, at a top-level youth pace. While it travels, <b>look over your shoulder</b> (tap the left or right half of the screen; on a computer the &larr; &rarr; keys) &mdash; 0.3 s each, as often as you like &mdash; and <b>call it before it arrives</b>, in the terms the Spanish school uses: <b>Receive open</b>, stay and take it half-turned (<i>de perfil</i>); <b>Come to it</b>, the supporting unmarking movement (<i>desmarque de apoyo</i>); <b>Shield, set it back</b>, body between him and the ball and first time to the man facing play (<i>de espaldas, juega de cara</i>); <b>Let it run</b>, no touch on a ball played past you into space (<i>dejarla pasar</i>).<br><br>The read is <b>his distance against the length of the ball</b>. Tight on your back (1-2 m): shield. The ball driven past you into the space down the line, with the man inside you: let it run &mdash; no touch, turn and take it in stride. Close enough to get there (5-7 m): come to it, as the ball leaves his foot &mdash; he goes early, and if you stand still he cuts it out. Too far to reach a ball this long (10 m and more on a 20 m pass, 13 m on a 30 m pass): receive open and take it facing play &mdash; now and then he gambles from there anyway, and arrives after it. One look, before the strike or as it travels, is enough to read the distance (mirar antes de recibir). In Learn, his distance sits over his head while you look, so the eye learns what 5 m and 14 m look like. Everything after your call is played out: who gets there first, and by how much.<br><br><b>2.0:</b> the man behind you is not posed from the answer any more. He is drawn as a player &mdash; any distance, goal-side or inside you, quick or slow to react, keen or patient &mdash; and does what that man would do with that ball: stays on your back, goes if he believes he can get there, holds off if he cannot, gambles now and then. The passer plays what the picture offers. He starts from the doctrine of a zonal back four: goal-side of you with the ball on his side, tucked in with the line (and so inside you) when a centre-back has it, his distance following the ball. Read him, not the drill.<br><br><b>Learn</b> paints the lanes on the grass. <b>Test</b> takes that away.</p>
+    <p class="note">16 reps, about six minutes. The ball is played to you on the wing from your own defensive line, 17-26 m, at a top-level youth pace. While it travels, <b>look over your shoulder</b> (tap the left or right half of the screen; on a computer the &larr; &rarr; keys) &mdash; 0.3 s each, as often as you like &mdash; and <b>call it before it arrives</b>, in the terms the Spanish school uses: <b>Receive open</b>, stay and take it half-turned (<i>de perfil</i>); <b>Come to it</b>, the supporting unmarking movement (<i>desmarque de apoyo</i>); <b>Shield, set it back</b>, body between him and the ball and first time to the man facing play (<i>de espaldas, juega de cara</i>); <b>Let it run</b>, no touch on a ball played past you into space (<i>dejarla pasar</i>).<br><br>The read is <b>his distance against the length of the ball</b>. Tight on your back (1-2 m): shield. The ball driven past you into the space down the line, with the man inside you: let it run &mdash; no touch, turn and take it in stride. Close enough to get there (5-7 m): come to it, as the ball leaves his foot &mdash; he goes early, and if you stand still he cuts it out. Too far to reach a ball this long (10 m and more on a 20 m pass, 13 m on a 30 m pass): receive open and take it facing play &mdash; now and then he gambles from there anyway, and arrives after it. One look, before the strike or as it travels, is enough to read the distance (mirar antes de recibir). In Learn, his distance sits over his head while you look, so the eye learns what 5 m and 14 m look like. Everything after your call is played out: who gets there first, and by how much.<br><br><b>Learn</b> paints the lanes on the grass. <b>Test</b> takes that away.</p>
   </div>
 
   <div id="panelAsk" class="hide">
@@ -287,7 +287,7 @@ const CFG = {
 };
 
 /* ---------------- storage ---------------- */
-const KEY = 'shoulder:v2';
+const KEY = 'shoulder:recv:v3';
 let stats = { L:{pts:0,max:0}, R:{pts:0,max:0}, side:'R' };
 async function loadStats(){
   try{
@@ -3129,7 +3129,7 @@ const ballT = L => { const r = RC.v0*RC.v0 - 2*RC.dec*L; return r > 0 ? (RC.v0 -
 const runS = (t, v, a) => { if (t <= 0) return 0; const ta = v/a; return t < ta ? a*t*t/2 : a*ta*ta/2 + v*(t - ta); };
 const runT = (d, v, a) => { const ta = v/a, da = a*ta*ta/2; return d <= da ? Math.sqrt(2*d/a) : ta + (d - da)/v; };
 /* how far back a man can be and still cut out a ball that reaches the spot in front of you at tQ, if he goes 0.2 s after the strike */
-const reachFor = (tQ, t0, v) => { const go = t0 === undefined ? 0.2 : t0, dv = v || RC.defV; let lo = 0, hi = 30; for (let i = 0; i < 30; i++){ const m = (lo + hi)/2; (go + runT(m - 1.3, dv, RC.defA) < tQ ? lo : hi) === lo ? lo = m : hi = m; } return lo; };
+const reachFor = (tQ, t0) => { const go = t0 === undefined ? 0.2 : t0; let lo = 0, hi = 30; for (let i = 0; i < 30; i++){ const m = (lo + hi)/2; (go + runT(m - 1.3, RC.defV, RC.defA) < tQ ? lo : hi) === lo ? lo = m : hi = m; } return lo; };
 let RUN_RAW = false;
 const RC_BAG = { hold: 4, jump: 4, run: 4, tight: 4 };          // every ball is played to him; no call is the answer more than a quarter of the time
 const KEY_NAME = { hold: 'too far to get there', jump: 'close enough to get there', watch: 'close, set and watching you', run: 'inside you, and the ball was played past you into space', tight: 'tight on your back', width: 'holding off; the ball was for your full-back' };
@@ -3147,152 +3147,34 @@ function newBag(){
     const k = elig[Math.floor(Math.random()*elig.length)]; out.push(k); left[k]--; prev = k; }
   return out;
 }
-/* ===================== JDP: the doctrine every bot starts from =====================
-   Both sides play a 4-3-3. Ours attacks with juego de posición; theirs defends as a zonal block that slides with the
-   ball. Every decision a bot makes in a drill starts here, as a principle with a trigger; personality (reaction time,
-   pace, keenness) and the occasional lapse are noise on top, never the rule. Where a man breaks a principle the
-   generator records it (JDP.why) so the review can name it.
-
-   Principles encoded
-   ours (JdP)      five lanes, two per lane, three per line, staggered heights; amplitud (wingers on the touchline) and
-                   profundidad (the 9 pins the centre-backs); the full-back overlaps past a winger who has come inside, following his own
-                   pass down the line (pass and go), or to take the width and send the winger inside (desdoblamiento); the 9 drops only when both
-                   centre-backs are tight on him and an 8 is high enough to run beyond; a receiver with his back to goal
-                   and a man on him needs a support angle and a runner; a free man facing play needs nobody.
-   theirs (block)  basculación: the back four slides with the ball; the near full-back stays goal-side of a winger on his
-                   touchline, the far full-back tucks in; a centre-back passes a dropping 9 on to the 6 if the 6 is
-                   screening, and goes with him only if nobody covers the zone; the 6 presses on a trigger (the ball is
-                   coming to a man facing him within ~8 m, a back pass, a slow pass) and otherwise screens between the
-                   lines; the 8 marks zonally: tight on a man in his zone, holding his line otherwise; permuta: when one
-                   man jumps the nearest covers behind him, and two men do not jump at once; marking distance follows
-                   the ball (tight when it is close, looser the longer the pass); on a byline cross the whole line drops
-                   onto the six-yard box, on a deep cross it holds and the men who lose their man are the ball-watchers. */
-const JDP = (() => {
-  const rand = (a, b) => a + Math.random()*(b - a), clamp = (v, a, b) => Math.max(a, Math.min(b, v));
-  /* a man: how quick he reads, how fast he runs, how keen he is to jump, and whether he is prone to ball-watching */
-  const man = (o) => Object.assign({ react: rand(0.2, 0.6), v: rand(5.4, 6.2), keen: Math.random(), lapse: Math.random() < 0.18 }, o || {});
-  const why = [];
-  const note = (who, text) => { why.push({ who, text }); return text; };
-  const reset = () => { why.length = 0; };
-
-  /* ---- their back four ---- */
-  /* the near full-back with a winger on his touchline and the ball on his side: goal-side of him ('wide'). The ball on
-     the far side, or no wide man to hold him: tuck in ('tuck'). Tucking in with the ball on his side is ball-watching. */
-  function fullBack({ ballNear, wideMan, m }){
-    if (!wideMan) return 'tuck';
-    if (!ballNear) return 'tuck';
-    if (m.lapse){ note('their full-back', 'tucked in to watch the ball with a winger on his touchline and the ball on his side: ball-watching'); return 'tuck'; }
-    return 'wide';
-  }
-  /* the centre-back and a dropping 9: pass him on if the 6 is screening the zone he drops into; go with him if nobody
-     covers it. Following when the 6 has it covered leaves the gap for nothing; holding when nobody covers leaves the
-     9 free between the lines. */
-  function centreBack({ nineDrops, sixScreens, m }){
-    if (!nineDrops) return 'hold';
-    if (sixScreens){ if (m.lapse && m.keen > 0.5){ note('their centre-back', 'followed the 9 out although his 6 had the zone: the gap he left was for nothing'); return 'follow'; } return 'hold'; }
-    if (m.lapse && m.keen < 0.5){ note('their centre-back', 'let the 9 drop off him with nobody covering: a man free between the lines'); return 'hold'; }
-    return 'follow';
-  }
-  /* the 6: presses when the trigger is there - a ball coming to a man within reach who will face him (a first man
-     facing forward, a back pass, a slow pass) - otherwise screens the pocket between the lines; a man standing in his
-     zone with the ball near gets him tight ('onyou'). */
-  function six({ triggerDist, facing, manInZone, m }){
-    const reach = 8 + 2*m.keen;
-    if (facing && triggerDist <= reach) return 'press';
-    if (manInZone) return 'onyou';
-    if (facing && triggerDist <= reach + 3 && m.lapse && m.keen > 0.6){ note('their 6', 'jumped to press from too far out and left the pocket behind him'); return 'press'; }
-    return 'sit';
-  }
-  /* the 8: zonal marking - tight on a man who comes into his zone, holding the line otherwise */
-  function eight({ manInZone, m }){
-    if (manInZone){ if (m.lapse){ note('their 8', 'let the second man drop into his zone without going with him'); return 'zonal'; } return 'mark'; }
-    return 'zonal';
-  }
-  /* marking distance follows the ball: tight when it is close, looser the longer the pass (a man 25 m from the ball
-     need not be on his man's back). Keen men sit tighter, lazy men looser. */
-  function markDistance(passLen, m){
-    const base = clamp(passLen*0.28 - 1.5 + (0.5 - m.keen)*3, 1.2, 15);
-    return clamp(base*rand(0.8, 1.25), 1.2, 15);
-  }
-  /* permuta: of the men who want to jump, one goes (the keenest), the rest cover */
-  function permuta(candidates){
-    const go = candidates.filter(c => c.wants);
-    if (!go.length) return null;
-    go.sort((a, b) => b.m.keen - a.m.keen);
-    return go[0].id;
-  }
-  /* the box on a cross: byline -> everyone drops onto the six-yard box; deep -> the line holds, and a lapse is a
-     ball-watcher who loses his man */
-  function crossLine({ byline, m }){
-    if (byline) return m.lapse ? 'late' : 'six';
-    return m.lapse ? 'watch' : 'hold';
-  }
-  /* ---- ours ---- */
-  /* the full-back overlaps past a winger who has come inside, or follows his own pass down the line; never past a
-     winger who is holding the touchline with the ball elsewhere (two in a lane) */
-  function overlap({ wingerInside, justPassed, invite }){
-    if (wingerInside) return Math.random() < 0.75;
-    if (justPassed) return Math.random() < 0.5;
-    if (invite) return Math.random() < 0.5;                   // the ball behind him with a 6: he pushes past the winger to take the width and send him inside (desdoblamiento)
-    return false;
-  }
-  /* the 8 drops out of the half-space to get the ball when the 6 cannot be found (screened): otherwise he stays between the lines */
-  function eightDrops({ sixScreened }){ return sixScreened ? Math.random() < 0.8 : Math.random() < 0.2; }
-  /* the 9 drops off the line only when both centre-backs are tight on him and an 8 is high enough to run beyond */
-  function nineDrops({ cbsTight, eightHigh }){ return cbsTight && eightHigh && Math.random() < 0.8; }
-  return { man, why, reset, fullBack, centreBack, six, eight, markDistance, permuta, crossLine, overlap, eightDrops, nineDrops, rand, clamp };
-})();
-
-/* ===================== Shoulder 2.0: the man behind him is a bot =====================
-   Nothing about the rep is posed from the answer. The defender is drawn as a man: where he stands (any
-   distance, goal-side or inside him), how quick he reacts, how fast he runs and how keen he is. The passer
-   plays what the picture offers (a ball to feet, or driven past him when the man is inside). The defender
-   then does what that man would do with that ball - stays on his back, goes for it if he believes he can get
-   there, holds off if he cannot, gambles now and then - and the rep is played out from the physics. The
-   label (tight / jump / hold / run) is read off what he did, never the other way round. */
 function candidate(side, key){
   const z0 = rand(-4, 10), you = [27.4 + rand(-0.8, 0.8), z0];
+  /* who plays it: his full-back on the line behind him, or a centre-back inside - the same mix in every rep, so
+     where the ball comes from never gives the rep away; only the ball's flight does */
   const fromFB = Math.random() < 0.4;
   const passer = fromFB ? [you[0] - rand(0.5, 3.0), z0 + rand(21, 26)] : [you[0] - rand(5, 10), z0 + rand(20, 25)];
-  const RB = [you[0] - rand(6, 9), z0 + rand(4, 8)];
-  const u0 = unit(passer, you), perp0 = (u0[1] > 0) ? [u0[1], -u0[0]] : [-u0[1], u0[0]];
-  /* the man: temperament first, then where he is */
-  /* the man, by the doctrine (JDP): their full-back in a zonal block. With the ball on his side (your full-back has it) he is
-     goal-side of you; with the ball central (a centre-back has it) he tucks in with the line, which puts him inside you and
-     level - and a ball driven down the line goes past him. His distance follows the ball: tight when it is close, looser
-     the longer the pass; a keen man sits on your back anyway, a ball-watcher drops off too far. */
-  JDP.reset();
-  const man = JDP.man({ react: rand(0.2, 0.7), v: rand(5.3, 6.2) });
-  const inside = !fromFB && Math.random() < 0.55;                                          // tucked in with the ball central
-  const phi = (inside ? rand(95, 125) : rand(0, 12))*Math.PI/180;                       // angle from goal-side round toward the inside
-  const Lest = d2(passer, you);
-  const d0 = inside ? rand(1.6, 3.2)
-           : man.keen > 0.72 && Math.random() < 0.7 ? rand(1.2, 2.0)                      // on your back
-           : man.lapse ? (JDP.why.push({ who: 'their full-back', text: 'dropped off too far for the ball, watching it instead of you' }), rand(9, 15))
-           : JDP.markDistance(Lest, man);
-  const why = JDP.why.slice();
-  const def = [you[0] - d0*Math.sin(phi) - (inside ? 0 : rand(0.3, 1.0)), you[1] - d0*Math.cos(phi)];
-  if (def[0] > 32.5 || def[1] < -40) return null;
-  /* the passer's choice: a man inside him and level invites the ball driven past him into the space down the line */
-  const runTgt = [you[0] + u0[0]*rand(4.5, 7) + perp0[0]*rand(0.6, 1.2), you[1] + u0[1]*rand(4.5, 7) + perp0[1]*rand(0.6, 1.2)];
-  const runOn = inside && d0 <= 2.8 && Math.random() < 0.85 && Math.abs(runTgt[0]) <= 31.5 && Math.abs(runTgt[0] + u0[0]*5) <= 33.3 && laneD(def, passer, runTgt) >= 2.4;
-  const target = runOn ? runTgt : you;
+  /* the structure: his full-back supporting underneath him, the 8 inside, the 6 by the passer */
+  const RB = [you[0] - rand(6, 9), z0 + rand(4, 8)];                    // the support underneath him, inside   // (the full-back is the passer here; the support underneath is inside)
+  /* let it run: the ball is driven past him, a stride to the touchline side, into the space 4.5-7 m down the line */
+  const u0 = unit(passer, you), perp0 = (u0[1] > 0) ? [u0[1], -u0[0]] : [-u0[1], u0[0]];          // across the line of the pass, toward the touchline
+  const target = key === 'width' ? RB : key === 'run' ? [you[0] + u0[0]*rand(4.5, 7) + perp0[0]*rand(0.6, 1.2), you[1] + u0[1]*rand(4.5, 7) + perp0[1]*rand(0.6, 1.2)] : you;
+  if (key === 'run' && (Math.abs(target[0]) > 31.5 || Math.abs(target[0] + u0[0]*5) > 33.3)) return null;         // and it is still in play where he takes it
   const L = d2(passer, target), u = unit(passer, target), ub = [-u[0], -u[1]];
   const Tb = ballT(L); if (!isFinite(Tb) || Tb > 3.2 || Tb < 1.4) return null;
+  /* the bands. How far he is, against how long the ball is in the air, is the whole read:
+       tight  on his back, 1.2-2 m                       -> shield
+       jump   close enough to get there, 4-6.5 m         -> come to it (he goes early; stand still and he cuts it out)
+       hold   beyond his reach for this ball, +2.5-5 m   -> receive open (one in three gambles late anyway, and fails) */
   const Q = [you[0] + ub[0]*1.3, you[1] + ub[1]*1.3], tQ = ballT(L - 1.3);
-  const reach = reachFor(tQ, 0.2);                                                      // what a quick man could reach: the yardstick the review uses
-  /* what he does */
-  let dkey, ts = null, gamble = false;
-  if (runOn) dkey = 'run';
-  else if (!inside && d0 <= 2.0) dkey = 'tight';
-  else {
-    const dQ = d2(def, Q), tsGo = man.react + rand(0.05, 0.15), believes = reachFor(tQ, tsGo, man.v) + (man.keen - 0.5)*1.0;   // a keen man thinks he can get to a little more than he can; a patient one a little less
-    if (dQ <= believes){ ts = tsGo; dkey = 'jump'; }                                     // he reads the pass and goes
-    else if (Math.random() < 0.1 + 0.25*man.keen){ ts = rand(0.5, 0.9); gamble = true; dkey = 'hold'; }   // too far, goes anyway
-    else dkey = 'hold';
-  }
-  if (key && dkey !== key) return null;
-  if (dkey === 'hold' && !gamble && d2(def, Q) < reach + 1.0) return null;               // a man who could have gone and did not: not a clean read
+  const reach = reachFor(tQ), tsJump = rand(0.3, 0.6);                                                            // the farthest he can cut it out from, going 0.2 s after the strike
+  const d0 = key === 'tight' ? rand(1.2, 2.0) : key === 'jump' ? Math.max(3.0, reachFor(tQ, tsJump) - rand(1.0, 3.0)) : key === 'watch' ? rand(2.6, 4.0) : key === 'run' ? rand(1.8, 2.8) : reach + rand(2.5, 5);
+  if (key === 'hold' && z0 - d0 < -40) return null;
+  const def = key === 'run' ? [you[0] - d0*rand(0.8, 0.97), you[1] + d0*rand(0.25, 0.6)]         // inside you, half a step behind: on the wrong side of a ball played past you
+            : [you[0] - rand(0.3, 1.6), you[1] - d0];
+  if (key === 'run' && laneD(def, passer, target) < 2.4) return null;                               // the ball goes by on your other side: he cannot reach it
+  let ts = null, gamble = false;
+  if (key === 'jump') ts = tsJump;                                              // he reads the pass and goes
+  if (key === 'hold' && Math.random() < 1/3){ gamble = true; ts = rand(0.5, 0.9); }     // too far, goes anyway, arrives late
   const others = [
     { id: 'RB', own: true,  at: RB },
     { id: 'R8', own: true,  at: [you[0] - rand(10, 14), z0 + rand(-3, 5)] },
@@ -3300,38 +3182,32 @@ function candidate(side, key){
     { id: 'TB', own: false, at: [you[0] - rand(1, 4), z0 - rand(13, 18)] },
     { id: 'N9', own: true,  at: [you[0] - rand(14, 19), z0 - rand(10, 15)] },
     { id: 'S6', own: true,  at: [passer[0] - rand(4, 9), passer[1] - rand(6, 10)] },
-    { id: 'TW', own: false, at: [RB[0] - rand(3, 6), RB[1] + rand(2, 5)] }
+    { id: 'TW', own: false, at: [RB[0] - rand(3, 6), RB[1] + rand(2, 5)] }                // their winger, on our full-back
   ];
   for (const o of others){ if (d2(o.at, def) < 3 || d2(o.at, you) < 3 || d2(o.at, passer) < 3) return null; }
   for (const o of others) for (const q of others) if (o !== q && d2(o.at, q.at) < 2.8) return null;
-  if (laneD(RB, passer, you) < 2.5) return null;
-  const sc = { side, key: dkey, you, passer, RB, target, L, u, ub, Tb, d0, def, ts, gamble, reach, Q, tQ, others, defV: man.v, man, why, start: you, wingX: you[0], zBase: you[1], scans: [], action: null, td: null };
-  /* played out: the label must be true of the rep, or the rep is thrown away */
-  if (dkey === 'jump'){
-    const tReq = Math.min(1.3, Tb*0.55);
-    if (tracksFor(sc, 'meet', tReq).tInt !== null){                                      // he gets there even if you go early: in truth he is too close, or too quick, for a race
-      return null; }
-    if (tracksFor(sc, 'open', 0.5).tInt === null){                                        // he went, and did not get there: that was a gamble from a man too far off
-      if (key && key !== 'hold') return null;
-      sc.key = 'hold'; sc.gamble = true; return finishScene(sc); }
+  if (key === 'width' && laneD(def, passer, RB) < 2.5) return null;                      // the ball to the full-back is on
+  if (laneD(RB, passer, you) < 2.5 && key !== 'width') return null;                     // the ball to him is on
+  const sc = { side, key, you, passer, RB, target, L, u, ub, Tb, d0, def, ts, gamble, reach, Q, tQ, others, start: you, wingX: you[0], zBase: you[1], scans: [], action: null, td: null };
+  if (key === 'jump'){
+    const tReq = Math.min(1.3, Tb*0.55);                                                   // a shorter ball is a quicker decision
+    if (tracksFor(sc, 'meet', tReq).tInt !== null) return null;                           // go by then and you win
+    if (tracksFor(sc, 'open', 0.5).tInt === null) return null;                             // stand still and he cuts it out
     let lo = tReq, hi = Tb; for (let i = 0; i < 14; i++){ const m = (lo + hi)/2; if (tracksFor(sc, 'meet', m).tInt === null) lo = m; else hi = m; }
-    sc.tWin = lo;
+    sc.tWin = lo;                                                                          // the last moment a call still wins
   }
-  if (dkey === 'run' && !RUN_RAW){ const r = tracksFor(sc, 'run', 0.6); if (r.tInt !== null || r.tMeet > Tb + 2.0) return null;
+  if (key === 'watch'){ if (tracksFor(sc, 'feint', 0.5).tInt !== null) return null; if (tracksFor(sc, 'meet', 0.5).tInt !== null) return null; if (tracksFor(sc, 'open', 0.5).tInt === null) return null; }
+  if (key === 'run' && !RUN_RAW){ const r = tracksFor(sc, 'run', 0.6); if (r.tInt !== null || r.tMeet > Tb + 2.0) return null;            // let it run by 0.6 s and you take it in stride
     let lo = 0.6, hi = Tb + 1.0; for (let i = 0; i < 12; i++){ const m = (lo + hi)/2; if (tracksFor(sc, 'run', m).tInt === null) lo = m; else hi = m; } sc.tWin = lo; }
-  if (dkey === 'hold' && gamble){ const R = tracksFor(sc, 'open', 0.5); if (R.tInt !== null) return null; }
-  return finishScene(sc);
-}
-function finishScene(sc){
+  if (key === 'hold' && gamble){ const R = tracksFor(sc, 'open', 0.5); if (R.tInt !== null) return null; }                                   // the gamble must fail
   return Object.assign(sc, {
-    ev: [{ role: 'P', at: sc.passer, ts: 0, sh: { own: {}, opp: {} } }, { role: 'YOU', at: sc.target, ts: RC.strike, ta: RC.strike + sc.Tb*1000, len: sc.L }],
-    tFreeze: RC.strike + sc.Tb*1000 + RC.after, bots: true });
+    ev: [{ role: 'P', at: passer, ts: 0, sh: { own: {}, opp: {} } }, { role: key === 'width' ? 'RB' : 'YOU', at: target, ts: RC.strike, ta: RC.strike + Tb*1000, len: L }],
+    tFreeze: RC.strike + Tb*1000 + RC.after });
 }
 function laneD(q, a, b){ const vx = b[0]-a[0], vz = b[1]-a[1], L2 = vx*vx + vz*vz || 1; let t = ((q[0]-a[0])*vx + (q[1]-a[1])*vz)/L2; t = Math.max(0, Math.min(1, t)); return Math.hypot(q[0] - (a[0]+vx*t), q[1] - (a[1]+vz*t)); }
 function makeScene(side, key){ for (let i = 0; i < 600; i++){ const s = candidate(side, key); if (s) return s; } return candidate(side, 'hold') || makeScene(side, 'hold'); }
 /* everyone's track, given his call (made td seconds after the strike; null = none) */
 function tracksFor(s, action, td){
-  const DV = s.defV || DV;
   const tr = {}, ball = [], me = [], DT = 50, strike = RC.strike; let tEnd = s.tFreeze || (RC.strike + s.Tb*1000 + RC.after);
   const you = s.you, def = s.def, ub = s.ub, u = s.u, width = s.key === 'width';
   const tGo = (td === null || action === 'open') ? null : td + RC.react;
@@ -3367,11 +3243,11 @@ function tracksFor(s, action, td){
     if (s.key === 'tight'){ const m = lagMe(t); return [m[0] - 0.4, m[1] - 1.4]; }
     if (s.key === 'run'){                                                                    // reads the ball going past, a third of a second late, and goes for where it is taken
       const t0 = ballT(d2(s.passer, you)) + 0.2; if (t <= t0) return def.slice();           // he reads it as it goes past him, and turns
-      const tgt = tInt !== null ? pInt : pMeet, D = d2(def, tgt) || 1, r = Math.min(D, runS(t - t0, DV, RC.defA));
+      const tgt = tInt !== null ? pInt : pMeet, D = d2(def, tgt) || 1, r = Math.min(D, runS(t - t0, RC.defV, RC.defA));
       return [def[0] + (tgt[0]-def[0])/D*r, def[1] + (tgt[1]-def[1])/D*r]; }
     if (s.key === 'watch'){
-      const run = (from, tgt, t0) => { if (t <= t0) return from.slice(); const D = d2(from, tgt) || 1, r = Math.min(D, runS(t - t0, DV, RC.defA)); return [from[0] + (tgt[0]-from[0])/D*r, from[1] + (tgt[1]-from[1])/D*r]; };
-      if (tGo === null || action === 'open'){ const tj = Math.max(0.3, s.Tb - runT(d2(def, s.Q), DV, RC.defA) - 0.05); return run(def, s.Q, tj); }   // steps in as it arrives
+      const run = (from, tgt, t0) => { if (t <= t0) return from.slice(); const D = d2(from, tgt) || 1, r = Math.min(D, runS(t - t0, RC.defV, RC.defA)); return [from[0] + (tgt[0]-from[0])/D*r, from[1] + (tgt[1]-from[1])/D*r]; };
+      if (tGo === null || action === 'open'){ const tj = Math.max(0.3, s.Tb - runT(d2(def, s.Q), RC.defV, RC.defA) - 0.05); return run(def, s.Q, tj); }   // steps in as it arrives
       if (action === 'meet') return run(def, pMeet, tGo + 0.3);                                                               // comes with you
       if (action === 'shield'){ const m = lagMe(t), tgt = [m[0] - 0.4, m[1] - 1.4]; return run(def, tgt, tGo + 0.3); }      // closes onto your back
       /* the feint: your step toward goal takes him a step back; then he turns and chases, from behind */
@@ -3383,24 +3259,24 @@ function tracksFor(s, action, td){
     if ((s.key === 'hold' && !s.gamble) || width) return [def[0] + 0.3*Math.sin(t*2.1), def[1] + 0.25*Math.sin(t*1.3)];
     if (t < s.ts) return def.slice();
     const tgt = ((action === 'meet' || action === 'feint') && tGo !== null) ? pMeet : s.Q;
-    const D = d2(def, tgt) || 1, r = Math.min(D, runS(t - s.ts, DV, RC.defA));
+    const D = d2(def, tgt) || 1, r = Math.min(D, runS(t - s.ts, RC.defV, RC.defA));
     return [def[0] + (tgt[0]-def[0])/D*r, def[1] + (tgt[1]-def[1])/D*r];
   };
   if (s.key === 'jump' || (s.key === 'hold' && s.gamble)){
-    const tgt = ((action === 'meet' || action === 'feint') && tGo !== null) ? pMeet : s.Q, tArr = s.ts + runT(d2(def, tgt), DV, RC.defA);
+    const tgt = ((action === 'meet' || action === 'feint') && tGo !== null) ? pMeet : s.Q, tArr = s.ts + runT(d2(def, tgt), RC.defV, RC.defA);
     const tBallThere = ballT(d2(s.passer, tgt));
     if (tArr <= Math.min(tBallThere, tMeet) + 0.12){ tInt = Math.min(tBallThere, tMeet); pInt = tgt; }
   } else if (s.key === 'tight' && (action === 'open' || action === 'run' || td === null)){ tInt = s.Tb + 0.15; pInt = you.slice(); }
   else if (s.key === 'run'){
     if (td === null){ tInt = tMeet + 0.6; pInt = [pMeet[0] + u[0]*3.5, pMeet[1] + u[1]*3.5]; }                            // nobody went: it ran on, and he did
-    else if (action === 'run'){ const tArr = ballT(d2(s.passer, you)) + 0.2 + runT(d2(def, pMeet), DV, RC.defA); if (tArr <= tMeet + 0.12){ tInt = tMeet; pInt = pMeet; } }
+    else if (action === 'run'){ const tArr = ballT(d2(s.passer, you)) + 0.2 + runT(d2(def, pMeet), RC.defV, RC.defA); if (tArr <= tMeet + 0.12){ tInt = tMeet; pInt = pMeet; } }
   }
   if (s.key === 'hold' && action === 'run' && tInt === null){ tInt = s.Tb + 0.05; pInt = you.slice(); }                     // a ball to feet, run away from: it arrives where he was
   else if (s.key === 'watch'){
     if (tGo === null || action === 'open'){ tInt = s.Tb + 0.1; pInt = you.slice(); }
     else if (action === 'meet' || action === 'feint'){
       const t0 = action === 'meet' ? tGo + 0.3 : tGo + 0.3 + RC.feint, from = action === 'meet' ? def : [def[0] - toward[0]*1.6, def[1] - toward[1]*1.6];
-      const tArr = t0 + runT(d2(from, pMeet), DV, RC.defA);
+      const tArr = t0 + runT(d2(from, pMeet), RC.defV, RC.defA);
       if (tArr <= tMeet + 0.12){ tInt = tMeet; pInt = pMeet; } }
   }
   const tTake = tInt !== null ? tInt : tMeet, pTake = tInt !== null ? pInt : pMeet;
@@ -3621,7 +3497,7 @@ function verdict(c){
   } else if (key === 'jump'){
     if (act === 'meet' || act === 'feint'){ tier = got ? (act === 'meet' ? 3 : 2) : 0;
       const near = 'He was ' + m(c.d0) + ' off: close enough to get to a ' + m(c.L) + ' ball, and he went at ' + nm(c.ts) + '. ';
-      text = got ? near + (act === 'feint' ? 'You checked away first, which cost half a second, then came to it at ' + nm(c.td + RC.feint) : 'You came to it (desmarque de apoyo) at ' + nm(c.td)) + ' and met it ' + m(d2(c.you, R.pMeet)) + ' up the line, ' + Math.max(0.05, c.ts + runT(d2(c.def, R.pMeet), c.defV || RC.defV, RC.defA) - R.tMeet).toFixed(1) + ' s before he could get there.' + (act === 'feint' ? ' With a man that close, go straight to the ball: the feint is for a man who is set and watching you.' : '')
+      text = got ? near + (act === 'feint' ? 'You checked away first, which cost half a second, then came to it at ' + nm(c.td + RC.feint) : 'You came to it (desmarque de apoyo) at ' + nm(c.td)) + ' and met it ' + m(d2(c.you, R.pMeet)) + ' up the line, ' + Math.max(0.05, c.ts + runT(d2(c.def, R.pMeet), RC.defV, RC.defA) - R.tMeet).toFixed(1) + ' s before he could get there.' + (act === 'feint' ? ' With a man that close, go straight to the ball: the feint is for a man who is set and watching you.' : '')
                  : near + 'Right call, late: you had until ' + nm(c.tWin) + ' and you went at ' + nm(c.td + (act === 'feint' ? RC.feint : 0)) + (act === 'feint' ? ' (after the feint)' : '') + ', and he cut it out ' + m(d2(c.you, R.pInt)) + ' in front of you. Decide before the pass; go as the ball leaves his foot.'; }
     else { tier = 0;
       text = 'He was ' + m(c.d0) + ' off: close enough to get to a ' + m(c.L) + ' ball. ' + (act === 'open' ? 'You stood and took it half-turned' : 'You showed and shielded') + ', and he sprinted past your shoulder, went at ' + nm(c.ts) + ' and cut it out ' + m(d2(c.you, R.pInt)) + ' in front of you. Possession lost on your own wing. A man within seven metres can only be beaten by going to the ball.'; }
@@ -3665,7 +3541,7 @@ function verdict(c){
                    run: ['inside you, ' + m(c.d0) + ' off, and the ball was played past you', 'let it run', 'take it in stride'],
                    tight: ['already on your back', 'shield and set it back', 'keep the ball'],
                    width: ['not moving, and the ball was for your full-back', 'receive open', 'hold the width'] }[key];
-  text = '<b>He was ' + LADDER[0] + ' → the call: ' + LADDER[1] + ', ' + LADDER[2] + '.</b> ' + text + (c.why && c.why.length ? ' The lapse: ' + c.why.map(w => w.who + ' ' + w.text).join('; ') + '.' : '');
+  text = '<b>He was ' + LADDER[0] + ' → the call: ' + LADDER[1] + ', ' + LADDER[2] + '.</b> ' + text;
   const sc = c.scans.filter(t => c.td === null || t <= c.td), after = c.scans.length - sc.length, informative = sc.length > 0;
   let look, lookGrade;
   if (!c.scans.length){ look = 'You never looked. The call was a guess whatever it was.'; lookGrade = 'Incorrect'; }

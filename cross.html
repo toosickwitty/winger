@@ -4,7 +4,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="Winger">
-<title>Byline 2.0 — winger crossing, played</title>
+<title>Byline — winger crossing trainer</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
@@ -182,7 +182,7 @@ a.iconbtn{text-decoration:none;display:inline-flex;align-items:center;white-spac
       <button data-side="alt" aria-pressed="false">Both</button>
     </div>
     <button class="cta" id="start">Start session</button>
-    <p class="note">16 reps, about six minutes. Half a second of live play, then pick where the first touch goes. Read his distance, which way he is moving, and where the grass is.<br><br><b>2.0:</b> nobody is posed from the answer. Every marker starts from the doctrine &mdash; stay with your man as the cross comes &mdash; and the man who is free is the one whose marker watched the ball, the back-post marker most often. The review names him.</p>
+    <p class="note">16 reps, about six minutes. Half a second of live play, then pick where the first touch goes. Read his distance, which way he is moving, and where the grass is.</p>
   </div>
 
   <div id="panelAsk" class="hide">
@@ -231,7 +231,7 @@ const CFG = {
 };
 
 /* ---------------- storage ---------------- */
-const KEY = 'cross:v2';
+const KEY = 'shoulder:scan:v2';
 let stats = { L:{pts:0,max:0}, R:{pts:0,max:0}, side:'R' };
 async function loadStats(){
   try{
@@ -335,102 +335,6 @@ function travelTo(from, to, mps, t){
   return [from[0] + dx/L*mps*t, from[1] + dz/L*mps*t];
 }
 
-/* ===================== JDP: the doctrine every bot starts from =====================
-   Both sides play a 4-3-3. Ours attacks with juego de posición; theirs defends as a zonal block that slides with the
-   ball. Every decision a bot makes in a drill starts here, as a principle with a trigger; personality (reaction time,
-   pace, keenness) and the occasional lapse are noise on top, never the rule. Where a man breaks a principle the
-   generator records it (JDP.why) so the review can name it.
-
-   Principles encoded
-   ours (JdP)      five lanes, two per lane, three per line, staggered heights; amplitud (wingers on the touchline) and
-                   profundidad (the 9 pins the centre-backs); the full-back overlaps past a winger who has come inside, following his own
-                   pass down the line (pass and go), or to take the width and send the winger inside (desdoblamiento); the 9 drops only when both
-                   centre-backs are tight on him and an 8 is high enough to run beyond; a receiver with his back to goal
-                   and a man on him needs a support angle and a runner; a free man facing play needs nobody.
-   theirs (block)  basculación: the back four slides with the ball; the near full-back stays goal-side of a winger on his
-                   touchline, the far full-back tucks in; a centre-back passes a dropping 9 on to the 6 if the 6 is
-                   screening, and goes with him only if nobody covers the zone; the 6 presses on a trigger (the ball is
-                   coming to a man facing him within ~8 m, a back pass, a slow pass) and otherwise screens between the
-                   lines; the 8 marks zonally: tight on a man in his zone, holding his line otherwise; permuta: when one
-                   man jumps the nearest covers behind him, and two men do not jump at once; marking distance follows
-                   the ball (tight when it is close, looser the longer the pass); on a byline cross the whole line drops
-                   onto the six-yard box, on a deep cross it holds and the men who lose their man are the ball-watchers. */
-const JDP = (() => {
-  const rand = (a, b) => a + Math.random()*(b - a), clamp = (v, a, b) => Math.max(a, Math.min(b, v));
-  /* a man: how quick he reads, how fast he runs, how keen he is to jump, and whether he is prone to ball-watching */
-  const man = (o) => Object.assign({ react: rand(0.2, 0.6), v: rand(5.4, 6.2), keen: Math.random(), lapse: Math.random() < 0.18 }, o || {});
-  const why = [];
-  const note = (who, text) => { why.push({ who, text }); return text; };
-  const reset = () => { why.length = 0; };
-
-  /* ---- their back four ---- */
-  /* the near full-back with a winger on his touchline and the ball on his side: goal-side of him ('wide'). The ball on
-     the far side, or no wide man to hold him: tuck in ('tuck'). Tucking in with the ball on his side is ball-watching. */
-  function fullBack({ ballNear, wideMan, m }){
-    if (!wideMan) return 'tuck';
-    if (!ballNear) return 'tuck';
-    if (m.lapse){ note('their full-back', 'tucked in to watch the ball with a winger on his touchline and the ball on his side: ball-watching'); return 'tuck'; }
-    return 'wide';
-  }
-  /* the centre-back and a dropping 9: pass him on if the 6 is screening the zone he drops into; go with him if nobody
-     covers it. Following when the 6 has it covered leaves the gap for nothing; holding when nobody covers leaves the
-     9 free between the lines. */
-  function centreBack({ nineDrops, sixScreens, m }){
-    if (!nineDrops) return 'hold';
-    if (sixScreens){ if (m.lapse && m.keen > 0.5){ note('their centre-back', 'followed the 9 out although his 6 had the zone: the gap he left was for nothing'); return 'follow'; } return 'hold'; }
-    if (m.lapse && m.keen < 0.5){ note('their centre-back', 'let the 9 drop off him with nobody covering: a man free between the lines'); return 'hold'; }
-    return 'follow';
-  }
-  /* the 6: presses when the trigger is there - a ball coming to a man within reach who will face him (a first man
-     facing forward, a back pass, a slow pass) - otherwise screens the pocket between the lines; a man standing in his
-     zone with the ball near gets him tight ('onyou'). */
-  function six({ triggerDist, facing, manInZone, m }){
-    const reach = 8 + 2*m.keen;
-    if (facing && triggerDist <= reach) return 'press';
-    if (manInZone) return 'onyou';
-    if (facing && triggerDist <= reach + 3 && m.lapse && m.keen > 0.6){ note('their 6', 'jumped to press from too far out and left the pocket behind him'); return 'press'; }
-    return 'sit';
-  }
-  /* the 8: zonal marking - tight on a man who comes into his zone, holding the line otherwise */
-  function eight({ manInZone, m }){
-    if (manInZone){ if (m.lapse){ note('their 8', 'let the second man drop into his zone without going with him'); return 'zonal'; } return 'mark'; }
-    return 'zonal';
-  }
-  /* marking distance follows the ball: tight when it is close, looser the longer the pass (a man 25 m from the ball
-     need not be on his man's back). Keen men sit tighter, lazy men looser. */
-  function markDistance(passLen, m){
-    const base = clamp(passLen*0.28 - 1.5 + (0.5 - m.keen)*3, 1.2, 15);
-    return clamp(base*rand(0.8, 1.25), 1.2, 15);
-  }
-  /* permuta: of the men who want to jump, one goes (the keenest), the rest cover */
-  function permuta(candidates){
-    const go = candidates.filter(c => c.wants);
-    if (!go.length) return null;
-    go.sort((a, b) => b.m.keen - a.m.keen);
-    return go[0].id;
-  }
-  /* the box on a cross: byline -> everyone drops onto the six-yard box; deep -> the line holds, and a lapse is a
-     ball-watcher who loses his man */
-  function crossLine({ byline, m }){
-    if (byline) return m.lapse ? 'late' : 'six';
-    return m.lapse ? 'watch' : 'hold';
-  }
-  /* ---- ours ---- */
-  /* the full-back overlaps past a winger who has come inside, or follows his own pass down the line; never past a
-     winger who is holding the touchline with the ball elsewhere (two in a lane) */
-  function overlap({ wingerInside, justPassed, invite }){
-    if (wingerInside) return Math.random() < 0.75;
-    if (justPassed) return Math.random() < 0.5;
-    if (invite) return Math.random() < 0.5;                   // the ball behind him with a 6: he pushes past the winger to take the width and send him inside (desdoblamiento)
-    return false;
-  }
-  /* the 8 drops out of the half-space to get the ball when the 6 cannot be found (screened): otherwise he stays between the lines */
-  function eightDrops({ sixScreened }){ return sixScreened ? Math.random() < 0.8 : Math.random() < 0.2; }
-  /* the 9 drops off the line only when both centre-backs are tight on him and an 8 is high enough to run beyond */
-  function nineDrops({ cbsTight, eightHigh }){ return cbsTight && eightHigh && Math.random() < 0.8; }
-  return { man, why, reset, fullBack, centreBack, six, eight, markDistance, permuta, crossLine, overlap, eightDrops, nineDrops, rand, clamp };
-})();
-
 function buildCandidate(side, answer){
   const t = nextVariant(answer);
   /* Crossing from a few metres off the byline rather than level with it. Hard
@@ -522,19 +426,8 @@ function buildCandidate(side, answer){
      good cross; on a phone screen at twenty-five metres that is invisible. The
      free man is given a gap you cannot miss, and the marked men are glued. */
   const freeLag = { near:[4.5,6.5], cut:[5.0,7.0], far:[5.5,7.5] };
-  /* 2.0: each marker decides for himself. Most stay with their man; one in three gets drawn to the ball or drops and
-     loses him. Who is free is read off that - nobody, or one man; two men free at once is thrown away as no single read */
-  /* by the doctrine: a marker stays with his man as the cross comes; the men who lose theirs are the ball-watchers, and the
-     further a man is from the ball the likelier he is to watch it - the back-post marker most of all */
-  JDP.reset();
-  const beaten = {}, LAPSE_WHY = { near: 'dropped goal-side of the front post and let your 9 across him', cut: 'dropped into the six-yard box and left the penalty spot', far: 'was dragged ball-side with the line and left the back post' };
-  keys.forEach(k => { const m = JDP.man(); beaten[k] = m.lapse || (k === 'far' && Math.random() < 0.12) || (k === 'cut' && Math.random() < 0.06); if (beaten[k]) JDP.why.push({ who: k === 'near' ? 'their centre-back' : k === 'cut' ? 'their holding man' : 'their far full-back', text: LAPSE_WHY[k] }); });
-  const nB = keys.filter(k => beaten[k]).length; if (nB > 1) return null;
-  const why = JDP.why.slice();
-  const freeK = nB ? keys.find(k => beaten[k]) : 'none';
-  if (answer && freeK !== answer) return null;
   keys.forEach(k => {
-    const free = beaten[k];
+    const free = (t.free === k);
     lag[k]      = free ? rand(freeLag[k][0], freeLag[k][1]) : rand(1.0, 2.0);
     mDest[k]    = free ? wrongWay[k]() : dest[k];
     /* A beaten man is flat-footed or turning, not still sprinting \u2014 leaving him
@@ -583,8 +476,8 @@ function buildCandidate(side, answer){
         const q = W(rand(-8, 6), rand(-50.5, -45.5));
         const clearOfRunners = ['near','cut','far']
           .every(r => Math.hypot(q[0]-runner[r][0], q[1]-runner[r][1]) > 4.0);
-        const clearOfOpenLane = freeK === 'none' ||
-          distToSeg(q, [0,0], runner[freeK]) > 4.0;
+        const clearOfOpenLane = t.free === 'none' ||
+          distToSeg(q, [0,0], runner[t.free]) > 4.0;
         if (clearOfRunners && clearOfOpenLane) return q;
       }
       return W(7.5, -45);
@@ -592,8 +485,8 @@ function buildCandidate(side, answer){
 
   return {
     side, wingX, zBase,
-    free: freeK, runner, marker, dest, pace, mDest, mPace, sep, lag, clear:{},
-    keeperAt, extras, toOff: W, intended: freeK, why, bots: true
+    free: t.free, runner, marker, dest, pace, mDest, mPace, sep, lag, clear:{},
+    keeperAt, extras, toOff: W, intended: answer
   };
 }
 
@@ -689,8 +582,8 @@ function obvious(sc){
 
 function makeScene(side, answer){
   let last = null;
-  for (let attempt = 0; attempt < 2500; attempt++){
-    const sc = buildCandidate(side, answer); if (!sc) continue;
+  for (let attempt = 0; attempt < 250; attempt++){
+    const sc = buildCandidate(side, answer);
     if (obvious(sc) && onPitch(sc) && unobstructed(sc)) return sc;
     last = sc;
   }
@@ -729,7 +622,6 @@ function scoreScene(s){
     ? 'one of them did have a clear lane \u2014 you had a cross on'
     : 'every lane is blocked by a defender; keep it and go again');
 
-  if (s.why && s.why.length && s.free !== 'none' && o[s.free]) o[s.free].why.push('the lapse: ' + s.why.map(w => w.who + ' ' + w.text).join('; '));
   const list = Object.values(o).sort((a,b) => b.v - a.v);
   const max = list[0].v;
   list.forEach(x => { x.tier = x.v >= max - 0.4 ? 3 : x.v >= max - 1.6 ? 2 : x.v >= max - 3.4 ? 1 : 0; });

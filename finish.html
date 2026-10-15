@@ -4,7 +4,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="Winger">
-<title>Finish 2.0 — shoot or slip, played</title>
+<title>Finish — shoot or slip trainer</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
@@ -198,7 +198,7 @@ a.iconbtn{text-decoration:none;display:inline-flex;align-items:center;white-spac
       <button data-side="alt" aria-pressed="false">Both</button>
     </div>
     <button class="cta" id="start">Start session</button>
-    <p class="note">16 reps, about six minutes. You have cut inside and are carrying it across the edge of the box. Head up and ask two questions. Is one corner open &mdash; a clear line past every body, about a metre past the nearest leg? Nobody ever sees the whole goal from here; bodies in the way are normal. And is the man closing you set? Still a few metres off: shoot before he arrives. Set but off your line: one touch out of his lunge, then hit it. If a defender has stepped out square in front of you, both corners are shut and he has left someone: your 9 in the middle, or your runner down the side of the box. You have about a second.<br><br><b>2.0:</b> nobody is posed from the answer. Their centre-back decides whether to stay on your 9 or step out, their full-back whether to stay on your runner or step in, their keeper takes his own position on the angle. The finish is read off what they did.</p>
+    <p class="note">16 reps, about six minutes. You have cut inside and are carrying it across the edge of the box. Head up and ask two questions. Is one corner open &mdash; a clear line past every body, about a metre past the nearest leg? Nobody ever sees the whole goal from here; bodies in the way are normal. And is the man closing you set? Still a few metres off: shoot before he arrives. Set but off your line: one touch out of his lunge, then hit it. If a defender has stepped out square in front of you, both corners are shut and he has left someone: your 9 in the middle, or your runner down the side of the box. You have about a second.</p>
   </div>
 
   <div id="panelAsk" class="hide">
@@ -261,7 +261,7 @@ const CFG = {
 };
 
 /* ---------------- storage ---------------- */
-const KEY = 'finish:v2';
+const KEY = 'finish:v1';
 let stats = { L:{pts:0,max:0}, R:{pts:0,max:0}, side:'R' };
 async function loadStats(){
   try{
@@ -390,120 +390,8 @@ function gaps(s){
   const kN = ang([k[0] + reach, k[1]]), kF = ang([k[0] - reach, k[1]]);
   return { near: aN - kN, far: kF - aF };
 }
-/* ===================== JDP: the doctrine every bot starts from =====================
-   Both sides play a 4-3-3. Ours attacks with juego de posición; theirs defends as a zonal block that slides with the
-   ball. Every decision a bot makes in a drill starts here, as a principle with a trigger; personality (reaction time,
-   pace, keenness) and the occasional lapse are noise on top, never the rule. Where a man breaks a principle the
-   generator records it (JDP.why) so the review can name it.
-
-   Principles encoded
-   ours (JdP)      five lanes, two per lane, three per line, staggered heights; amplitud (wingers on the touchline) and
-                   profundidad (the 9 pins the centre-backs); the full-back overlaps past a winger who has come inside, following his own
-                   pass down the line (pass and go), or to take the width and send the winger inside (desdoblamiento); the 9 drops only when both
-                   centre-backs are tight on him and an 8 is high enough to run beyond; a receiver with his back to goal
-                   and a man on him needs a support angle and a runner; a free man facing play needs nobody.
-   theirs (block)  basculación: the back four slides with the ball; the near full-back stays goal-side of a winger on his
-                   touchline, the far full-back tucks in; a centre-back passes a dropping 9 on to the 6 if the 6 is
-                   screening, and goes with him only if nobody covers the zone; the 6 presses on a trigger (the ball is
-                   coming to a man facing him within ~8 m, a back pass, a slow pass) and otherwise screens between the
-                   lines; the 8 marks zonally: tight on a man in his zone, holding his line otherwise; permuta: when one
-                   man jumps the nearest covers behind him, and two men do not jump at once; marking distance follows
-                   the ball (tight when it is close, looser the longer the pass); on a byline cross the whole line drops
-                   onto the six-yard box, on a deep cross it holds and the men who lose their man are the ball-watchers. */
-const JDP = (() => {
-  const rand = (a, b) => a + Math.random()*(b - a), clamp = (v, a, b) => Math.max(a, Math.min(b, v));
-  /* a man: how quick he reads, how fast he runs, how keen he is to jump, and whether he is prone to ball-watching */
-  const man = (o) => Object.assign({ react: rand(0.2, 0.6), v: rand(5.4, 6.2), keen: Math.random(), lapse: Math.random() < 0.18 }, o || {});
-  const why = [];
-  const note = (who, text) => { why.push({ who, text }); return text; };
-  const reset = () => { why.length = 0; };
-
-  /* ---- their back four ---- */
-  /* the near full-back with a winger on his touchline and the ball on his side: goal-side of him ('wide'). The ball on
-     the far side, or no wide man to hold him: tuck in ('tuck'). Tucking in with the ball on his side is ball-watching. */
-  function fullBack({ ballNear, wideMan, m }){
-    if (!wideMan) return 'tuck';
-    if (!ballNear) return 'tuck';
-    if (m.lapse){ note('their full-back', 'tucked in to watch the ball with a winger on his touchline and the ball on his side: ball-watching'); return 'tuck'; }
-    return 'wide';
-  }
-  /* the centre-back and a dropping 9: pass him on if the 6 is screening the zone he drops into; go with him if nobody
-     covers it. Following when the 6 has it covered leaves the gap for nothing; holding when nobody covers leaves the
-     9 free between the lines. */
-  function centreBack({ nineDrops, sixScreens, m }){
-    if (!nineDrops) return 'hold';
-    if (sixScreens){ if (m.lapse && m.keen > 0.5){ note('their centre-back', 'followed the 9 out although his 6 had the zone: the gap he left was for nothing'); return 'follow'; } return 'hold'; }
-    if (m.lapse && m.keen < 0.5){ note('their centre-back', 'let the 9 drop off him with nobody covering: a man free between the lines'); return 'hold'; }
-    return 'follow';
-  }
-  /* the 6: presses when the trigger is there - a ball coming to a man within reach who will face him (a first man
-     facing forward, a back pass, a slow pass) - otherwise screens the pocket between the lines; a man standing in his
-     zone with the ball near gets him tight ('onyou'). */
-  function six({ triggerDist, facing, manInZone, m }){
-    const reach = 8 + 2*m.keen;
-    if (facing && triggerDist <= reach) return 'press';
-    if (manInZone) return 'onyou';
-    if (facing && triggerDist <= reach + 3 && m.lapse && m.keen > 0.6){ note('their 6', 'jumped to press from too far out and left the pocket behind him'); return 'press'; }
-    return 'sit';
-  }
-  /* the 8: zonal marking - tight on a man who comes into his zone, holding the line otherwise */
-  function eight({ manInZone, m }){
-    if (manInZone){ if (m.lapse){ note('their 8', 'let the second man drop into his zone without going with him'); return 'zonal'; } return 'mark'; }
-    return 'zonal';
-  }
-  /* marking distance follows the ball: tight when it is close, looser the longer the pass (a man 25 m from the ball
-     need not be on his man's back). Keen men sit tighter, lazy men looser. */
-  function markDistance(passLen, m){
-    const base = clamp(passLen*0.28 - 1.5 + (0.5 - m.keen)*3, 1.2, 15);
-    return clamp(base*rand(0.8, 1.25), 1.2, 15);
-  }
-  /* permuta: of the men who want to jump, one goes (the keenest), the rest cover */
-  function permuta(candidates){
-    const go = candidates.filter(c => c.wants);
-    if (!go.length) return null;
-    go.sort((a, b) => b.m.keen - a.m.keen);
-    return go[0].id;
-  }
-  /* the box on a cross: byline -> everyone drops onto the six-yard box; deep -> the line holds, and a lapse is a
-     ball-watcher who loses his man */
-  function crossLine({ byline, m }){
-    if (byline) return m.lapse ? 'late' : 'six';
-    return m.lapse ? 'watch' : 'hold';
-  }
-  /* ---- ours ---- */
-  /* the full-back overlaps past a winger who has come inside, or follows his own pass down the line; never past a
-     winger who is holding the touchline with the ball elsewhere (two in a lane) */
-  function overlap({ wingerInside, justPassed, invite }){
-    if (wingerInside) return Math.random() < 0.75;
-    if (justPassed) return Math.random() < 0.5;
-    if (invite) return Math.random() < 0.5;                   // the ball behind him with a 6: he pushes past the winger to take the width and send him inside (desdoblamiento)
-    return false;
-  }
-  /* the 8 drops out of the half-space to get the ball when the 6 cannot be found (screened): otherwise he stays between the lines */
-  function eightDrops({ sixScreened }){ return sixScreened ? Math.random() < 0.8 : Math.random() < 0.2; }
-  /* the 9 drops off the line only when both centre-backs are tight on him and an 8 is high enough to run beyond */
-  function nineDrops({ cbsTight, eightHigh }){ return cbsTight && eightHigh && Math.random() < 0.8; }
-  return { man, why, reset, fullBack, centreBack, six, eight, markDistance, permuta, crossLine, overlap, eightDrops, nineDrops, rand, clamp };
-})();
-
 function buildCandidate(side, answer){
-  /* 2.0: nobody is posed from the answer. Their near centre-back decides whether to stay on your 9 or step out at you,
-     their full-back whether to stay on your runner or step in, and their keeper takes up his own position on the angle,
-     well set or a step too far across. The finish is read off what they did; a picture with two men stepping out, or a
-     keeper neither set nor beaten, is thrown away. */
-  JDP.reset();
-  const men = { cb: JDP.man(), lb: JDP.man() };
-  /* the man closing you: set on you about 2 m off (nobody else needs to jump), or still 3-4 m away sprinting in. Only in the
-     second case does a defender step out of the line at you - and by the doctrine he does it only when his man is covered
-     (permuta). Stepping out and leaving the 9, or the runner, is the lapse the review names. */
-  const pressClose = Math.random() < 0.5;
-  const cbSteps = !pressClose && men.cb.lapse && men.cb.keen > 0.3, lbSteps = !pressClose && !cbSteps && men.lb.lapse && men.lb.keen > 0.3, kOff = rand(-1.3, 0.5);
-  if (cbSteps) JDP.why.push({ who: 'their centre-back', text: 'stepped out at you and left your 9 with nobody on him' });
-  if (lbSteps) JDP.why.push({ who: 'their full-back', text: 'stepped in at you and left your runner free down the side' });
-  const why = JDP.why.slice();
-  const on = cbSteps ? 'square' : lbSteps ? 'reverse' : kOff <= -0.9 ? 'near' : kOff >= 0 ? 'far' : null;
-  if (!on || (answer && on !== answer)) return null;
-  if ((on === 'square' || on === 'reverse') && (kOff < -0.15 || kOff > 0.3)) return null;
+  const on = answer;
   const W  = [rand(9, 12), rand(-37.5, -35.5)];          // just outside the box, right of centre
   const R  = [W[0] + rand(4.5, 5.5), W[1] + rand(0.4, 1.4)];  // where the carry began
   const O = p => [p[0] - W[0], p[1] - W[1]];
@@ -545,7 +433,7 @@ function buildCandidate(side, answer){
      your ball and his two posts, a metre or so off his line, square to you.
      Far post is the default finish from here. The near post only opens when
      he has taken a step too far across, reading the curler.               */
-  const keeper = keeperSpot(W, kOff);
+  const keeper = keeperSpot(W, on === 'near' ? -rand(0.9, 1.25) : on === 'far' ? rand(0, 0.45) : rand(-0.15, 0.3));
 
   /* the rest of their shape */
   /* their other centre-back. When the shot is on he has got across into the line to one
@@ -565,7 +453,7 @@ function buildCandidate(side, answer){
   /* when the shot is on, either he is still 3-4.5 m off and sprinting, coming from the shut
      side (not set: shoot before he gets there), or he is set about 2 m off you but off the
      line (one touch out of his lunge, then shoot) */
-  const press = shotOn ? (pressClose ? 'shift' : 'early') : 'block';
+  const press = shotOn ? (Math.random() < 0.5 ? 'early' : 'shift') : 'block';
   const sgn = press === 'early' ? (on === 'far' ? 1 : -1) : (Math.random() < 0.5 ? 1 : -1);
   const pd = press === 'early' ? rand(3.0, 4.5) : press === 'shift' ? rand(1.7, 2.3) : rand(3.2, 4.2);
   const pa = press === 'early' ? sgn*rand(0.05, 0.4)
@@ -597,7 +485,7 @@ function buildCandidate(side, answer){
     blocker: on === 'square' ? 'cbA' : on === 'reverse' ? 'lb' : null,
     from: Object.fromEntries(Object.entries(from).map(([k, p]) => [k, O(p)])), sgn,
     press, screen: shotOn ? 'cbB' : null, cmScreen, posts: [O([ZONE.post, ZONE.goalZ]), O([-ZONE.post, ZONE.goalZ])],
-    intended: on, why, bots: true
+    intended: answer
   };
 }
 
@@ -676,8 +564,8 @@ function inPlay(s){
 }
 function makeScene(side, answer){
   let last = null;
-  for (let attempt = 0; attempt < 3000; attempt++){
-    const s = buildCandidate(side, answer); if (!s) continue;
+  for (let attempt = 0; attempt < 600; attempt++){
+    const s = buildCandidate(side, answer);
     if (sceneOK(s) && onside(s) && inPlay(s)) return s;
     last = s;
   }
@@ -731,7 +619,7 @@ function scoreScene(s){
   }
   const list = OPTIONS.map(o => {
     const tier = o.id === s.on ? 3 : 0;
-    return { id: o.id, label: o.label, tier, v: 1 + tier, why: [tier ? ON[o.id] + (s.why && s.why.length ? ' The lapse: ' + s.why.map(w => w.who + ' ' + w.text).join('; ') + '.' : '') : OFF[o.id]] };
+    return { id: o.id, label: o.label, tier, v: 1 + tier, why: [tier ? ON[o.id] : OFF[o.id]] };
   });
   list.sort((a, b) => b.tier - a.tier);
   return list;

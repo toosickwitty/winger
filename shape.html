@@ -4,7 +4,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="Winger">
-<title>Shape 2.0 — juego de posición off the ball, played</title>
+<title>Shape — juego de posición off the ball</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
@@ -222,7 +222,7 @@ a.iconbtn{text-decoration:none;display:inline-flex;align-items:center;white-spac
       <button data-mode="test" aria-pressed="false">Test</button>
     </div>
     <button class="cta" id="start">Start session</button>
-    <p class="note">16 reps, about five minutes. Spanish positional play (<i>juego de posici&oacute;n</i>) cuts the pitch into <b>five lanes</b>: two wide lanes, two inside lanes (<i>pasillos interiores</i>; English coaches call them half-spaces) and the middle. Spread out: no more than two team-mates in a lane and no more than three on a line, so whoever has the ball always has two or three options. A few seconds of play, then it freezes as the last pass is struck: tap where you should be.<br><br><b>We have it</b> &mdash; you are the width (<i>amplitud</i>), level with their last defender: on the touchline when the ball is on your side, pinning their full-back (<i>fijar al lateral</i>); a few metres in when it is central; at the inside edge of your lane when it is far. If your full-back takes your lane on your line, you take the half-space.<br><b>They have it</b> &mdash; you are one of the midfield four (<i>l&iacute;nea de medios</i>): level with your 8s, closing your half-space, sliding with the block (<i>basculaci&oacute;n</i>); jump to their full-back as the ball travels to him (<i>saltar al lateral</i>).<br><b>We just lost it</b> &mdash; press straight away (<i>presi&oacute;n tras p&eacute;rdida</i>): their outlet right by you, you press him; away from you, do not chase the ball: take the man nearest you who could get the next pass &mdash; usually their full-back &mdash; and shut the pass to him.<br><br><b>Learn</b> paints the lanes on the grass and shows everyone on the map when you tap. <b>Test</b> takes all of that away.<br><br><b>Scan:</b> while it plays, tap the left or right half of the screen (on a computer, the &larr; &rarr; keys) to look over that shoulder &mdash; a quick 90&deg; turn of the head and straight back to the ball, about a third of a second, like a pro.<br><br><b>2.0:</b> the passes are not steered to the answer any more. Who is on the ball and what he sees on is drawn fresh, and the men on the ball play what is there. The principle is read off the picture, not the other way round.</p></p></p>
+    <p class="note">16 reps, about five minutes. Spanish positional play (<i>juego de posici&oacute;n</i>) cuts the pitch into <b>five lanes</b>: two wide lanes, two inside lanes (<i>pasillos interiores</i>; English coaches call them half-spaces) and the middle. Spread out: no more than two team-mates in a lane and no more than three on a line, so whoever has the ball always has two or three options. A few seconds of play, then it freezes as the last pass is struck: tap where you should be.<br><br><b>We have it</b> &mdash; you are the width (<i>amplitud</i>), level with their last defender: on the touchline when the ball is on your side, pinning their full-back (<i>fijar al lateral</i>); a few metres in when it is central; at the inside edge of your lane when it is far. If your full-back takes your lane on your line, you take the half-space.<br><b>They have it</b> &mdash; you are one of the midfield four (<i>l&iacute;nea de medios</i>): level with your 8s, closing your half-space, sliding with the block (<i>basculaci&oacute;n</i>); jump to their full-back as the ball travels to him (<i>saltar al lateral</i>).<br><b>We just lost it</b> &mdash; press straight away (<i>presi&oacute;n tras p&eacute;rdida</i>): their outlet right by you, you press him; away from you, do not chase the ball: take the man nearest you who could get the next pass &mdash; usually their full-back &mdash; and shut the pass to him.<br><br><b>Learn</b> paints the lanes on the grass and shows everyone on the map when you tap. <b>Test</b> takes all of that away.<br><br><b>Scan:</b> while it plays, tap the left or right half of the screen (on a computer, the &larr; &rarr; keys) to look over that shoulder &mdash; a quick 90&deg; turn of the head and straight back to the ball, about a third of a second, like a pro.</p></p></p>
   </div>
 
   <div id="panelAsk" class="hide">
@@ -285,7 +285,7 @@ const CFG = {
 };
 
 /* ---------------- storage ---------------- */
-const KEY = 'shape:v2';
+const KEY = 'shape:v1';
 let stats = { L:{pts:0,max:0}, R:{pts:0,max:0}, side:'R' };
 async function loadStats(){
   try{
@@ -517,9 +517,7 @@ function chain(phase, D, holder, n, finals, jit, opt){
       if (L < PASS_MIN || L > PASS_MAX) return;
       if (!laneClear(h.at, c.at, phase === 'att' ? h.sh.opp : h.sh.own)) return;
       const fwd = (phase === 'att' ? h.at[1] - c.at[1] : c.at[1] - h.at[1]);
-      /* 2.0: the man on the ball plays what is on - forward when he can, and to the free man */
-      const them = phase === 'att' ? h.sh.opp : h.sh.own; let near = 99; for (const k in them) near = Math.min(near, d2(them[k], c.at));
-      opts.push({ r, c, L, w: (fwd > 4 ? 2.5 : fwd > -4 ? 1.5 : 0.7)*clamp(near/4, 0.25, 2.5) });
+      opts.push({ r, c, L, w: fwd > 4 ? 2.5 : fwd > -4 ? 1.5 : 0.7 });  // mostly forward or across, sometimes back
     });
     if (!opts.length) return null;
     const o = pickW(opts);
@@ -534,19 +532,11 @@ function candidate(side, key){
   const turn = key === 'turnover';
   let solved, kind = key, extra = {};
   if (!turn){
-    /* 2.0: the bag asks only for the phase (we have it / they have it) and, for the overlap rep, that your full-back
-       goes. The men on the ball pick what is on; which principle the picture asks for - the ball near, in the middle,
-       far, or the rotation behind the overlap - is read off where it ends up. */
-    const phase = key.slice(0, 3), ov = key === 'attSwap';
+    const phase = key.slice(0, 3);
     const D = phase === 'att' ? rand(-8, 8) : rand(-16, 4);
     const holders = phase === 'att' ? ['LCB', 'RCB', 'LB', 'RB', 'S6', 'L8', 'R8'] : ['TB1', 'TB2', 'TB3', 'TB4', 'TM2', 'TM3'];
-    solved = chain(phase, D, pickOne(holders), 3, null, jit, ov ? (i => ({ ov: i >= 2 ? 2 : 1 })) : null);
+    solved = chain(phase, D, pickOne(holders), 3, FINAL[key], jit, key === 'attSwap' ? (i => ({ ov: i >= 2 ? 2 : 1 })) : null);
     if (!solved) return null;
-    const last = solved[solved.length - 1].role;
-    kind = ov ? (FINAL.attSwap.includes(last) ? 'attSwap' : null)
-         : phase === 'att' ? (FINAL.attNear.includes(last) ? 'attNear' : FINAL.attMid.includes(last) ? 'attMid' : FINAL.attFar.includes(last) ? 'attFar' : null)
-         : (FINAL.defNear.includes(last) ? 'defNear' : FINAL.defMid.includes(last) ? 'defMid' : FINAL.defFar.includes(last) ? 'defFar' : null);
-    if (!kind || kind !== key) return null;
   } else {
     /* we have it, one pass goes in, the next is cut out; they play one pass. Freeze. */
     const D = rand(-10, 6);
@@ -965,7 +955,7 @@ function sceneOK(s){
 function makeScene(side, key){
   if (!BAG_COUNT[key]) key = 'attFar';
   const turn = key.startsWith('turn');
-  for (let i = 0; i < (turn ? 1500 : 3000); i++){ const s = candidate(side, turn ? 'turnover' : key);
+  for (let i = 0; i < (turn ? 1500 : 900); i++){ const s = candidate(side, turn ? 'turnover' : key);
     if (turn && s && (key === 'turnPress' ? !(d2(s.start, s.extra.recv) < 15 && s.extra.recv[0] > 6) : d2(s.start, s.extra.recv) < 13)) continue;
     if (sceneOK(s) && (!turn || s.kind === key)) return s; }
   if (key !== 'attFar') return makeScene(side, 'attFar');
