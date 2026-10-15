@@ -199,7 +199,7 @@ a.iconbtn{text-decoration:none;display:inline-flex;align-items:center;white-spac
       <button data-side="alt" aria-pressed="false">Both</button>
     </div>
     <button class="cta" id="start">Start session</button>
-    <p class="note">16 reps, about six minutes. The ball is on the far wing, about to be crossed, and you are the far winger jogging into the box. Read two things. Where is the crosser? At the byline, the ball comes back &mdash; hold the edge of the box. Out wide, it gets whipped in &mdash; so where is their full-back on you? Tucked in, watching the ball: arrive behind him at the back post. Tight and goal-side: step in front of him into the middle of the goal.</p>
+    <p class="note">16 reps, about six minutes. The ball is on the far wing, about to be crossed, and you are the far winger jogging into the box. Read their line, not the crosser (he is on the byline or out wide in any rep). Has the whole line dropped onto the six-yard box? Then the back post and the middle are taken, and the ball that comes back is yours &mdash; hold the edge. If the line is holding, where is their full-back on you? Tucked in, watching the ball: arrive behind him at the back post. Tight and goal-side: step in front of him into the middle of the goal.</p>
   </div>
 
   <div id="panelAsk" class="hide">
@@ -369,7 +369,7 @@ function newBag(){
 function recvPoint(answer, s){ return s.target[answer] || s.target.back; }
 
 function buildCandidate(side, answer){
-  const on = answer, byline = on === 'edge';
+  const on = answer, byline = Math.random() < 0.4;                     // where the cross comes from says nothing about the room: byline or deep, in every rep
   const W = [rand(15, 19), rand(-40.5, -38)];               // arriving on his side of the box
   const R = [W[0] + rand(3.5, 4.5), W[1] + rand(1.5, 2.5)];  // where his jog in began
   const O = p => [p[0] - W[0], p[1] - W[1]];
@@ -430,9 +430,9 @@ function zoneState(s, k){
 }
 function sceneOK(s){
   const b = zoneState(s, 'back'), c = zoneState(s, 'centre'), e = zoneState(s, 'edge');
-  if (s.on === 'edge')   return s.byline && e.near >= 5 && b.near <= 1.6 && c.near <= 1.8;
-  if (s.on === 'back')   return !s.byline && b.near >= 5 && b.lane >= 2.5 && c.near <= 2.0 && e.near <= 2.0;
-  if (s.on === 'centre') return !s.byline && c.near >= 4.5 && b.lbLane <= 1.5 && e.near <= 2.0;
+  if (s.on === 'edge')   return e.near >= 5 && b.near <= 1.6 && c.near <= 1.8;
+  if (s.on === 'back')   return b.near >= 5 && b.lane >= 2.5 && c.near <= 2.0 && e.near <= 2.0;
+  if (s.on === 'centre') return c.near >= 4.5 && b.lbLane <= 1.5 && e.near <= 2.0;
   return false;
 }
 function onside(s){
@@ -467,16 +467,16 @@ const FB = s => s.side === 1 ? 'left-back' : 'right-back';
 function scoreScene(s){
   const fb = FB(s);
   const ON = {
-    back:   'the ball is being whipped in from wide and their ' + fb + ' has tucked in to watch it — arrive behind him at the back post',
+    back:   'their ' + fb + ' has tucked in to watch the ball — arrive behind him at the back post',
     centre: 'their ' + fb + ' is tight and goal-side of you, so the back post is his — step in front of him, where their centre-back has been dragged to the near post',
-    edge:   'the crosser is at the byline, so the ball is coming back, not across — and their defenders have dropped onto the six-yard line. Hold the edge'
+    edge:   'their whole line has dropped onto the six-yard box: the back post and the middle are both taken, and the ball that comes back to the edge is nobody’s. Hold the edge'
   };
   const OFF = {
-    back:   s.on === 'edge' ? 'from the byline it gets pulled back, and their ' + fb + ' has dropped onto the back post anyway'
+    back:   s.on === 'edge' ? 'their ' + fb + ' has dropped onto the back post: it is his'
                             : 'their ' + fb + ' is goal-side of you — he gets to the back post first',
-    centre: s.on === 'edge' ? 'from the byline it gets pulled back, not driven across the six — and a centre-back is sitting there'
+    centre: s.on === 'edge' ? 'a centre-back has dropped onto the six, right in the middle'
                             : 'a centre-back is covering the middle of the goal',
-    edge:   'the ball is being whipped in from wide — nothing comes to the edge of the box, and their 6 is sitting there. Get in the box'
+    edge:   'their line is holding, not dropping — nothing comes back to the edge, and their 6 is sitting there. Get in the box'
   };
   const list = OPTIONS.map(o => {
     const tier = o.id === s.on ? 3 : 0;

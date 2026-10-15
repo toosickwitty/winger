@@ -367,21 +367,21 @@ function buildCandidate(side, id){
   /* built backwards from the timing: line, second man, first man and the space first;
      then the winger goes exactly where a well-timed run meets a real lay-off in stride */
   const Wx = rand(25, 28.5);
-  const lineZ = kase === 'pocket' ? rand(-40, -37) : rand(-33, -29);
+  const lineZ = rand(-35, -29);                                        // the same line for every rep: its depth tells nothing
   const midZ = lineZ + rand(9, 11);
   const inShape = kase === 'in';
+  const who9 = kase === 'stay' ? Math.random() < 0.35 : Math.random() < 0.5;   // who the second man is says nothing about the space: the 9 off their line or the 10 from midfield, in every rep
   const Z = {
     out:    overlap ? [Wx - rand(1, 2.5), lineZ - rand(5.5, 7.5)]
-          : inShape ? [Wx - rand(1.5, 3), lineZ - rand(5.5, 7.5)] : [Wx - rand(0.5, 2), lineZ - rand(4, 6)],
-    in:     [Wx - rand(9, 11.5), lineZ - rand(2.5, 4)],
-    pocket: inShape ? [Wx - rand(9, 11), lineZ + rand(5.5, 7)] : [Wx - rand(5, 7), lineZ + rand(5, 7)]
+          : inShape ? [Wx - rand(1, 2.5), lineZ - rand(6.5, 8)] : [Wx - rand(0.5, 2), lineZ - rand(4, 6)],
+    in:     [Wx - rand(10, 12.5), lineZ - rand(3, 5)],
+    pocket: inShape ? [Wx - rand(13, 15), lineZ + rand(3, 5)] : [Wx - rand(5, 7), lineZ + rand(1.5, 3.5)]
   };
   let B0, Brecv, who;
-  if (inShape){ B0 = [Wx - rand(12.5, 15.5), lineZ + 0.8]; Brecv = [B0[0] + rand(-1, 1.5), lineZ + rand(6, 8)]; who = 'your 9'; }
-  else if (kase === 'out'){ B0 = [Wx - rand(9, 12), midZ - rand(0, 1)]; Brecv = [B0[0] + rand(-1, 1), lineZ + rand(4.5, 6.5)]; who = 'your 10'; }
-  else if (kase === 'pocket'){ B0 = [Wx - rand(12, 15), lineZ + 1]; Brecv = [B0[0] + rand(-1, 1), lineZ + rand(5.5, 7)]; who = 'your 9'; }
-  else { /* free between the lines: he drifts across into space, side-on, facing up the pitch */
+  if (kase === 'stay' && !who9){ /* free between the lines: he drifts across into space, side-on, facing up the pitch */
     Brecv = [Wx - rand(10.5, 13), lineZ + rand(7, 9)]; B0 = [Brecv[0] - rand(4, 6), Brecv[1] + rand(-0.5, 0.8)]; who = 'your 10'; }
+  else if (who9){ B0 = [Wx - rand(12, 15.5), lineZ + rand(0.8, 1)]; Brecv = [B0[0] + rand(-1, 1.5), lineZ + rand(5.5, 8)]; who = 'your 9'; }
+  else { B0 = [Wx - rand(11, 14), midZ - rand(0, 1)]; Brecv = [B0[0] + rand(-1, 1), lineZ + rand(4.5, 6.5)]; who = 'your 10'; }
   /* the first man */
   let A;
   if (first === 'six') A = inShape ? [Brecv[0] - rand(8.5, 11), Brecv[1] + rand(3, 5.5)] : [Brecv[0] - rand(7.5, 10.5), Brecv[1] + rand(5, 8)];
@@ -389,28 +389,29 @@ function buildCandidate(side, id){
   else A = [Wx - rand(0.5, 4), lineZ + rand(15, 19)];
   const t_pass = rand(1500, 2000);
   const t_recv = t_pass + d2(A, Brecv)/PASS1[first]*1000;
-  const onTime = [Math.max(t_pass - 150, t_recv - 950), t_recv];  // a long pass: the trigger is the ball arriving, not the strike
+  const onTime = [Math.max(t_pass - 150, t_recv - (kase === 'out' ? 750 : 950)), t_recv];  // a long pass: the trigger is the ball arriving, not the strike; a straight run in behind has to leave later
   const tMid = (onTime[0] + onTime[1])/2, tLay = t_recv + TOUCH;
   const layV = rand(11.5, 14);
   /* their back line, drawn first: its deepest man is what keeps him onside */
   const dz = { LB: rand(0, 1), CBn: -rand(0, 1), CBf: rand(-0.5, 0.5), RB: rand(-0.5, 0.5) };
-  const cbFollows = inShape && !overlap;
+  const cbFollows = inShape && !overlap && who9;
+  const cbInside = inShape && !overlap && !who9;                        // the 10 is the second man: the gap is between a full-back wide on you and a centre-back holding inside
   const deepest = lineZ + Math.min(dz.LB, cbFollows ? 9 : dz.CBn, dz.CBf, dz.RB);
   let W;
-  if (kase === 'stay') W = [Wx, lineZ + rand(6, 9)];
+  if (kase === 'stay') W = [Wx, lineZ + rand(5, 9)];
   else if (kase === 'pocket'){
     const zr = Z.pocket;
-    const runL = RUN*((tLay - tMid)/1000 + d2(Brecv, zr)/layV);       // the run that meets it in stride
+    const runL = RUN*((tLay - (onTime[0] + 0.7*(onTime[1] - onTime[0])))/1000 + d2(Brecv, zr)/layV);       // the run that meets it in stride, from a tap in the later half of the window
     const dx = Wx - zr[0];
     if (runL <= Math.abs(dx) + 1) return null;
     W = [Wx, zr[1] + Math.sqrt(runL*runL - dx*dx)];
   } else {
     /* in behind: the earliest on-time run is still level with their line when the lay-off is played,
        and the space is where a run from the middle of the window meets the ball in stride */
-    let dir = kase === 'out' ? [-rand(0.12, 0.35), -1] : [-rand(1.5, 2.0), -1];
+    let dir = kase === 'out' ? [-rand(0.12, 0.35), -1] : [-rand(1.1, 1.5), -1];
     const n = Math.hypot(dir[0], dir[1]); dir = [dir[0]/n, dir[1]/n];
     const byLay = RUN*(tLay - onTime[0])/1000;                        // how far the earliest run has got
-    W = [Wx, deepest - 0.15 + rand(0.1, 0.7) - dir[1]*byLay];
+    W = [Wx, deepest - 0.15 + rand(0.1, 0.7) - dir[1]*byLay + (kase === 'in' ? rand(0, 2.5) : rand(0, 1))];   // a start height that says nothing: the diagonal run may start higher up
     const pos = sd => [W[0] + dir[0]*sd, W[1] + dir[1]*sd];
     const gap = sd => (tLay + d2(Brecv, pos(sd))/layV*1000) - (tMid + sd/RUN*1000);
     let lo = 0, hi = 60;
@@ -425,7 +426,7 @@ function buildCandidate(side, id){
   const LB = kase === 'out' ? [Brecv[0] + rand(0.8, 1.8), lineZ + dz.LB]       // tucked right in, watching the second man
                             : [W[0] - rand(0.8, 2.2), lineZ + dz.LB];          // wide, on you
   const CBn = cbFollows ? null
-            : overlap ? [Z.in[0] - rand(6.5, 8), lineZ + dz.CBn]               // holding inside
+            : (overlap || cbInside) ? [Z.in[0] - rand(6.5, 8), lineZ + dz.CBn]   // holding inside
             : [Z.in[0] + rand(-1, 1), lineZ + dz.CBn];                         // holds the gap
   const CBf = [(CBn ? CBn[0] : B0[0]) - rand(9, 11), lineZ + dz.CBf];
   const RB  = [CBf[0] - rand(9, 11), lineZ + dz.RB];
@@ -443,7 +444,7 @@ function buildCandidate(side, id){
   const farW = [-rand(21.5, 24), lineZ + rand(1, 3)];            // the far winger keeps his lane: inside edge of the far wide lane
   const eight = [-rand(11.5, 17), midZ + rand(-1.5, 1.5)];       // the other 8 in the far inside lane, between their lines
   const firstName = first === 'six' ? 'your 6' : first === 'cb' ? 'your centre-back' : 'your ' + (side === 1 ? 'right-back' : 'left-back');
-  return { side, id, kase, first, firstName, overlap, cbFollows, marked, who, W, lineZ, midZ, A, B0, Brecv, Z,
+  return { side, id, kase, first, firstName, overlap, cbFollows, cbInside, who9, marked, who, W, lineZ, midZ, A, B0, Brecv, Z,
            LB, CBn, CBf, RB, M6, M8, P, farW, eight,
            keeper: [rand(-1, 1), -51.3], t_pass, t_recv,
            onTime, intended: kase, layV,
@@ -1946,7 +1947,7 @@ function buildScene(s){
                       : s.overlap ? 'their ' + fb + ' · went with your overlapping ' + ourFB : 'their ' + fb + ' · wide, on you');
   mk('CBn', 'opp', s.CBn || s.B0, s.kase === 'set' ? 'their centre-back · tight on ' + s.who + ', he cannot turn' : s.cbFollows ? 'their centre-back · followed your 9'
                                  : s.overlap ? 'their centre-back · holding inside'
-                                 : s.kase === 'pocket' ? 'their centre-back · line dropped deep' : 'their centre-back · holding the gap');
+                                 : s.cbInside ? 'their centre-back · holding inside' : 'their centre-back · holding the gap');
   mk('M6', 'opp', s.M6, s.kase === 'set' ? 'their 6 · one side of the gap' : (s.kase === 'pocket' || s.kase === 'stay') ? 'their 6 · gone to press' : 'their 6 · sitting in the pocket');
   mk('M8', 'opp', s.M8, s.kase === 'set' ? 'their 8 · the other side of it' : s.marked ? 'their 8 · tight on ' + s.who : null);
   mk('CBf', 'opp', s.CBf, s.kase === 'set' ? 'their other centre-back · covering across' : null); mk('RB', 'opp', s.RB, null); mk('P', 'opp', s.P, null);
@@ -2037,8 +2038,8 @@ function thirdResult(){
                      set: 'onto the set, between their 6 and their 8' };
   const cue = { out: 'their ' + fb + ' tucked in to watch ' + s.who + (s.first === 'fb' ? ', and your ' + ourFB + ' stayed behind you, so the lane was yours' : ''),
                 in: s.overlap ? 'your ' + ourFB + ' overlapped and their ' + fb + ' went with him — that lane was his, so you go inside'
-                              : 'their centre-back followed your 9 when he dropped',
-                pocket: 'their line dropped deep and their 6 went to press — nothing in behind, room in front of them',
+                              : s.cbFollows ? 'their centre-back followed your 9 when he dropped' : 'their centre-back was holding inside, toward his partner, and their ' + fb + ' was wide on you: the gap between them was open',
+                pocket: 'their 6 went to press and their line held — nothing in behind, room in front of them',
                 set: s.who + ' had his back to goal and a man tight on him, so he could not turn — he set it first time, back into the space in front of you. Up, back, through: the N' };
   const covered = { out: s.overlap ? 'That was your ' + ourFB + '’s lane — he was already going there, and their ' + fb + ' went with him'
                                    : 'Their ' + fb + ' was wide on you — he was already there',

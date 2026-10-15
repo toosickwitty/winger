@@ -440,8 +440,10 @@ function buildCandidate(side, answer){
      corner (6-10 m in front of you), so that corner is shut and the window is the other one;
      otherwise he is covering deep at the far post */
   let cbB;
-  if (shotOn){
-    const shut = on === 'far' ? T.near : T.far, Ls = Math.hypot(shut[0]-W[0], shut[1]-W[1]);
+  const cbInLine = shotOn || Math.random() < 0.5;                      // on a slip rep too he may have got across into the line of a corner: where he stands says nothing
+  const shutNear = shotOn ? on === 'far' : Math.random() < 0.5;        // which corner he shuts
+  if (cbInLine){
+    const shut = shutNear ? T.near : T.far, Ls = Math.hypot(shut[0]-W[0], shut[1]-W[1]);
     const us = [(shut[0]-W[0])/Ls, (shut[1]-W[1])/Ls], ps = [-us[1], us[0]];
     cbB = drop(taken, () => { const d = rand(6, 10.5), lat = rand(-0.35, 0.35); return [W[0] + us[0]*d + ps[0]*lat, W[1] + us[1]*d + ps[1]*lat]; }, 1.5);
   } else cbB = drop(taken, gap(() => [rand(-5.5, -3), rand(-48, -46)]), 2.4);
@@ -453,19 +455,19 @@ function buildCandidate(side, answer){
   /* when the shot is on, either he is still 3-4.5 m off and sprinting, coming from the shut
      side (not set: shoot before he gets there), or he is set about 2 m off you but off the
      line (one touch out of his lunge, then shoot) */
-  const press = shotOn ? (Math.random() < 0.5 ? 'early' : 'shift') : 'block';
-  const sgn = press === 'early' ? (on === 'far' ? 1 : -1) : (Math.random() < 0.5 ? 1 : -1);
+  const press = shotOn ? ['early', 'shift', 'block'][Math.floor(Math.random()*3)] : (Math.random() < 0.5 ? 'early' : 'block');   // the man closing you says nothing about shoot-or-slip: on a slip rep too he may be sprinting in from 3-4.5 m
+  const sgn = press === 'early' ? (shotOn ? (on === 'far' ? 1 : -1) : (Math.random() < 0.5 ? 1 : -1)) : (Math.random() < 0.5 ? 1 : -1);
   const pd = press === 'early' ? rand(3.0, 4.5) : press === 'shift' ? rand(1.7, 2.3) : rand(3.2, 4.2);
   const pa = press === 'early' ? sgn*rand(0.05, 0.4)
            : sgn * (press === 'shift' ? (sgn > 0 ? rand(0.6, 0.95) : rand(0.6, 0.72)) : (sgn > 0 ? rand(0.5, 0.95) : rand(0.5, 0.7)));
   const rot = (d, a) => [W[0] + (u[0]*Math.cos(a) - u[1]*Math.sin(a))*d, W[1] + (u[0]*Math.sin(a) + u[1]*Math.cos(a))*d];
   const presser = rot(pd, pa); taken.push(presser);
-  const presserFrom = rot(pd + (press === 'early' ? rand(4.5, 6) : rand(7, 8.5)), pa + sgn*rand(0.1, 0.3));     // sprinting in from further out
+  const presserFrom = rot(pd + rand(4.5, 7), pa + sgn*rand(0.1, 0.3));     // sprinting in from further out, the same distance whatever the rep
   /* their midfielder, recovering behind him at a sprint */
   let cm, cmFrom, cmScreen = false;
-  if (shotOn && typeof Wf === 'undefined' && Math.random() < 0.5){
-    const shut = on === 'far' ? T.near : T.far, Ls = Math.hypot(shut[0]-W[0], shut[1]-W[1]);
-    const us = [(shut[0]-W[0])/Ls, (shut[1]-W[1])/Ls], ps = [-us[1], us[0]], out = on === 'far' ? 1 : -1;   // ps*out: away from the open corner
+  if (typeof Wf === 'undefined' && Math.random() < 0.5){               // the screen comes on slip reps too
+    const shut = shutNear ? T.near : T.far, Ls = Math.hypot(shut[0]-W[0], shut[1]-W[1]);
+    const us = [(shut[0]-W[0])/Ls, (shut[1]-W[1])/Ls], ps = [-us[1], us[0]], out = shutNear ? 1 : -1;   // ps*out: away from the open corner
     cm = drop(taken, () => { const d = rand(3.6, 5.6), lat = out*rand(0, 0.5); return [W[0] + us[0]*d + ps[0]*lat, W[1] + us[1]*d + ps[1]*lat]; }, 1.5);
     cmFrom = [cm[0] - ps[0]*out*rand(2.5, 3.5), cm[1] - ps[1]*out*rand(2.5, 3.5) + rand(0.5, 1.5)];   // shuffled across into the line
     cmScreen = true;
@@ -484,7 +486,7 @@ function buildCandidate(side, answer){
     opp: Object.fromEntries(Object.entries(opp).map(([k, p]) => [k, O(p)])),
     blocker: on === 'square' ? 'cbA' : on === 'reverse' ? 'lb' : null,
     from: Object.fromEntries(Object.entries(from).map(([k, p]) => [k, O(p)])), sgn,
-    press, screen: shotOn ? 'cbB' : null, cmScreen, posts: [O([ZONE.post, ZONE.goalZ]), O([-ZONE.post, ZONE.goalZ])],
+    press, screen: cbInLine ? 'cbB' : null, cmScreen, posts: [O([ZONE.post, ZONE.goalZ]), O([-ZONE.post, ZONE.goalZ])],
     intended: answer
   };
 }

@@ -3131,7 +3131,7 @@ function candidate(side, key){
   const who = whoR < 0.5 ? 'your 9' : whoR < 0.8 ? 'your 10' : 'your winger';
   const R = who === 'your 9' ? [you[0] - rand(3, 6), lineZ + rand(7, 10)]           // the 9, dropped off their line, back to goal
           : who === 'your 10' ? [you[0] - rand(6, 8), lineZ + rand(10, 13)]        // the 10, between the lines
-          : [you[0] + rand(7, 9), lineZ + rand(8, 12)];                            // the winger, come off the touchline to feet
+          : [you[0] + rand(4.5, 7), lineZ + rand(9.5, 13)];                        // the winger, come off the touchline to feet - close enough for the one-two, in every rep
   const L = d2(you, R), u = unit(you, R);
   if (L < 6.5 || L > 9.5) return null;
   const Tb = ballT(L);
