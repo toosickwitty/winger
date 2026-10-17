@@ -2654,7 +2654,7 @@ stage.addEventListener('pointermove', e => {
   const dx = e.clientX - aim.down.x, dy = e.clientY - aim.down.y;
   if (!aim.down.moved && Math.hypot(dx, dy) > 8) aim.down.moved = true;
   if (!aim.down.moved) return;
-  const k = (camera.fov*Math.PI/180)/Math.max(1, stage.clientHeight);   // the picture follows the finger
+  const k = (camera.fov*Math.PI/180)/Math.max(1, stage.clientHeight)*(e.pointerType === 'mouse' ? 2 : 1);   // the picture follows the finger; a mouse or touchpad turns it twice as fast
   aim.yaw = aim.down.yaw + dx*k; aim.pitch = aim.down.pitch + dy*k;
   clearHover(); aimLook();
 });
