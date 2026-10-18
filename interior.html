@@ -914,13 +914,21 @@ function sceneOK(s){
          from the ball he does not chase it: he takes the man of theirs nearest him who could
          get the next pass, and gets on the line from the ball to him, a couple of metres
          off him, ball side. */
-      const ownNow = []; for (const id in s.ev[0].sh.own) ownNow.push(s._atTa[id]);      // everyone as the ball arrives
+      /* a man counts as marked if a team-mate is on him at any moment of the stretch he watches:
+         the frozen picture, the ball arriving, and the play running on after it (the men who do
+         not press settle a step behind where they were). Otherwise the drill asks him to cover a
+         man his 8 or his 9 is visibly already on. */
+      const last = s.ev[s.ev.length - 1], tSee = Math.max(s.tFreeze + Math.max(1600, last.ta - s.tFreeze + 1400) + 300, last.ta + 1600);
+      s._tEnd = tSee; const Ls = simulate(s); s._tEnd = undefined;
+      const times = []; for (let t = s.tFreeze; t <= tSee; t += 200) times.push(t);
+      const ownAt = t => Object.keys(s.ev[0].sh.own).filter(id => id !== 'OGK').map(id => trackAt(Ls.tr[id], t).p);
+      const marked = id => times.some(t => { const q = trackAt(Ls.tr[id], t).p; return ownAt(t).some(m => d2(m, q) < 5); });
       let man = null, manId = null;
       for (const id in s.ev[0].sh.opp){
         if (id === 'TGK' || id === s.extra.role) continue;
         const q = s._atTa[id];
-        if (ownNow.some(m => d2(m, q) < 4)) continue;                    // already marked
         if (d2(q, s.start) > 22) continue;                                 // not his: too far away
+        if (marked(id)) continue;                                          // a team-mate is on him already
         if (!man || d2(q, s.start) < d2(man, s.start)){ man = q; manId = id; }
       }
       if (!man) return false;
@@ -928,7 +936,14 @@ function sceneOK(s){
       s.ideal = pitch([man[0] + (r[0]-man[0])*kk, man[1] + (r[1]-man[1])*kk]);
       s.ref = { type: 'man', id: manId, label: 'the nearest man who could get the next pass', how: 'on the line from the ball to him, a couple of metres off him, so the pass to him is shut' };
       s.extra.free = man; s.extra.cover = manId;
-      if (ownNow.some(m => d2(m, s.ideal) < 5)) return false;           // a team-mate already has him
+      if (times.some(t => ownAt(t).some(m => d2(m, s.ideal) < 6))) return false;   // a team-mate passes through or holds his spot
+      /* and every other man of theirs he could have taken instead is visibly covered or further off:
+         no free man closer to him than the one he is sent to */
+      for (const id in s.ev[0].sh.opp){
+        if (id === 'TGK' || id === s.extra.role || id === manId) continue;
+        const q = s._atTa[id];
+        if (d2(q, s.start) < d2(man, s.start) + 3 && !marked(id)) return false;
+      }
     }
     if (d2(s.ideal, s.start) > 22) return false;                         // nobody sprints half the pitch back to press
     if (d2(s.ideal, s.start) < 6) return false;
