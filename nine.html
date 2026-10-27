@@ -2356,12 +2356,38 @@ function passPhase(s, id, T){
   }
   return { k: null };
 }
+/* a short trail behind a travelling ball: half a second of where it has just been, fading as it
+   goes, so a far pass reads as a line going somewhere, not a dot that barely moves. It sits on
+   the grass under the ball, grows a little with distance like the ball does, and is nothing
+   while the ball is still or at a man's feet. */
+const TRAIL_N = 9, TRAIL_MS = 520;
+function ballTrail(track, T, wx){
+  if (!ballMesh) return;
+  let tr = ballMesh.userData.trail;
+  if (!tr){
+    tr = []; const geo = new THREE.CircleGeometry(1, 18);
+    for (let i = 0; i < TRAIL_N; i++){
+      const m = new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ color: 0xfff6c8, transparent: true, opacity: 0, depthWrite: false }));
+      m.rotation.x = -Math.PI/2; m.position.y = 0.035 + 0.001*i; m.visible = false; ballMesh.parent.add(m); tr.push(m);
+    }
+    ballMesh.userData.trail = tr;
+  }
+  const now = wx(trackAt(track, T).p), d = camera.position.distanceTo(ballMesh.position);
+  const far = Math.min(1, Math.max(0, (d - 15)/25)), r = 0.18 + 0.6*far;      // a hand's width near, a ball-ring far, so it survives the range
+  for (let i = 0; i < TRAIL_N; i++){
+    const age = (i + 1)/TRAIL_N, p = wx(trackAt(track, T - age*TRAIL_MS).p), m = tr[i];
+    const moved = Math.hypot(p[0] - now[0], p[1] - now[1]);
+    if (moved < 0.25*(i + 1)){ m.visible = false; continue; }      // still, or just nudged: no trail
+    m.visible = true; m.position.x = p[0]; m.position.z = p[1];
+    m.scale.setScalar(r*(1 - 0.45*age)); m.material.opacity = 0.75*(1 - age);
+  }
+}
 function seqFrame(s, T){
   const wx = p => [s.side*p[0], p[1]];
   let meTL = null;
   if (s.tl && T > s.tFreeze){ meTL = tlAt(s, T); T = meTL.W; }
   const bt = trackAt(s.T.ball, T), B = wx(bt.p);
-  ballMesh.position.set(B[0], 0.115, B[1]);
+  ballMesh.position.set(B[0], 0.115, B[1]); ballTrail(s.T.ball, T, wx);
   ballMesh.quaternion.setFromAxisAngle(new THREE.Vector3(1, 0, 0), -bt.dist/0.115);
   Object.keys(ACT).forEach(id => {
     const o = ACT[id], t = trackAt(s.T.tr[id], T), p = wx(t.p), sp = Math.hypot(t.v[0], t.v[1]);
