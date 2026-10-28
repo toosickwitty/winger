@@ -1745,13 +1745,13 @@ function place(kind, ox, oz, s, moveOx, moveOz, tag, opt){
   const W = s.wingX || CFG.wingX;
   const x = s.side*(W + ox), z = s.zBase + oz;      // where he ENDS the look
   let mps = opt.mps === undefined ? speed * CFG.mps.sprint : opt.mps;
-  /* Nobody at this level stands still while the ball is live. Slower than a walk would look like
-     slow-motion skating, so he adjusts at a real walk (1.3-1.7 m/s) instead: along his own line if he
-     has one, otherwise toward the ball. Only the keeper and a man told to hold (feet set) stay put. */
+  /* Nobody at this level stands still, or strolls, while the ball is live. A man with nowhere
+     particular to go is still on the move, at a jog (2.5-3.2 m/s): along his own line if he has
+     one, otherwise easing toward the ball. Only the keeper and a man told to hold (feet set) stay put. */
   let driftToBall = false;
-  if (kind !== 'gk' && !opt.hold && mps < 1.3){
+  if (kind !== 'gk' && !opt.hold && mps < 2.5){
     if (speed <= 0.05 || Math.hypot(moveOx - ox, moveOz - oz) < 0.05) driftToBall = true;
-    mps = 1.3 + Math.random()*0.4;
+    mps = 2.5 + Math.random()*0.7;
   }
   if (opt.hold) mps = 0;
   if (opt.pre === undefined) opt.pre = mps >= 2.4 ? 1.4 : (mps >= 1.2 ? 1.3 : 0);
@@ -1793,7 +1793,7 @@ function place(kind, ox, oz, s, moveOx, moveOz, tag, opt){
 
   actors.add(p);
   placed.push({ mesh:p, tag, kind, sx, sz, ex:x, ez:z, pose:p.userData.pose,
-                dx: Math.sin(moveYaw), dz: Math.cos(moveYaw), pre: speed > 0.05 ? opt.pre : 0 });
+                dx: Math.sin(moveYaw), dz: Math.cos(moveYaw), pre: (speed > 0.05 || driftToBall) ? opt.pre : 0 });
 }
 
 /* before the look: t < 0 seconds, everyone drifting into the picture they will make */
