@@ -1438,13 +1438,15 @@ function shotFrom(s, j, tc){
 }
 function shotAt(sh, t){
   /* stepped, so a low drive can bounce on its way and still count at the line */
-  const g = CFG.g, dt = 0.01; let x = sh.p0[0], y = sh.p0[1], z = sh.p0[2], vx = sh.vx, vy = sh.vy, vz = sh.vz, u = 0;
+  const g = CFG.g, dt = 0.01; let x = sh.p0[0], y = sh.p0[1], z = sh.p0[2], vx = sh.vx, vy = sh.vy, vz = sh.vz, u = 0, rolling = false;
   const end = Math.max(0, t - sh.t0);
   while (u < end){
     const h = Math.min(dt, end - u);
-    x += vx*h; z += vz*h; y += vy*h - 0.5*g*h*h; vy -= g*h; u += h;
-    if (y < 0.115){ y = 0.115; if (vy < 0){ vy = -vy*0.55; vx *= 0.85; vz *= 0.85; } }
-    if (Math.hypot(vx, vz) < 2.5 || u > 3.5) return { p: [x, y, z], state: 'short' };
+    x += vx*h; z += vz*h; u += h;
+    if (rolling){ const sp = Math.hypot(vx, vz), ns = Math.max(0, sp - 1.6*h); if (sp > 0){ vx *= ns/sp; vz *= ns/sp; } }   // rolling: grass takes ~1.6 m/s per second
+    else { y += vy*h - 0.5*g*h*h; vy -= g*h;
+      if (y < 0.115){ y = 0.115; if (vy < 0){ vy = -vy*0.55; vx *= 0.85; vz *= 0.85; } if (vy < 0.6){ vy = 0; rolling = true; } } }
+    if (Math.hypot(vx, vz) < 0.5 || u > 4.5) return { p: [x, y, z], state: 'short' };
     if (z <= GOAL_Z){
       if (Math.abs(x) < POST && y < BAR){ return { p: [x, Math.max(0.115, y), Math.max(z, GOAL_Z - GOAL_D + 0.2)], state: 'in' }; }
       return { p: [x, y, z], state: y >= BAR && Math.abs(x) < POST ? 'over' : 'wide' };
@@ -1550,7 +1552,7 @@ function loop(){
     movePeople(t, dt);
     /* over */
     if (clip.shotEnd && t > clip.shotEnd.t + 0.6) finishRep(clip.judged, clip.shotEnd.state);
-    else if (clip.judged && clip.shot && t > tc + 4) finishRep(clip.judged, 'short');
+    else if (clip.judged && clip.shot && t > tc + 5) finishRep(clip.judged, 'short');
     else if (clip.judged && clip.judged.kind === 'under' && t > tc + 1.2) finishRep(clip.judged, 'none');
     else if (clip.tap === null && t > s.tDead) finishRep({ pts: 0, kind: 'none', h: 0, rising: false, n: 9 }, 'none');
   } else if (replay){
