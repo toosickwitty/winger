@@ -1521,7 +1521,7 @@ const FX = (() => {
   let audio = null;
   /* two sounds, both synthesised: the bounce is a soft low thud on the grass; the strike is the
      crack of a laces contact, sharper, brighter and louder, with a little body under it */
-  function hit(o){
+  function sound(o){
     try {
       audio = audio || new (window.AudioContext || window.webkitAudioContext)();
       if (audio.state === 'suspended') audio.resume();
@@ -1537,8 +1537,8 @@ const FX = (() => {
         osc.connect(og); og.connect(audio.destination); osc.start(); osc.stop(audio.currentTime + 0.11); }
     } catch (e) {}
   }
-  function thud(){ hit({ len: 0.09, decay: 3, type: 'lowpass', freq: 320, gain: 0.9 }); }
-  function crack(){ hit({ len: 0.06, decay: 2, type: 'bandpass', freq: 1400, q: 0.9, gain: 1.4, thump: 160 }); }
+  function thud(){ sound({ len: 0.09, decay: 3, type: 'lowpass', freq: 320, gain: 0.9 }); }
+  function crack(){ sound({ len: 0.06, decay: 2, type: 'bandpass', freq: 1400, q: 0.9, gain: 1.4, thump: 160 }); }
   function say(word, cls){ const e = el('fx'); e.textContent = word; e.className = 'show ' + cls; clearTimeout(flash); flash = setTimeout(() => { e.className = ''; }, 1100); }
   function frame(t){
     if (bounce && t !== null){
