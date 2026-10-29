@@ -1599,7 +1599,7 @@ const FX = (() => {
   function thud(){ sound({ len: 0.12, decay: 2.2, type: 'lowpass', freq: 420, gain: 2.6, thump: 120 }); }
   /* the strike: the same thud as the bounce, only bigger and deeper. A well-struck ball is a crushed
      bladder springing back: no slap, no snare, just a heavier, lower, longer thump than the grass. */
-  function crack(){ sound({ len: 0.16, decay: 2.0, type: 'lowpass', freq: 300, gain: 3.4, thump: 95 }); }
+  function crack(){ sound({ len: 0.09, decay: 2.2, type: 'lowpass', freq: 650, gain: 2.6, thump: 115 }); }   // between the thud and a crack: shorter and brighter than the grass, no ring
   function say(word, cls){ const e = el('fx'); e.textContent = word; e.className = 'show ' + cls; clearTimeout(flash); flash = setTimeout(() => { e.className = ''; }, 1100); }
   function frame(t){
     if (bounce && t !== null){
