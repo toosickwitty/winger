@@ -1320,25 +1320,20 @@ function idealContact(s){
   return s.T + (v1 - Math.sqrt(Math.max(0, v1*v1 - 2*g*h)))/g;
 }
 /* what a swing at tc meets */
+/* Scored on TIME, not on the centimetres: the ball passes through the whole 20 cm window in
+   about 30 ms, which nobody times; what a player controls is when the swing starts. Clean is a
+   contact within 45 ms of the ideal moment (volley: 20 cm on the way down; half-volley: 7 cm on
+   the way up), near within 100 ms. The height and the bounce only shape the words and the shot. */
+const WIN = { clean: 0.045, near: 0.10 };
 function judge(s, tc){
-  const b = ballAt(s, tc), h = b.p[1], rising = b.vy > 0, n = b.n;
-  const r = { h, rising, n, pts: 0, why: '' };
+  const b = ballAt(s, tc), h = b.p[1], rising = b.vy > 0, n = b.n, err = tc - s.ideal;
+  const r = { h, rising, n, err, pts: 0, why: '' };
   if (h > 1.0){ r.pts = 0; r.kind = 'under'; return r; }
-  if (s.call === 'volley'){
-    if (n === 0){
-      if (h >= 0.10 && h <= 0.30){ r.pts = 3; r.kind = 'clean'; }
-      else if (h > 0.30 && h <= 0.55){ r.pts = 1; r.kind = 'high'; }
-      else if (h < 0.10){ r.pts = 1; r.kind = 'low'; }
-      else { r.pts = 0; r.kind = 'sky'; }
-    } else { r.pts = 0; r.kind = 'bounced'; }
-  } else {
-    if (n === 0){ r.pts = 0; r.kind = 'early'; }
-    else if (n === 1 && rising){
-      if (h <= 0.15){ r.pts = 3; r.kind = 'clean'; }
-      else if (h <= 0.32){ r.pts = 1; r.kind = 'high'; }
-      else { r.pts = 0; r.kind = 'sky'; }
-    } else { r.pts = 0; r.kind = 'late'; }
-  }
+  const a = Math.abs(err);
+  r.pts = a <= WIN.clean ? 3 : a <= WIN.near ? 1 : 0;
+  if (r.pts === 3) r.kind = 'clean';
+  else if (s.call === 'volley') r.kind = err < 0 ? (h > 0.6 ? 'sky' : 'high') : (n >= 1 ? 'bounced' : 'low');
+  else r.kind = err < 0 ? (n === 0 ? 'early' : 'high') : (n === 1 && rising ? (h > 0.45 ? 'sky' : 'high') : 'late');
   return r;
 }
 const LANDMARK = h => h > 1.95 ? 'above your head' : h > 1.5 ? 'head' : h > 1.2 ? 'chest' : h > 0.95 ? 'hip' : h > 0.7 ? 'mid-thigh' : h > 0.45 ? 'knee' : 'shin';
@@ -1606,45 +1601,43 @@ function finishRep(j, shot){
   switch (j.kind){
     case 'clean':   text = '<b>Clean ' + call + '.</b> ' + where + (s.call === 'volley' ? 'Knee over the ball, laces through it: that stays under the bar. ' : 'Right as it bounced, before it could climb: that stays down. ') + outcome; break;
     case 'high':    text = '<b>Caught it too high.</b> ' + where + (s.call === 'volley' ? 'Above the knee the foot is under the ball and it lifts. The tap came early. ' : 'It had climbed off the bounce; the foot gets under it. The tap came late. ') + outcome; break;
-    case 'low':     text = '<b>Nearly on the floor.</b> ' + where + 'A hair later and it bounces first. Tap a touch earlier. ' + outcome; break;
+    case 'low':     text = '<b>Late: nearly on the floor.</b> ' + where + 'A little later and it bounces first. Tap earlier. ' + outcome; break;
     case 'sky':     text = '<b>Way under it.</b> ' + where + 'The ball was still high when the foot came through. ' + outcome; break;
     case 'under':   text = '<b>Swung under it.</b> The ball was at <b>' + fmtH(j.h) + '</b> when the foot came through: no contact. Far too early.'; break;
-    case 'bounced': text = '<b>It bounced first.</b> ' + where + 'The call was volley: it had to be struck before the bounce. The tap came late.' + (outcome ? ' ' + outcome : ''); break;
-    case 'early':   text = '<b>Before the bounce.</b> ' + where + 'The call was half-volley: let it bounce, then strike it as it comes up. The tap came early.' + (outcome ? ' ' + outcome : ''); break;
-    case 'late':    text = '<b>Too late.</b> ' + where + 'A half-volley is struck as the ball leaves the ground, not on its way back down.' + (outcome ? ' ' + outcome : ''); break;
+    case 'bounced': text = '<b>Late: it bounced first.</b> ' + where + 'The call was volley: it had to be met before the bounce.' + (outcome ? ' ' + outcome : ''); break;
+    case 'early':   text = '<b>Early: before the bounce.</b> ' + where + 'The call was half-volley: let it bounce, then strike it as it comes up.' + (outcome ? ' ' + outcome : ''); break;
+    case 'late':    text = '<b>Late.</b> ' + where + 'A half-volley is struck as the ball leaves the ground, not once it has climbed.' + (outcome ? ' ' + outcome : ''); break;
     default:        text = '<b>No swing.</b> The ball came, bounced twice, and the foot never moved.';
   }
   const tier = pts === 3 ? 'Clean' : pts === 1 ? 'Near' : 'Miss';
   row(tier, 't' + pts, text);
   const cue = (s.approach === 'run' ? 'Running onto it, plant to contact is ' + D + ' ms.' : 'Standing, the leg has to go back first: ' + D + ' ms from the tap to contact.') + ' For this ball the tap belonged when it was at <b>' + LANDMARK(s.hCue) + ' height</b> (' + fmtH(s.hCue) + '), on the way down' + (s.call === 'half' ? ', before the bounce' : '') + '.';
-  if (err !== null) row(Math.abs(err) <= 40 ? 'On time' : (err > 0 ? err + ' ms late' : (-err) + ' ms early'), Math.abs(err) <= 40 ? 't3' : Math.abs(err) <= 90 ? 't1' : 't0',
-    (Math.abs(err) <= 40 ? 'Your tap was within 40 ms of right. ' : '') + cue);
+  if (err !== null) row(Math.abs(err) <= 45 ? 'On time' : (err > 0 ? err + ' ms late' : (-err) + ' ms early'), Math.abs(err) <= 45 ? 't3' : Math.abs(err) <= 100 ? 't1' : 't0',
+    (Math.abs(err) <= 45 ? 'Within 45 ms of right: that is a clean strike. ' : '') + cue);
   else row('No tap', 't0', cue);
   drawRuler(s, j);
   if (err !== null) errs.push(err);
   const rb = el('replay'); rb.disabled = false; rb.textContent = 'Replay in slow motion';
   show(pFeed);
 }
-/* the ruler: where the ball was at contact, against the window for this call */
+/* the bar: the tap against the moment it belonged, in milliseconds. Green within 45, amber within 100 */
 function drawRuler(s, j){
   const svg = el('ruler'); svg.innerHTML = '';
-  const W = 260, H = 64, x0 = 18, x1 = W - 18, top = 0.6;
-  const X = h => x0 + (x1 - x0)*clamp(h, 0, top)/top;
+  const W = 260, x0 = 18, x1 = W - 18, span = 200;                     // -200 .. +200 ms
+  const X = ms => x0 + (x1 - x0)*(clamp(ms, -span, span) + span)/(2*span);
   const add = (n, a) => { const e = document.createElementNS('http://www.w3.org/2000/svg', n); for (const k in a) e.setAttribute(k, a[k]); svg.appendChild(e); return e; };
-  const [a, b] = CFG.target[s.call];
-  add('rect', { x: X(0), y: 22, width: X(top) - X(0), height: 12, rx: 3, fill: 'rgba(255,255,255,.08)' });
-  add('rect', { x: X(a), y: 22, width: X(b) - X(a), height: 12, rx: 3, fill: '#c6ef2f', opacity: 0.85 });
-  const near = s.call === 'volley' ? [[0.30, 0.55], [0.0, 0.10]] : [[0.15, 0.32]];
-  near.forEach(([p, q]) => add('rect', { x: X(p), y: 22, width: X(q) - X(p), height: 12, rx: 3, fill: '#f5bb44', opacity: 0.55 }));
-  [0, 0.15, 0.3, 0.45, 0.6].forEach(h => { add('line', { x1: X(h), y1: 36, x2: X(h), y2: 42, stroke: '#b6c9bb', 'stroke-width': 1 });
-    const t = add('text', { x: X(h), y: 54, fill: '#b6c9bb', 'font-size': 10, 'text-anchor': 'middle', 'font-family': 'Barlow Condensed, sans-serif' }); t.textContent = Math.round(h*100) + (h === 0 ? ' cm' : ''); });
+  add('rect', { x: X(-span), y: 22, width: X(span) - X(-span), height: 12, rx: 3, fill: 'rgba(255,255,255,.08)' });
+  add('rect', { x: X(-100), y: 22, width: X(100) - X(-100), height: 12, rx: 3, fill: '#f5bb44', opacity: 0.55 });
+  add('rect', { x: X(-45), y: 22, width: X(45) - X(-45), height: 12, rx: 3, fill: '#c6ef2f', opacity: 0.85 });
+  [-200, -100, 0, 100, 200].forEach(ms => { add('line', { x1: X(ms), y1: 36, x2: X(ms), y2: 42, stroke: '#b6c9bb', 'stroke-width': 1 });
+    const t = add('text', { x: X(ms), y: 54, fill: '#b6c9bb', 'font-size': 10, 'text-anchor': 'middle', 'font-family': 'Barlow Condensed, sans-serif' }); t.textContent = ms === 0 ? 'on time' : (ms > 0 ? '+' + ms : ms) + (Math.abs(ms) === 200 ? ' ms' : ''); });
   const lab = add('text', { x: x0, y: 12, fill: '#b6c9bb', 'font-size': 11, 'font-family': 'Barlow Condensed, sans-serif', 'letter-spacing': '.08em' });
-  lab.textContent = (s.call === 'volley' ? 'VOLLEY: 10–30 CM ON THE WAY DOWN' : 'HALF-VOLLEY: 0–15 CM ON THE WAY UP');
-  if (j.kind !== 'none'){
-    const over = j.h > top, x = X(j.h);
+  lab.textContent = 'EARLY  \u2190  THE TAP  \u2192  LATE';
+  if (j.kind !== 'none' && s.tap !== null){
+    const ms = Math.round((s.tap - s.idealTap)*1000), x = X(ms);
     add('circle', { cx: x, cy: 28, r: 6, fill: '#f7f7f2', stroke: '#0b0d10', 'stroke-width': 1.5 });
     const t = add('text', { x: Math.min(x1 - 40, Math.max(x0 + 40, x)), y: 72, fill: '#f5f8f3', 'font-size': 11, 'text-anchor': 'middle', 'font-family': 'Barlow Condensed, sans-serif' });
-    t.textContent = (over ? '→ ' : '') + fmtH(j.h) + (j.n === 0 ? ' ↓' : j.rising ? ' ↑ after bounce' : ' ↓ after bounce');
+    t.textContent = (Math.abs(ms) > span ? (ms > 0 ? '\u2192 ' : '\u2190 ') : '') + (ms > 0 ? '+' : '') + ms + ' ms \u00b7 contact at ' + fmtH(j.h) + (j.n === 0 ? ' \u2193' : j.rising ? ' \u2191 after bounce' : ' \u2193 after bounce');
   }
 }
 function replayRep(){
