@@ -1427,7 +1427,7 @@ function shotFrom(s, j, tc){
   const aimX = pick([-1, 1])*rand(1.2, POST - 0.5);
   const dx = aimX - p[0], dz = GOAL_Z - p[2], L = Math.hypot(dx, dz);
   const v = rand(18, 22);
-  let ang = 4 + 60*(j.h - 0.12) + (j.rising ? 90*j.h : 0);           // degrees: knee over it keeps it down, under it lifts it
+  let ang = 4 + 60*(j.h - 0.12) + (j.rising ? 55*j.h : 0);           // degrees: knee over it keeps it down, under it lifts it
   ang = clamp(ang, 2, 60)*Math.PI/180;
   return { t0: tc, p0: p.slice(), vx: dx/L*v*Math.cos(ang), vz: dz/L*v*Math.cos(ang), vy: v*Math.sin(ang), aimX };
 }
