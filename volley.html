@@ -154,6 +154,19 @@ footer{flex:0 0 auto;border-top:1px solid var(--line);background:var(--turf);col
   .cta{padding:11px;font-size:17px}
   .tag{font-size:11.5px;padding:1px 5px}
 }
+/* a laptop or tablet: the review sits in two columns under the pitch, so the pitch keeps its height */
+@media (min-width:700px) and (min-height:501px){
+  footer{padding:9px 14px calc(9px + env(safe-area-inset-bottom))}
+  #panelFeedback{display:grid;grid-template-columns:minmax(0,1fr) 300px;grid-template-rows:auto auto;column-gap:12px;align-items:start}
+  #panelFeedback .rank{grid-column:1;grid-row:1 / 3;margin:0}
+  #panelFeedback #ruler{grid-column:2;grid-row:1;margin:0 0 6px}
+  #panelFeedback #replay{grid-column:2;grid-row:2;margin:0 0 6px}
+  #panelFeedback #next{grid-column:2;grid-row:3}
+  #panelFeedback{grid-template-rows:auto auto auto}
+  .row{padding:6px 9px} .row .wy{font-size:12.5px;line-height:1.35}
+  .ask{font-size:22px;margin-bottom:4px} .ask small{display:inline;margin-left:8px}
+  .cta{padding:11px;font-size:17px}
+}
 a.iconbtn{text-decoration:none;display:inline-flex;align-items:center;white-space:nowrap}
 @media (max-width:480px){ header{gap:8px;padding-left:10px;padding-right:10px} .iconbtn{padding:4px 7px;font-size:12px} }
 #call{position:absolute;left:0;right:0;top:12%;text-align:center;pointer-events:none;font-family:'Barlow Condensed',sans-serif;
@@ -209,7 +222,7 @@ a.iconbtn{text-decoration:none;display:inline-flex;align-items:center;white-spac
       <button data-speed="full" aria-pressed="false">Match speed</button>
     </div>
     <button class="cta" id="start">Start session</button>
-    <p class="note">16 reps, about four minutes. You are at the top of the box facing goal and a ball pops up toward you &mdash; your 9&rsquo;s knockdown, or a block that has looped up. Your body takes you to where it lands. The call comes as the ball goes up: <b>volley</b> means strike it on the way down, below the knee, 10&ndash;30 cm off the grass, knee over the ball so it stays under the bar; <b>half-volley</b> means let it bounce and strike it as it leaves the ground, in the first 15 cm. One tap swings. The leg takes a quarter of a second to come through, so the tap has to come early &mdash; off the ball passing your hip or thigh on the way down, not off the ball reaching your foot. The review tells you how early or late you were, and where the ball was when the tap belonged. Half speed first; three clean in a row and it goes to match speed.</p>
+    <p class="note">16 reps, about four minutes. You are at the top of the box facing goal and a ball pops up toward you &mdash; your 9&rsquo;s knockdown, or a block that has looped up. Your body takes you to where it lands. The call comes as the ball goes up: <b>volley</b> means strike it on the way down, below the knee, 10&ndash;30 cm off the grass, knee over the ball so it stays under the bar; <b>half-volley</b> means let it bounce and strike it as it leaves the ground, in the first 15 cm. One tap swings. From a standing leg the backswing and the swing through take about a third of a second (350 ms), so the tap has to come early &mdash; off the ball passing your hip or thigh on the way down, not off the ball reaching your foot. The review tells you how early or late you were, and where the ball was when the tap belonged. Half speed first; three clean in a row and it goes to match speed.</p>
   </div>
 
   <div id="panelAsk" class="hide">
@@ -262,7 +275,8 @@ const CFG = {
   repsPerSession: 16,
   eyeHeight: 1.55,
   hFov: 100, vFovMax: 76,
-  swingMs: 250,                      // tap -> contact: the forward swing (game time)
+  swingMs: 350,                      // tap -> contact (game time): backswing then the swing through, from a standing leg
+  backMs: 140,                       // of which, the backswing
   g: 9.81, bounce: 0.62, slide: 0.78, // a match ball on grass: ~60% of its height back, horizontal speed ~80%
   speeds: { half: 0.5, full: 1.0 },
   target: { volley: [0.10, 0.30], half: [0.0, 0.15] },
@@ -1338,7 +1352,10 @@ function setFov(){
   camera.updateProjectionMatrix();
 }
 const makePlayer = LOOK.makePlayer, SKINS = LOOK.SKINS, HAIRS = LOOK.HAIRS, BOOTS = LOOK.BOOTS;
-let ballMesh = null, people = [], legs = null;
+let ballMesh = null, ballShadow = null, people = [], legs = null;
+function shadowUnder(){ if (!ballShadow) return; const h = Math.max(0, ballMesh.position.y - 0.115);
+  ballShadow.position.x = ballMesh.position.x; ballShadow.position.z = ballMesh.position.z;
+  ballShadow.scale.setScalar(0.13 + 0.09*h); ballShadow.material.opacity = 0.55/(1 + 1.6*h); }
 
 /* his own legs, seen from his eyes. The body faces +Z (like every player); the kicking leg swings
    through the tap-to-contact window, the plant leg stays put. */
@@ -1372,8 +1389,9 @@ function poseLegs(u){
   const K = legs.userData.kick, P = legs.userData.plant;
   let flex = 0.05, bend = 0.15, toe = 0;
   if (u >= 0){
-    if (u < 0.3){ const q = sm(u/0.3); flex = 0.05 - 0.75*q; bend = 0.15 + 1.45*q; toe = 0.2*q; }
-    else if (u < 1){ const q = sm((u - 0.3)/0.7); flex = -0.7 + 1.25*q; bend = 1.6 - 1.3*q; toe = 0.2 + 0.5*q; }
+    const bk = CFG.backMs/CFG.swingMs;
+    if (u < bk){ const q = sm(u/bk); flex = 0.05 - 0.75*q; bend = 0.15 + 1.45*q; toe = 0.2*q; }
+    else if (u < 1){ const q = sm((u - bk)/(1 - bk)); flex = -0.7 + 1.25*q; bend = 1.6 - 1.3*q; toe = 0.2 + 0.5*q; }
     else { const q = sm((u - 1)/0.6); flex = 0.55 + 0.75*q; bend = 0.3 - 0.2*q; toe = 0.7; }
   }
   K.hip.rotation.x = -flex; K.knee.rotation.x = bend; K.ankle.rotation.x = -toe;
@@ -1398,6 +1416,9 @@ function buildScene(s){
   else put(CFG.colors.opp, s.src[0] + rand(-0.3, 0.3), s.src[1] - 0.5, 1.6, Math.PI, { dir: [rand(-0.5, 0.5), -1] });
   const bl = new THREE.Mesh(new THREE.SphereGeometry(0.115, 24, 16), LOOK.ballMaterial());
   bl.castShadow = true; actors.add(bl); ballMesh = bl;
+  /* a contact shadow straight under the ball: the one cue that says how far off the grass it is */
+  const sh = new THREE.Mesh(new THREE.CircleGeometry(1, 28), new THREE.MeshBasicMaterial({ color: 0x06120a, transparent: true, opacity: 0.5, depthWrite: false }));
+  sh.rotation.x = -Math.PI/2; sh.position.y = 0.022; actors.add(sh); ballShadow = sh;
   makeLegs(s.side);
 }
 /* the ball after contact: struck toward goal; how high it goes is the contact height */
@@ -1471,11 +1492,11 @@ function nextRep(){
   current = makeScene(lastSide, bag.pop());
   buildScene(current);
   pitchNow = -0.15;
-  const b0 = ballAt(current, 0); ballMesh.position.set(b0.p[0], b0.p[1], b0.p[2]);
+  const b0 = ballAt(current, 0); ballMesh.position.set(b0.p[0], b0.p[1], b0.p[2]); shadowUnder();
   eyes(current, 0, 1);
   show(pAsk);
   el('askWord').firstChild.textContent = 'Watch the ball';
-  el('askHint').textContent = 'One tap swings. The leg takes a quarter of a second to come through: tap early, off the ball on its way down.';
+  el('askHint').textContent = 'One tap swings. The leg takes about a third of a second to come through: tap early, off the ball on its way down.';
   setVeil(true, lastSide === 1 ? 'Right foot' : 'Left foot', current.from === 'knockdown' ? 'Your 9 is going to knock it down to you. Hear the call, then time the swing.' : 'A block is about to loop up to you. Hear the call, then time the swing.');
   setTimeout(() => { setVeil(false); clip = { s: current, real0: performance.now(), speed: CFG.speeds[sessionSpeed], t: -0.5, tap: null, shot: null, done: false, calledAt: null }; }, CFG.cueMs);
 }
@@ -1514,7 +1535,7 @@ function loop(){
     let bp;
     if (clip.shot){ const sh = shotAt(clip.shot, t); bp = sh.p; if (sh.state !== 'flying' && !clip.shotEnd) clip.shotEnd = { t, state: sh.state }; }
     else bp = ballAt(s, t).p;
-    ballMesh.position.set(bp[0], bp[1], bp[2]);
+    ballMesh.position.set(bp[0], bp[1], bp[2]); shadowUnder();
     poseLegs(clip.tap === null ? -1 : (t - clip.tap)/(CFG.swingMs/1000));
     eyes(s, t, dt);
     movePeople(t, dt);
@@ -1528,7 +1549,7 @@ function loop(){
     const tc = s.tap + CFG.swingMs/1000;
     let bp;
     if (s.shot && t >= tc) bp = shotAt(s.shot, t).p; else bp = ballAt(s, t).p;
-    ballMesh.position.set(bp[0], bp[1], bp[2]);
+    ballMesh.position.set(bp[0], bp[1], bp[2]); shadowUnder();
     poseLegs((t - s.tap)/(CFG.swingMs/1000));
     eyes(s, t, dtR*0.3);
     movePeople(t, dtR*0.3);
@@ -1587,7 +1608,7 @@ function finishRep(j, shot){
   drawRuler(s, j);
   /* the speed steps up on its own: three clean reps in a row at half speed */
   if (sessionSpeed === 'half' && streak >= 3){ sessionSpeed = 'full'; streak = 0; stats.speed = 'full'; saveStats(); paintSeg();
-    row('Full speed', 't3', 'Three clean in a row. From the next rep the ball comes at match speed; the swing is the same quarter of a second.'); }
+    row('Full speed', 't3', 'Three clean in a row. From the next rep the ball comes at match speed; the swing takes the same 350 ms.'); }
   const rb = el('replay'); rb.disabled = false; rb.textContent = 'Replay in slow motion';
   show(pFeed);
 }
@@ -1645,9 +1666,10 @@ el('reset').onclick = () => { stats = { L:{pts:0,max:0}, R:{pts:0,max:0}, side: 
   el('hmeta').textContent = 'Rep 0 / ' + CFG.repsPerSession; setVeil(true, 'Ready', 'History cleared. Both feet start level, at half speed.'); };
 function resize(){ const w = stage.clientWidth, h = stage.clientHeight; renderer.setSize(w, h, false); camera.aspect = w/Math.max(1, h); setFov(); }
 addEventListener('resize', resize);
+if (window.ResizeObserver) new ResizeObserver(() => resize()).observe(stage);   // the footer changes height between panels: the picture follows
 el('hmeta').textContent = 'Rep 0 / ' + CFG.repsPerSession;
 resize();
-try { const seed = makeScene(1, 'volley'); buildScene(seed); const b0 = ballAt(seed, 0.4); ballMesh.position.set(b0.p[0], b0.p[1], b0.p[2]); eyes(seed, 0.4, 1); } catch (e) { console.error('seed scene failed', e); }
+try { const seed = makeScene(1, 'volley'); buildScene(seed); const b0 = ballAt(seed, 0.4); ballMesh.position.set(b0.p[0], b0.p[1], b0.p[2]); shadowUnder(); eyes(seed, 0.4, 1); } catch (e) { console.error('seed scene failed', e); }
 loop();
 loadStats();
 
