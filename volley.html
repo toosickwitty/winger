@@ -1502,7 +1502,7 @@ function nextRep(){
   show(pAsk);
   el('askWord').firstChild.textContent = 'Watch the ball';
   el('askHint').textContent = current.approach === 'run' ? 'You are running onto it: one tap plants the foot and the leg comes through in a fifth of a second. Tap early, off the ball on its way down.' : 'You are set: one tap starts the swing, and the leg has to go back first, a third of a second to contact. Tap earlier still.';
-  setVeil(true, current.side === 1 ? 'Right foot' : 'Left foot', current.from === 'knockdown' ? 'Your 9 is going to knock it down to you. Hear the call, then time the swing.' : 'A block is about to loop up to you. Hear the call, then time the swing.');
+  setVeil(true, 'Rep ' + rep, current.from === 'knockdown' ? 'Your 9 is going to knock it down to you. Hear the call, then time the swing.' : 'A block is about to loop up to you. Hear the call, then time the swing.');
   setTimeout(() => { setVeil(false); clip = { s: current, real0: performance.now(), speed: 1, t: -0.5, tap: null, shot: null, done: false, calledAt: null }; }, CFG.cueMs);
 }
 function onTap(){
