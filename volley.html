@@ -1491,8 +1491,35 @@ const FX = (() => {
   function woodwork(t, h){ hit = { t0: t, p: h.p, what: h.what }; say(h.what === 'bar' ? 'Bar!' : 'Post!', 'warn');
     if (!ring){ ring = new THREE.Mesh(new THREE.RingGeometry(0.6, 1, 32), ringMat); scene.add(ring); }
     ring.position.set(h.p[0], h.p[1], GOAL_Z + 0.15); ring.lookAt(camera.position); ring.visible = true; }
+  /* the bounce: a ring spreading on the grass from the spot, the ball squashed for a frame or two, a thud */
+  let bounce = null, bring = null;
+  const bringMat = new THREE.MeshBasicMaterial({ color: 0xe8f5d8, transparent: true, opacity: 0.8, depthWrite: false });
+  function bounced(t, at){
+    bounce = { t0: t, x: at[0], z: at[1] };
+    if (!bring){ bring = new THREE.Mesh(new THREE.RingGeometry(0.75, 1, 36), bringMat); bring.rotation.x = -Math.PI/2; scene.add(bring); }
+    bring.position.set(at[0], 0.03, at[1]); bring.visible = true; thud();
+  }
+  let audio = null;
+  function thud(){
+    try {
+      audio = audio || new (window.AudioContext || window.webkitAudioContext)();
+      if (audio.state === 'suspended') audio.resume();
+      const n = audio.sampleRate*0.09, buf = audio.createBuffer(1, n, audio.sampleRate), d = buf.getChannelData(0);
+      for (let i = 0; i < n; i++) d[i] = (Math.random()*2 - 1)*Math.pow(1 - i/n, 3);
+      const src = audio.createBufferSource(); src.buffer = buf;
+      const lp = audio.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 320;
+      const g = audio.createGain(); g.gain.value = 0.9;
+      src.connect(lp); lp.connect(g); g.connect(audio.destination); src.start();
+    } catch (e) {}
+  }
   function say(word, cls){ const e = el('fx'); e.textContent = word; e.className = 'show ' + cls; clearTimeout(flash); flash = setTimeout(() => { e.className = ''; }, 1100); }
   function frame(t){
+    if (bounce && t !== null){
+      const u = t - bounce.t0;
+      if (u < 0.35){ const k = 0.25 + u*7; bring.scale.setScalar(k); bringMat.opacity = 0.8*(1 - u/0.35); bring.visible = true;
+        if (ballMesh){ const sq = u < 0.05 ? 1 - 0.3*(1 - u/0.05) : 1; ballMesh.scale.set(1/Math.sqrt(sq), sq, 1/Math.sqrt(sq)); } }
+      else { bring.visible = false; if (ballMesh) ballMesh.scale.setScalar(1); bounce = null; }
+    }
     if (net && t !== null){
       const u = t - net.t0, tau = 1.1;
       if (u > 2.2){ pos.array.set(base); pos.needsUpdate = true; net = null; }
@@ -1510,8 +1537,8 @@ const FX = (() => {
       if (u > 1) hit = null;
     }
   }
-  function reset(){ net = null; hit = null; pos.array.set(base); pos.needsUpdate = true; goalPosts.forEach(p => { p.position.x = p.position.x > 0 ? POST : -POST; }); crossbar.position.y = BAR; if (ring) ring.visible = false; el('fx').className = ''; }
-  return { goal, woodwork, frame, reset, get net(){ return net; }, get hit(){ return hit; } };
+  function reset(){ net = null; hit = null; bounce = null; if (bring) bring.visible = false; if (ballMesh) ballMesh.scale.setScalar(1); pos.array.set(base); pos.needsUpdate = true; goalPosts.forEach(p => { p.position.x = p.position.x > 0 ? POST : -POST; }); crossbar.position.y = BAR; if (ring) ring.visible = false; el('fx').className = ''; }
+  return { goal, woodwork, bounced, frame, reset, get net(){ return net; }, get hit(){ return hit; } };
 })();
 
 /* ---------------- the camera: his eyes ---------------- */
@@ -1603,6 +1630,7 @@ function loop(){
       if (clip.judged.kind !== 'under') clip.shot = shotFrom(s, clip.judged, tc);
     }
     let bp;
+    if (!clip.shot){ const nb = ballAt(s, t).n; if (nb !== (clip.nb || 0) && nb >= 1 && nb < 9){ const q = ballAt(s, Math.max(s.T, t - 0.001)); FX.bounced(t, nb === 1 ? s.land : [q.p[0], q.p[2]]); } clip.nb = nb; }
     if (clip.shot){ const sh = shotAt(clip.shot, t); bp = sh.p; if (sh.state !== 'flying' && !clip.shotEnd) clip.shotEnd = { t, state: sh.state };
       if (sh.state === 'in' && !FX.net) FX.goal(t, sh.net);
       if (sh.hit && !FX.hit) FX.woodwork(t, sh.hit); }
@@ -1621,6 +1649,7 @@ function loop(){
     const s = replay.s, t = replay.t;
     const tc = s.tap + s.swingMs/1000;
     let bp;
+    { const nb = s.shot && t >= tc ? 0 : ballAt(s, t).n; if (nb !== (replay.nb || 0) && nb >= 1 && nb < 9){ const q = ballAt(s, t); FX.bounced(t, nb === 1 ? s.land : [q.p[0], q.p[2]]); } replay.nb = nb; }
     if (s.shot && t >= tc){ const sh = shotAt(s.shot, t); bp = sh.p; if (sh.state === 'in' && !FX.net) FX.goal(t, sh.net); if (sh.hit && !FX.hit) FX.woodwork(t, sh.hit); } else bp = ballAt(s, t).p;
     ballMesh.position.set(bp[0], bp[1], bp[2]); shadowUnder();
     poseLegs.runT = t; poseLegs.mode = s.approach; poseLegs.back = s.backMs/s.swingMs; poseLegs((t - s.tap)/(s.swingMs/1000));
