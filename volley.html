@@ -1599,7 +1599,26 @@ const FX = (() => {
   function thud(){ sound({ len: 0.12, decay: 2.2, type: 'lowpass', freq: 420, gain: 2.6, thump: 120 }); }
   /* the strike: the same thud as the bounce, only bigger and deeper. A well-struck ball is a crushed
      bladder springing back: no slap, no snare, just a heavier, lower, longer thump than the grass. */
-  function crack(){ sound({ len: 0.09, decay: 2.2, type: 'lowpass', freq: 650, gain: 2.6, thump: 115 }); }   // between the thud and a crack: shorter and brighter than the grass, no ring
+  /* the strike, built from a recording of a real one: a 20-30 ms event (down 8 dB at 5 ms, 32 dB at
+     20 ms, 40 dB by 30 ms), nearly all of it below 150 Hz with the tail near 100 Hz, and only a faint
+     click above that on the front edge. A very short, deep punch. */
+  function crack(){
+    try {
+      audio = audio || new (window.AudioContext || window.webkitAudioContext)();
+      if (audio.state === 'suspended') audio.resume();
+      const t0 = audio.currentTime, out = audio.createGain(); out.gain.value = 1; out.connect(audio.destination);
+      /* the punch: a sine from ~130 Hz settling to ~95, gone in 30 ms */
+      { const o = audio.createOscillator(), g = audio.createGain(); o.type = 'sine';
+        o.frequency.setValueAtTime(135, t0); o.frequency.exponentialRampToValueAtTime(95, t0 + 0.02);
+        g.gain.setValueAtTime(3.4, t0); g.gain.exponentialRampToValueAtTime(0.12, t0 + 0.02); g.gain.exponentialRampToValueAtTime(0.002, t0 + 0.05);
+        o.connect(g); g.connect(out); o.start(t0); o.stop(t0 + 0.08); }
+      /* the faint click on the front edge: a few milliseconds of noise, rolled off */
+      { const n = Math.floor(audio.sampleRate*0.015), b = audio.createBuffer(1, n, audio.sampleRate), d = b.getChannelData(0);
+        for (let i = 0; i < n; i++) d[i] = (Math.random()*2 - 1)*Math.pow(1 - i/n, 2);
+        const src = audio.createBufferSource(); src.buffer = b; const f = audio.createBiquadFilter(); f.type = 'lowpass'; f.frequency.value = 1500;
+        const g = audio.createGain(); g.gain.value = 0.8; src.connect(f); f.connect(g); g.connect(out); src.start(t0); }
+    } catch (e) {}
+  }
   function say(word, cls){ const e = el('fx'); e.textContent = word; e.className = 'show ' + cls; clearTimeout(flash); flash = setTimeout(() => { e.className = ''; }, 1100); }
   function frame(t){
     if (bounce && t !== null){
