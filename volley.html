@@ -1445,8 +1445,12 @@ function shotFrom(s, j, tc){
   const spread = a <= WIN.clean ? 0 : a <= WIN.near ? rand(-0.9, 0.9) : rand(-2.2, 2.2);
   const aimX = pick([-1, 1])*rand(1.0, POST - 0.6) + spread;
   const dx = aimX - p[0], dz = GOAL_Z - p[2], L = Math.hypot(dx, dz);
-  const v = rand(19, 23);
-  let ang = err < 0 ? 6 + 110*(-err) + rand(-1, 1) : 6 - 25*err + rand(-1, 1);   // degrees: 45 ms early ~11, 100 ms early ~17, late ~ along the ground
+  /* a half-volley on time is a low rocket: the ball's own rise off the bounce goes into it, so it
+     leaves faster and flatter than a volley and reaches the line without touching the grass */
+  const half = s.call === 'half';
+  const v = half ? rand(25, 28) : rand(21, 24);
+  const base = half ? rand(7.5, 9.5) : rand(9, 11);                                 // degrees: arrives knee-to-waist high, on the full
+  let ang = err < 0 ? base + 80*(-err) : base - 60*err;                             // early lifts it (45 ms ~ +3.5, 100 ms ~ +8); late drives it into the grass
   ang = clamp(ang, 2, 60)*Math.PI/180;
   return { t0: tc, p0: p.slice(), vx: dx/L*v*Math.cos(ang), vz: dz/L*v*Math.cos(ang), vy: v*Math.sin(ang), aimX };
 }
