@@ -1538,7 +1538,7 @@ const FX = (() => {
     } catch (e) {}
   }
   /* the same loudness for both, so the rhythm of a half-volley (thud... crack) is what he hears */
-  function thud(){ sound({ len: 0.10, decay: 2.5, type: 'lowpass', freq: 360, gain: 1.6, thump: 110 }); }
+  function thud(){ sound({ len: 0.12, decay: 2.2, type: 'lowpass', freq: 420, gain: 2.6, thump: 120 }); }
   function crack(){ sound({ len: 0.06, decay: 2, type: 'bandpass', freq: 1400, q: 0.9, gain: 0.7, thump: 160 }); }
   function say(word, cls){ const e = el('fx'); e.textContent = word; e.className = 'show ' + cls; clearTimeout(flash); flash = setTimeout(() => { e.className = ''; }, 1100); }
   function frame(t){
