@@ -1437,11 +1437,17 @@ function buildScene(s){
 /* the ball after contact: struck toward goal; how high it goes is the contact height */
 function shotFrom(s, j, tc){
   const b = ballAt(s, tc), p = b.p;
-  const aimX = pick([-1, 1])*rand(1.2, POST - 0.5);
+  /* the strike follows the TIMING, because the technique is assumed right: on time, the knee is
+     over the ball and it stays down; early, the ball is still high and the foot gets under it, so it
+     lifts; late, the foot comes over a dropping ball and drives it into the grass. Off time the aim
+     scatters too. */
+  const err = j.err || 0, a = Math.abs(err);
+  const spread = a <= WIN.clean ? 0 : a <= WIN.near ? rand(-0.9, 0.9) : rand(-2.2, 2.2);
+  const aimX = pick([-1, 1])*rand(1.0, POST - 0.6) + spread;
   const dx = aimX - p[0], dz = GOAL_Z - p[2], L = Math.hypot(dx, dz);
-  const v = rand(18, 22);
-  let ang = 6 + 60*(j.h - 0.12) + (j.rising ? 55*j.h : 0);           // degrees: knee over it keeps it down, under it lifts it
-  ang = clamp(ang, 3, 60)*Math.PI/180;
+  const v = rand(19, 23);
+  let ang = err < 0 ? 6 + 110*(-err) + rand(-1, 1) : 6 - 25*err + rand(-1, 1);   // degrees: 45 ms early ~11, 100 ms early ~17, late ~ along the ground
+  ang = clamp(ang, 2, 60)*Math.PI/180;
   return { t0: tc, p0: p.slice(), vx: dx/L*v*Math.cos(ang), vz: dz/L*v*Math.cos(ang), vy: v*Math.sin(ang), aimX };
 }
 function shotAt(sh, t){
