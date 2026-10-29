@@ -110,6 +110,7 @@ footer{flex:0 0 auto;border-top:1px solid var(--line);background:var(--turf);col
   padding:13px 6px;font-family:'Barlow Condensed',sans-serif;font-size:19px;letter-spacing:.05em;
   text-transform:uppercase;cursor:pointer}
 .seg button[aria-pressed="true"]{background:var(--kit);border-color:var(--kit);color:#0a1410;font-weight:600}
+.seg button:disabled{opacity:.35;cursor:default}
 .summary{display:flex;gap:9px;margin:0 0 4px}
 .stat{flex:1;border:1px solid var(--line);border-radius:9px;padding:10px}
 .stat .n{font-family:'Barlow Condensed',sans-serif;font-size:34px;line-height:1}
@@ -1653,7 +1654,11 @@ function paintSides(){
   const pct = stats.max ? Math.round(100*stats.pts/stats.max) : null;
   el('pctA').textContent = pct === null ? '—' : pct + '%'; el('fillA').style.width = (pct === null ? 0 : pct) + '%';
 }
-function paintSeg(){ [...el('seg').children].forEach(b => b.setAttribute('aria-pressed', String(b.dataset.mode === stats.mode)));
+function paintSeg(){
+  /* a side volley is standing only: with it picked on its own, the approach is standing and the rest is greyed out */
+  const sideOnly = stats.call === 'side';
+  if (sideOnly) stats.mode = 'stand';
+  [...el('seg').children].forEach(b => { b.setAttribute('aria-pressed', String(b.dataset.mode === stats.mode)); b.disabled = sideOnly && b.dataset.mode !== 'stand'; });
   [...el('seg3').children].forEach(b => b.setAttribute('aria-pressed', String(b.dataset.call === stats.call))); }
 function startSession(){ rep = 0; sPts = 0; sMax = 0; sBest = 0; errs = []; bag = newBag(); nextRep(); }
 function nextRep(){
@@ -1840,7 +1845,7 @@ function endSession(){
   show(pSum);
 }
 el('seg3').onclick = e => { const b = e.target.closest('button'); if (!b) return; stats.call = b.dataset.call; paintSeg(); saveStats(); };
-el('seg').onclick = e => { const b = e.target.closest('button'); if (!b) return; stats.mode = b.dataset.mode; paintSeg(); saveStats(); };
+el('seg').onclick = e => { const b = e.target.closest('button'); if (!b || b.disabled) return; stats.mode = b.dataset.mode; paintSeg(); saveStats(); };
 el('start').onclick = startSession;
 el('again').onclick = startSession;
 el('next').onclick = nextRep;
