@@ -1716,7 +1716,11 @@ function onTap(){
   if (!clip || clip.done || clip.tap !== null || clip.t < 0) return;
   clip.tap = clip.t;
 }
-stage.addEventListener('pointerdown', e => { FX.prime(); if (clip && !clip.done) { e.preventDefault(); onTap(); } });
+stage.addEventListener('pointerdown', e => { FX.prime(); if (clip && !clip.done) { e.preventDefault(); onTap(); } else if (reviewing()) { e.preventDefault(); nextRep(); } });
+/* in the review, a tap anywhere but Replay is Next rep (after a short guard, so a late swing tap does not skip the review) */
+let reviewAt = 0;
+function reviewing(){ return !pFeed.classList.contains('hide') && performance.now() - reviewAt > 500; }
+pFeed.addEventListener('pointerdown', e => { if (e.target.closest('#replay') || e.target.closest('#next')) return; if (reviewing()) nextRep(); });
 addEventListener('keydown', e => {
   if (e.ctrlKey || e.metaKey || e.altKey) return;
   if (e.code === 'Space' || e.key === ' '){
@@ -1828,6 +1832,7 @@ function finishRep(j, shot){
   drawRuler(s, j);
   if (err !== null) errs.push(err);
   const rb = el('replay'); rb.disabled = false; rb.textContent = 'Replay in slow motion';
+  reviewAt = performance.now();
   show(pFeed);
 }
 /* the bar: the tap against the moment it belonged, in milliseconds. Green within 45, amber within 100 */
