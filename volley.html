@@ -1584,7 +1584,8 @@ const FX = (() => {
       audio = audio || new (window.AudioContext || window.webkitAudioContext)();
       if (audio.state === 'suspended') audio.resume();
       const n = Math.floor(audio.sampleRate*o.len), buf = audio.createBuffer(1, n, audio.sampleRate), d = buf.getChannelData(0);
-      for (let i = 0; i < n; i++) d[i] = (Math.random()*2 - 1)*Math.pow(1 - i/n, o.decay);
+      const na = Math.floor(audio.sampleRate*(o.attack || 0));                           // a soft front, if asked for
+      for (let i = 0; i < n; i++) d[i] = (Math.random()*2 - 1)*Math.pow(1 - i/n, o.decay)*(i < na ? i/na : 1);
       const src = audio.createBufferSource(); src.buffer = buf;
       const f = audio.createBiquadFilter(); f.type = o.type; f.frequency.value = o.freq; f.Q.value = o.q || 0.7;
       const g = audio.createGain(); g.gain.value = o.gain;
@@ -1596,7 +1597,9 @@ const FX = (() => {
     } catch (e) {}
   }
   /* the same loudness for both, so the rhythm of a half-volley (thud... crack) is what he hears */
-  function thud(){ sound({ len: 0.12, decay: 2.2, type: 'lowpass', freq: 420, gain: 2.6, thump: 120 }); }
+  /* the bounce on the grass: a heavy step on carpet. Muffled, no edge: a soft front of about 8 ms,
+     noise rolled off at 180 Hz, a low body near 70 Hz, and gone in a tenth of a second or so */
+  function thud(){ sound({ len: 0.13, decay: 2.0, attack: 0.008, type: 'lowpass', freq: 180, q: 0.5, gain: 4.2, thump: 72 }); }
   /* the strike: the same thud as the bounce, only bigger and deeper. A well-struck ball is a crushed
      bladder springing back: no slap, no snare, just a heavier, lower, longer thump than the grass. */
   /* the strike, built from a recording of a real one: a 20-30 ms event (down 8 dB at 5 ms, 32 dB at
