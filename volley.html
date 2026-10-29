@@ -1344,16 +1344,17 @@ const WIN = { clean: 0.045, near: 0.10 };
 /* a half-volley is struck AFTER the bounce, so its window is one-sided: the ideal sits 30 ms after
    the ball lands, and 'clean' runs from the bounce itself to 60 ms after it; before the bounce the
    best it can be is near */
-function winOf(s, err){
+function winOf(s, err, bounced){
   if (s.call !== 'half') return Math.abs(err) <= WIN.clean ? 3 : Math.abs(err) <= WIN.near ? 1 : 0;
   const tb = err + (s.ideal - s.T);                                     // time after the bounce
-  return tb >= -0.005 && tb <= 0.065 ? 3 : tb >= -0.05 && tb <= 0.12 ? 1 : 0;
+  if (bounced === false || tb < 0) return tb >= -0.05 ? 1 : 0;           // it had not touched the grass: not a half-volley, near at best
+  return tb <= 0.065 ? 3 : tb <= 0.12 ? 1 : 0;
 }
 function judge(s, tc){
   const b = ballAt(s, tc), h = b.p[1], rising = b.vy > 0, n = b.n, err = tc - s.ideal;
   const r = { h, rising, n, err, pts: 0, why: '' };
   if (h > 1.0){ r.pts = 0; r.kind = 'under'; return r; }
-  r.pts = winOf(s, err);
+  r.pts = winOf(s, err, n >= 1);
   if (r.pts === 3) r.kind = 'clean';
   else if (s.call === 'volley') r.kind = err < 0 ? (h > 0.6 ? 'sky' : 'high') : (n >= 1 ? 'bounced' : 'low');
   else r.kind = err < 0 ? (n === 0 ? 'early' : 'high') : (n === 1 && rising ? (h > 0.45 ? 'sky' : 'high') : 'late');
@@ -1711,7 +1712,7 @@ function finishRep(j, shot){
   const outcome = shot === 'in' ? 'It went in.' : shot === 'over' ? 'Over the bar.' : shot === 'wide' ? 'Wide.' : shot === 'short' ? 'It never reached the goal.' : shot === 'post' ? 'Off the post.' : shot === 'bar' ? 'Off the bar.' : '';
   let text = '';
   switch (j.kind){
-    case 'clean':   text = '<b>Clean ' + call + '.</b> ' + where + (s.call === 'volley' ? 'Knee over the ball, laces through it: that stays under the bar. ' : 'Right as it bounced, before it could climb: that stays down. ') + outcome; break;
+    case 'clean':   text = '<b>Clean ' + call + '.</b> ' + where + (s.call === 'volley' ? 'Knee over the ball, laces through it: that stays under the bar. ' : 'Off the bounce, before it could climb: that stays down. ') + outcome; break;
     case 'high':    text = '<b>Caught it too high.</b> ' + where + (s.call === 'volley' ? 'Above the knee the foot is under the ball and it lifts. The tap came early. ' : 'It had climbed off the bounce; the foot gets under it. The tap came late. ') + outcome; break;
     case 'low':     text = '<b>Late: nearly on the floor.</b> ' + where + 'A little later and it bounces first. Tap earlier. ' + outcome; break;
     case 'sky':     text = '<b>Way under it.</b> ' + where + 'The ball was still high when the foot came through. ' + outcome; break;
@@ -1724,7 +1725,7 @@ function finishRep(j, shot){
   const tier = pts === 3 ? 'Clean' : pts === 1 ? 'Near' : 'Miss';
   row(tier, 't' + pts, text);
   const cue = (s.approach === 'run' ? 'Running onto it, plant to contact is ' + D + ' ms.' : 'Standing, the leg has to go back first: ' + D + ' ms from the tap to contact.') + ' For this ball the tap belonged when it was at <b>' + LANDMARK(s.hCue) + ' height</b> (' + fmtH(s.hCue) + '), on the way down' + (s.call === 'half' ? ', before the bounce' : '') + '.';
-  if (err !== null){ const w = winOf(s, err/1000); row(w === 3 ? 'On time' : (err > 0 ? err + ' ms late' : (-err) + ' ms early'), 't' + w,
+  if (err !== null){ const w = winOf(s, err/1000, j.n >= 1); row(w === 3 ? 'On time' : (err > 0 ? err + ' ms late' : (-err) + ' ms early'), 't' + w,
     (w === 3 ? 'That is a clean strike. ' : (s.call === 'half' && j.n === 0 ? 'A half-volley is struck after the bounce; this was before it. ' : '')) + cue); }
   else row('No tap', 't0', cue);
   drawRuler(s, j);
@@ -1740,7 +1741,7 @@ function drawRuler(s, j){
   const add = (n, a) => { const e = document.createElementNS('http://www.w3.org/2000/svg', n); for (const k in a) e.setAttribute(k, a[k]); svg.appendChild(e); return e; };
   add('rect', { x: X(-span), y: 22, width: X(span) - X(-span), height: 12, rx: 3, fill: 'rgba(255,255,255,.08)' });
   const off = s.call === 'half' ? Math.round((s.ideal - s.T)*1000) : 0;        // the bounce, in ms before the ideal
-  const nz = s.call === 'half' ? [-50 - off, 120 - off] : [-100, 100], cz = s.call === 'half' ? [-5 - off, 65 - off] : [-45, 45];
+  const nz = s.call === 'half' ? [-50 - off, 120 - off] : [-100, 100], cz = s.call === 'half' ? [-off, 65 - off] : [-45, 45];
   add('rect', { x: X(nz[0]), y: 22, width: X(nz[1]) - X(nz[0]), height: 12, rx: 3, fill: '#f5bb44', opacity: 0.55 });
   add('rect', { x: X(cz[0]), y: 22, width: X(cz[1]) - X(cz[0]), height: 12, rx: 3, fill: '#c6ef2f', opacity: 0.85 });
   if (s.call === 'half'){ add('line', { x1: X(-off), y1: 18, x2: X(-off), y2: 38, stroke: '#f5f8f3', 'stroke-width': 1.5 }); const bt = add('text', { x: X(-off), y: 12, fill: '#f5f8f3', 'font-size': 10, 'text-anchor': 'middle', 'font-family': 'Barlow Condensed, sans-serif' }); bt.textContent = 'bounce'; }
