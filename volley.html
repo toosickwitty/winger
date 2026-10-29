@@ -1537,8 +1537,9 @@ const FX = (() => {
         osc.connect(og); og.connect(audio.destination); osc.start(); osc.stop(audio.currentTime + 0.11); }
     } catch (e) {}
   }
-  function thud(){ sound({ len: 0.09, decay: 3, type: 'lowpass', freq: 320, gain: 0.9 }); }
-  function crack(){ sound({ len: 0.06, decay: 2, type: 'bandpass', freq: 1400, q: 0.9, gain: 1.4, thump: 160 }); }
+  /* the same loudness for both, so the rhythm of a half-volley (thud... crack) is what he hears */
+  function thud(){ sound({ len: 0.10, decay: 2.5, type: 'lowpass', freq: 360, gain: 1.6, thump: 110 }); }
+  function crack(){ sound({ len: 0.06, decay: 2, type: 'bandpass', freq: 1400, q: 0.9, gain: 0.7, thump: 160 }); }
   function say(word, cls){ const e = el('fx'); e.textContent = word; e.className = 'show ' + cls; clearTimeout(flash); flash = setTimeout(() => { e.className = ''; }, 1100); }
   function frame(t){
     if (bounce && t !== null){
