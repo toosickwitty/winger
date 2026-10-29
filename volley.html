@@ -211,6 +211,12 @@ a.iconbtn{text-decoration:none;display:inline-flex;align-items:center;white-spac
 
 <footer>
   <div id="panelIdle">
+    <p class="seglab">The strike</p>
+    <div class="seg" id="seg3">
+      <button data-call="volley" aria-pressed="false">Volley</button>
+      <button data-call="half" aria-pressed="false">Half-volley</button>
+      <button data-call="both" aria-pressed="true">Both</button>
+    </div>
     <p class="seglab">The approach</p>
     <div class="seg" id="seg">
       <button data-mode="stand" aria-pressed="false">Standing</button>
@@ -281,7 +287,7 @@ const CFG = {
 
 /* ---------------- storage ---------------- */
 const KEY = 'volley:v2';
-let stats = { pts:0, max:0, mode:'both' };
+let stats = { pts:0, max:0, mode:'both', call:'both' };
 async function loadStats(){
   try{
     if (window.storage){ const r = await window.storage.get(KEY); if (r && r.value) stats = JSON.parse(r.value); }
@@ -289,6 +295,7 @@ async function loadStats(){
   }catch(e){}
   if (stats.pts === undefined) stats = { pts:0, max:0, mode:'both' };
   if (!stats.mode) stats.mode = 'both';
+  if (!stats.call) stats.call = 'both';
   paintSides(); paintSeg();
 }
 async function saveStats(){
@@ -302,8 +309,9 @@ const rand = (a, b) => a + Math.random()*(b - a);
 const pick = a => a[Math.floor(Math.random()*a.length)];
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 function shuffle(a){ for (let i = a.length - 1; i > 0; i--){ const j = Math.floor(Math.random()*(i+1)); [a[i], a[j]] = [a[j], a[i]]; } return a; }
-function newBag(){ const b = [], modes = stats.mode === 'both' ? ['run','stand'] : [stats.mode], n = 8/modes.length;
-  for (const c of ['volley','half']) for (const a of modes) for (let i = 0; i < n; i++) b.push(c + '-' + a); return shuffle(b); }
+function newBag(){ const b = [], modes = stats.mode === 'both' ? ['run','stand'] : [stats.mode], calls = (stats.call || 'both') === 'both' ? ['volley','half'] : [stats.call];
+  const n = 16/(modes.length*calls.length);
+  for (const c of calls) for (const a of modes) for (let i = 0; i < n; i++) b.push(c + '-' + a); return shuffle(b); }
 
 
 /* ================= LOOK: players, pitch, stadium, light =================
@@ -1587,7 +1595,8 @@ function paintSides(){
   const pct = stats.max ? Math.round(100*stats.pts/stats.max) : null;
   el('pctA').textContent = pct === null ? '—' : pct + '%'; el('fillA').style.width = (pct === null ? 0 : pct) + '%';
 }
-function paintSeg(){ [...el('seg').children].forEach(b => b.setAttribute('aria-pressed', String(b.dataset.mode === stats.mode))); }
+function paintSeg(){ [...el('seg').children].forEach(b => b.setAttribute('aria-pressed', String(b.dataset.mode === stats.mode)));
+  [...el('seg3').children].forEach(b => b.setAttribute('aria-pressed', String(b.dataset.call === stats.call))); }
 function startSession(){ rep = 0; sPts = 0; sMax = 0; sBest = 0; errs = []; bag = newBag(); nextRep(); }
 function nextRep(){
   replay = null; clip = null; FX.reset(); hud.style.display = 'none'; callEl.className = '';
@@ -1770,13 +1779,14 @@ function endSession(){
       : 'The habit is early by about ' + (-med) + ' ms: the tap is jumping the ball. Let it come a touch further before the plant.'; }
   show(pSum);
 }
+el('seg3').onclick = e => { const b = e.target.closest('button'); if (!b) return; stats.call = b.dataset.call; paintSeg(); saveStats(); };
 el('seg').onclick = e => { const b = e.target.closest('button'); if (!b) return; stats.mode = b.dataset.mode; paintSeg(); saveStats(); };
 el('start').onclick = startSession;
 el('again').onclick = startSession;
 el('next').onclick = nextRep;
 el('replay').onclick = replayRep;
 el('done').onclick = () => { show(pIdle); paintSeg(); el('hmeta').textContent = 'Rep 0 / ' + CFG.repsPerSession; setVeil(true, 'Ready', 'Top of the box. The ball pops up to you: volley or half-volley, on the call.'); };
-el('reset').onclick = () => { stats = { pts:0, max:0, mode: stats.mode }; paintSides(); paintSeg(); saveStats(); show(pIdle);
+el('reset').onclick = () => { stats = { pts:0, max:0, mode: stats.mode, call: stats.call }; paintSides(); paintSeg(); saveStats(); show(pIdle);
   el('hmeta').textContent = 'Rep 0 / ' + CFG.repsPerSession; setVeil(true, 'Ready', 'History cleared.'); };
 function resize(){ const w = stage.clientWidth, h = stage.clientHeight; renderer.setSize(w, h, false); camera.aspect = w/Math.max(1, h); setFov(); }
 addEventListener('resize', resize);
