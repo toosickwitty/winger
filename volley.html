@@ -222,7 +222,7 @@ a.iconbtn{text-decoration:none;display:inline-flex;align-items:center;white-spac
       <button data-speed="full" aria-pressed="false">Match speed</button>
     </div>
     <button class="cta" id="start">Start session</button>
-    <p class="note">16 reps, about four minutes. You are at the top of the box facing goal and a ball pops up toward you &mdash; your 9&rsquo;s knockdown, or a block that has looped up. Your body takes you to where it lands. The call comes as the ball goes up: <b>volley</b> means strike it on the way down, below the knee, 10&ndash;30 cm off the grass, knee over the ball so it stays under the bar; <b>half-volley</b> means let it bounce and strike it as it leaves the ground, in the first 15 cm. One tap swings. From a standing leg the backswing and the swing through take about a third of a second (350 ms), so the tap has to come early &mdash; off the ball passing your hip or thigh on the way down, not off the ball reaching your foot. The review tells you how early or late you were, and where the ball was when the tap belonged. Half speed first; three clean in a row and it goes to match speed.</p>
+    <p class="note">16 reps, about four minutes. You are at the top of the box facing goal and a ball pops up toward you &mdash; your 9&rsquo;s knockdown, or a block that has looped up. Your body takes you to where it lands. The call comes as the ball goes up: <b>volley</b> means strike it on the way down, below the knee, 10&ndash;30 cm off the grass, knee over the ball so it stays under the bar; <b>half-volley</b> means let it bounce and strike it as it leaves the ground, in the first 15 cm. You are running onto it, so the leg is already back in the stride. One tap plants the standing foot and the leg comes through: about a fifth of a second (200 ms) from plant to contact, so the tap has to come early &mdash; off the ball passing your hip or thigh on the way down, not off the ball reaching your foot. The review tells you how early or late you were, and where the ball was when the tap belonged. Half speed first; three clean in a row and it goes to match speed.</p>
   </div>
 
   <div id="panelAsk" class="hide">
@@ -261,7 +261,7 @@ a.iconbtn{text-decoration:none;display:inline-flex;align-items:center;white-spac
 /* ===================== VOLLEY: the timing of a swinging volley and half-volley =====================
    He is at the top of the box, facing goal. A ball pops up toward him - his 9's knockdown, or a
    block that has looped up - and his body takes him to where it will land. One tap commits the
-   swing; the leg takes a quarter of a second to come through, so the tap has to come EARLY, off
+   swing; running onto it the leg is already back in the stride, and from the plant it comes through in a fifth of a second, so the tap has to come EARLY, off
    the ball passing a landmark on the way down, not off the ball reaching the foot.
 
    Contact targets (coaching consensus: laces through the centre, knee over the ball, toes down):
@@ -275,8 +275,7 @@ const CFG = {
   repsPerSession: 16,
   eyeHeight: 1.55,
   hFov: 100, vFovMax: 76,
-  swingMs: 350,                      // tap -> contact (game time): backswing then the swing through, from a standing leg
-  backMs: 140,                       // of which, the backswing
+  swingMs: 200,                      // tap -> contact (game time): the plant foot lands, the cocked leg swings through. Running onto it, the backswing is the last stride
   g: 9.81, bounce: 0.62, slide: 0.78, // a match ball on grass: ~60% of its height back, horizontal speed ~80%
   speeds: { half: 0.5, full: 1.0 },
   target: { volley: [0.10, 0.30], half: [0.0, 0.15] },
@@ -1387,11 +1386,11 @@ const sm = u => { u = clamp(u, 0, 1); return u*u*(3 - 2*u); };
 function poseLegs(u){
   if (!legs) return;
   const K = legs.userData.kick, P = legs.userData.plant;
-  let flex = 0.05, bend = 0.15, toe = 0;
+  /* running onto it: the kicking leg is already back in the stride; the tap plants the other foot
+     and the leg comes through in one movement */
+  let flex = -0.55, bend = 1.3, toe = 0.2;
   if (u >= 0){
-    const bk = CFG.backMs/CFG.swingMs;
-    if (u < bk){ const q = sm(u/bk); flex = 0.05 - 0.75*q; bend = 0.15 + 1.45*q; toe = 0.2*q; }
-    else if (u < 1){ const q = sm((u - bk)/(1 - bk)); flex = -0.7 + 1.25*q; bend = 1.6 - 1.3*q; toe = 0.2 + 0.5*q; }
+    if (u < 1){ const q = sm(u); flex = -0.55 + 1.1*q; bend = 1.3 - 1.0*q; toe = 0.2 + 0.5*q; }
     else { const q = sm((u - 1)/0.6); flex = 0.55 + 0.75*q; bend = 0.3 - 0.2*q; toe = 0.7; }
   }
   K.hip.rotation.x = -flex; K.knee.rotation.x = bend; K.ankle.rotation.x = -toe;
@@ -1447,7 +1446,8 @@ function shotAt(sh, t){
 let pitchNow = -0.2;
 function eyes(s, t, dt){
   /* his body goes to the ball: from where he stood to the stance, easing in over the flight */
-  const q = sm(clamp(t/Math.max(0.3, s.T - 0.15), 0, 1));
+  const tPlant = (clip && clip.tap !== null) ? clip.tap : (replay && replay.s.tap !== null ? replay.s.tap : s.idealTap);
+  const q = sm(clamp(t/Math.max(0.3, tPlant), 0, 1));
   const px = s.start[0] + (s.stance[0] - s.start[0])*q, pz = s.start[1] + (s.stance[1] - s.start[1])*q;
   const yaw = Math.atan2(0 - px, GOAL_Z - pz);                       // facing the goal
   body.position.set(px, 0, pz); body.rotation.y = yaw;
@@ -1496,7 +1496,7 @@ function nextRep(){
   eyes(current, 0, 1);
   show(pAsk);
   el('askWord').firstChild.textContent = 'Watch the ball';
-  el('askHint').textContent = 'One tap swings. The leg takes about a third of a second to come through: tap early, off the ball on its way down.';
+  el('askHint').textContent = 'You are running onto it. One tap plants the foot and the leg comes through in a fifth of a second: tap early, off the ball on its way down.';
   setVeil(true, lastSide === 1 ? 'Right foot' : 'Left foot', current.from === 'knockdown' ? 'Your 9 is going to knock it down to you. Hear the call, then time the swing.' : 'A block is about to loop up to you. Hear the call, then time the swing.');
   setTimeout(() => { setVeil(false); clip = { s: current, real0: performance.now(), speed: CFG.speeds[sessionSpeed], t: -0.5, tap: null, shot: null, done: false, calledAt: null }; }, CFG.cueMs);
 }
@@ -1601,14 +1601,14 @@ function finishRep(j, shot){
   }
   const tier = pts === 3 ? 'Clean' : pts === 1 ? 'Near' : 'Miss';
   row(tier, 't' + pts, text);
-  const cue = 'The swing takes ' + D + ' ms. For this ball the tap belonged when it was at <b>' + LANDMARK(s.hCue) + ' height</b> (' + fmtH(s.hCue) + '), on the way down' + (s.call === 'half' ? ', before the bounce' : '') + '.';
+  const cue = 'Plant to contact is ' + D + ' ms. For this ball the tap belonged when it was at <b>' + LANDMARK(s.hCue) + ' height</b> (' + fmtH(s.hCue) + '), on the way down' + (s.call === 'half' ? ', before the bounce' : '') + '.';
   if (err !== null) row(Math.abs(err) <= 40 ? 'On time' : (err > 0 ? err + ' ms late' : (-err) + ' ms early'), Math.abs(err) <= 40 ? 't3' : Math.abs(err) <= 90 ? 't1' : 't0',
     (Math.abs(err) <= 40 ? 'Your tap was within 40 ms of right. ' : '') + cue);
   else row('No tap', 't0', cue);
   drawRuler(s, j);
   /* the speed steps up on its own: three clean reps in a row at half speed */
   if (sessionSpeed === 'half' && streak >= 3){ sessionSpeed = 'full'; streak = 0; stats.speed = 'full'; saveStats(); paintSeg();
-    row('Full speed', 't3', 'Three clean in a row. From the next rep the ball comes at match speed; the swing takes the same 350 ms.'); }
+    row('Full speed', 't3', 'Three clean in a row. From the next rep the ball comes at match speed; plant to contact is the same 200 ms.'); }
   const rb = el('replay'); rb.disabled = false; rb.textContent = 'Replay in slow motion';
   show(pFeed);
 }
