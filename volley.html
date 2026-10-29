@@ -1439,20 +1439,24 @@ function shotFrom(s, j, tc){
   const aimX = pick([-1, 1])*rand(1.2, POST - 0.5);
   const dx = aimX - p[0], dz = GOAL_Z - p[2], L = Math.hypot(dx, dz);
   const v = rand(18, 22);
-  let ang = 4 + 60*(j.h - 0.12) + (j.rising ? 55*j.h : 0);           // degrees: knee over it keeps it down, under it lifts it
-  ang = clamp(ang, 2, 60)*Math.PI/180;
+  let ang = 6 + 60*(j.h - 0.12) + (j.rising ? 55*j.h : 0);           // degrees: knee over it keeps it down, under it lifts it
+  ang = clamp(ang, 3, 60)*Math.PI/180;
   return { t0: tc, p0: p.slice(), vx: dx/L*v*Math.cos(ang), vz: dz/L*v*Math.cos(ang), vy: v*Math.sin(ang), aimX };
 }
 function shotAt(sh, t){
-  const u = Math.max(0, t - sh.t0), g = CFG.g;
-  let x = sh.p0[0] + sh.vx*u, z = sh.p0[2] + sh.vz*u, y = sh.p0[1] + sh.vy*u - 0.5*g*u*u;
-  let state = 'flying';
-  if (z <= GOAL_Z){ const uu = (GOAL_Z - sh.p0[2])/sh.vz, yy = sh.p0[1] + sh.vy*uu - 0.5*g*uu*uu, xx = sh.p0[0] + sh.vx*uu;
-    if (Math.abs(xx) < POST && yy < BAR && yy > 0){ state = 'in'; z = Math.max(z, GOAL_Z - GOAL_D + 0.2); y = Math.max(0.115, yy - 0.5*(u - uu)); x = xx; }
-    else state = yy >= BAR ? 'over' : 'wide';
+  /* stepped, so a low drive can bounce on its way and still count at the line */
+  const g = CFG.g, dt = 0.01; let x = sh.p0[0], y = sh.p0[1], z = sh.p0[2], vx = sh.vx, vy = sh.vy, vz = sh.vz, u = 0;
+  const end = Math.max(0, t - sh.t0);
+  while (u < end){
+    const h = Math.min(dt, end - u);
+    x += vx*h; z += vz*h; y += vy*h - 0.5*g*h*h; vy -= g*h; u += h;
+    if (y < 0.115){ y = 0.115; if (vy < 0){ vy = -vy*0.55; vx *= 0.85; vz *= 0.85; } }
+    if (z <= GOAL_Z){
+      if (Math.abs(x) < POST && y < BAR){ return { p: [x, Math.max(0.115, y), Math.max(z, GOAL_Z - GOAL_D + 0.2)], state: 'in' }; }
+      return { p: [x, y, z], state: y >= BAR && Math.abs(x) < POST ? 'over' : 'wide' };
+    }
   }
-  if (y < 0.115 && state === 'flying'){ y = 0.115; state = 'ground'; }
-  return { p: [x, y, z], state };
+  return { p: [x, y, z], state: 'flying' };
 }
 
 /* ---------------- the camera: his eyes ---------------- */
@@ -1604,7 +1608,7 @@ function finishRep(j, shot){
   const D = CFG.swingMs, call = s.call === 'volley' ? 'volley' : 'half-volley';
   const err = s.tap === null ? null : Math.round((s.tap - s.idealTap)*1000);
   const where = (j.h !== undefined && j.kind !== 'none') ? 'Contact at <b>' + fmtH(j.h) + '</b>' + (j.n === 0 ? ' on the way down' : j.n === 1 ? (j.rising ? ' on the way up after the bounce' : ', dropping again after the bounce') : ' after two bounces') + '. ' : '';
-  const outcome = shot === 'in' ? 'It went in.' : shot === 'over' ? 'Over the bar.' : shot === 'wide' ? 'Wide.' : shot === 'ground' ? 'Into the ground.' : '';
+  const outcome = shot === 'in' ? 'It went in.' : shot === 'over' ? 'Over the bar.' : shot === 'wide' ? 'Wide.' : '';
   let text = '';
   switch (j.kind){
     case 'clean':   text = '<b>Clean ' + call + '.</b> ' + where + (s.call === 'volley' ? 'Knee over the ball, laces through it: that stays under the bar. ' : 'Right as it bounced, before it could climb: that stays down. ') + outcome; break;
