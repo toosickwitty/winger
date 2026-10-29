@@ -1556,7 +1556,7 @@ const FX = (() => {
   let net = null, hit = null, ring = null, flash = null;
   const ringMat = new THREE.MeshBasicMaterial({ color: 0xfff6c8, transparent: true, opacity: 0.9, depthWrite: false, side: THREE.DoubleSide });
   function goal(t, at){ net = { t0: t, x: at[0], y: at[1] }; say('Goal', 'go'); }
-  function woodwork(t, h){ hit = { t0: t, p: h.p, what: h.what }; say(h.what === 'bar' ? 'Bar!' : 'Post!', 'warn');
+  function woodwork(t, h){ hit = { t0: t, p: h.p, what: h.what }; say(h.what === 'bar' ? 'Bar!' : 'Post!', 'warn'); clang(h.what);
     if (!ring){ ring = new THREE.Mesh(new THREE.RingGeometry(0.6, 1, 32), ringMat); scene.add(ring); }
     ring.position.set(h.p[0], h.p[1], GOAL_Z + 0.15); ring.lookAt(camera.position); ring.visible = true; }
   /* the bounce: a ring spreading on the grass from the spot, the ball squashed for a frame or two, a thud */
@@ -1620,6 +1620,29 @@ const FX = (() => {
         for (let i = 0; i < n; i++) d[i] = (Math.random()*2 - 1)*Math.pow(1 - i/n, 2);
         const src = audio.createBufferSource(); src.buffer = b; const f = audio.createBiquadFilter(); f.type = 'lowpass'; f.frequency.value = 1500;
         const g = audio.createGain(); g.gain.value = 0.8; src.connect(f); f.connect(g); g.connect(out); src.start(t0); }
+    } catch (e) {}
+  }
+  /* the woodwork: an aluminium goal frame rings. A hard bright impact for a few milliseconds, the
+     ball's own thump under it, then the frame's inharmonic ring, a handful of partials each with its
+     own decay, slightly detuned pairs so it shimmers, the bar a little lower than a post. */
+  function clang(what){
+    try {
+      audio = audio || new (window.AudioContext || window.webkitAudioContext)();
+      if (audio.state === 'suspended') audio.resume();
+      const t0 = audio.currentTime, out = audio.createGain(); out.gain.value = 1; out.connect(audio.destination);
+      const k = what === 'bar' ? 0.86 : 1;                                   // the bar is longer: it rings lower
+      [[330, 1.1, 0.9], [333, 1.0, 0.5], [790, 0.7, 0.55], [1240, 0.5, 0.4], [1246, 0.45, 0.25], [2080, 0.3, 0.22], [3150, 0.18, 0.12]].forEach(([f, len, g0]) => {
+        const o = audio.createOscillator(), g = audio.createGain(); o.type = 'sine'; o.frequency.value = f*k;
+        g.gain.setValueAtTime(g0, t0); g.gain.exponentialRampToValueAtTime(0.001, t0 + len);
+        o.connect(g); g.connect(out); o.start(t0); o.stop(t0 + len + 0.05); });
+      /* the impact: a few ms of bright noise */
+      { const n = Math.floor(audio.sampleRate*0.012), b = audio.createBuffer(1, n, audio.sampleRate), d = b.getChannelData(0);
+        for (let i = 0; i < n; i++) d[i] = (Math.random()*2 - 1)*Math.pow(1 - i/n, 1.5);
+        const src = audio.createBufferSource(); src.buffer = b; const f = audio.createBiquadFilter(); f.type = 'bandpass'; f.frequency.value = 2600; f.Q.value = 0.6;
+        const g = audio.createGain(); g.gain.value = 1.2; src.connect(f); f.connect(g); g.connect(out); src.start(t0); }
+      /* the ball on it: a short low thump */
+      { const o = audio.createOscillator(), g = audio.createGain(); o.frequency.setValueAtTime(140, t0); o.frequency.exponentialRampToValueAtTime(90, t0 + 0.03);
+        g.gain.setValueAtTime(1.6, t0); g.gain.exponentialRampToValueAtTime(0.002, t0 + 0.06); o.connect(g); g.connect(out); o.start(t0); o.stop(t0 + 0.08); }
     } catch (e) {}
   }
   function say(word, cls){ const e = el('fx'); e.textContent = word; e.className = 'show ' + cls; clearTimeout(flash); flash = setTimeout(() => { e.className = ''; }, 1100); }
