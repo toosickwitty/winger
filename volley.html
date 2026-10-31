@@ -1556,7 +1556,7 @@ const FX = (() => {
   let net = null, hit = null, ring = null, flash = null;
   const ringMat = new THREE.MeshBasicMaterial({ color: 0xfff6c8, transparent: true, opacity: 0.9, depthWrite: false, side: THREE.DoubleSide });
   function goal(t, at){ net = { t0: t, x: at[0], y: at[1] }; say('Goal', 'go'); }
-  function woodwork(t, h){ hit = { t0: t, p: h.p, what: h.what }; say(h.what === 'bar' ? 'Bar!' : 'Post!', 'warn'); clang(h.what);
+  function woodwork(t, h){ hit = { t0: t, p: h.p, what: h.what }; say(h.what === 'bar' ? 'Crossbar!' : 'Post!', 'warn'); clang(h.what);
     if (!ring){ ring = new THREE.Mesh(new THREE.RingGeometry(0.6, 1, 32), ringMat); scene.add(ring); }
     ring.position.set(h.p[0], h.p[1], GOAL_Z + 0.15); ring.lookAt(camera.position); ring.visible = true; }
   /* the bounce: a ring spreading on the grass from the spot, the ball squashed for a frame or two, a thud */
@@ -1833,7 +1833,7 @@ function finishRep(j, shot){
   const D = s.swingMs, call = s.call === 'volley' ? 'volley' : s.call === 'side' ? 'side volley' : 'half-volley';
   const err = s.tap === null ? null : Math.round((s.tap - s.idealTap)*1000);
   const where = (j.h !== undefined && j.kind !== 'none') ? 'Contact at <b>' + fmtH(j.h) + '</b>' + (j.n === 0 ? ' on the way down' : j.n === 1 ? (j.rising ? ' on the way up after the bounce' : ', dropping again after the bounce') : ' after two bounces') + '. ' : '';
-  const outcome = shot === 'in' ? 'It went in.' : shot === 'over' ? 'Over the bar.' : shot === 'wide' ? 'Wide.' : shot === 'short' ? 'It never reached the goal.' : shot === 'post' ? 'Off the post.' : shot === 'bar' ? 'Off the bar.' : '';
+  const outcome = shot === 'in' ? 'It went in.' : shot === 'over' ? 'Over the crossbar.' : shot === 'wide' ? 'Wide.' : shot === 'short' ? 'It never reached the goal.' : shot === 'post' ? 'Off the post.' : shot === 'bar' ? 'Off the crossbar.' : '';
   let text = '';
   switch (j.kind){
     case 'clean':   text = '<b>Clean ' + call + '.</b> ' + where + (s.call === 'volley' ? 'Knee over the ball, laces through it: that stays under the bar. ' : s.call === 'side' ? 'Side-on, leaning away, the leg round parallel to the grass and through the middle of it: that stays down. ' : 'Off the bounce, before it could climb: that stays down. ') + outcome; break;
