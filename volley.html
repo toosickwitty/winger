@@ -1776,7 +1776,7 @@ function loop(){
     if (!clip.shot){ const nb = ballAt(s, t).n; if (nb !== (clip.nb || 0) && nb >= 1 && nb < 9){ const q = ballAt(s, Math.max(s.T, t - 0.001)); FX.bounced(t, nb === 1 ? s.land : [q.p[0], q.p[2]]); } clip.nb = nb; }
     if (clip.shot){ const sh = shotAt(clip.shot, t); bp = sh.p; if (sh.state !== 'flying' && !clip.shotEnd) clip.shotEnd = { t, state: sh.state };
       if (sh.state === 'in' && !FX.net) FX.goal(t, sh.net);
-      if (sh.hit && !FX.hit) FX.woodwork(t, sh.hit); }
+      if (sh.hit && !clip.hitFx){ clip.hitFx = true; FX.woodwork(t, sh.hit); } }
     else bp = ballAt(s, t).p;
     ballMesh.position.set(bp[0], bp[1], bp[2]); shadowUnder();
     poseLegs.runT = t; poseLegs.mode = s.approach; poseLegs.call = s.call; poseLegs.side = s.side; poseLegs.back = s.backMs/s.swingMs; poseLegs(clip.tap === null ? -1 : (t - clip.tap)/(s.swingMs/1000));
@@ -1794,7 +1794,7 @@ function loop(){
     let bp;
     if (s.shot && t >= tc && !replay.struck){ replay.struck = true; FX.struck(); }
     { const nb = s.shot && t >= tc ? 0 : ballAt(s, t).n; if (nb !== (replay.nb || 0) && nb >= 1 && nb < 9){ const q = ballAt(s, t); FX.bounced(t, nb === 1 ? s.land : [q.p[0], q.p[2]]); } replay.nb = nb; }
-    if (s.shot && t >= tc){ const sh = shotAt(s.shot, t); bp = sh.p; if (sh.state === 'in' && !FX.net) FX.goal(t, sh.net); if (sh.hit && !FX.hit) FX.woodwork(t, sh.hit); } else bp = ballAt(s, t).p;
+    if (s.shot && t >= tc){ const sh = shotAt(s.shot, t); bp = sh.p; if (sh.state === 'in' && !FX.net) FX.goal(t, sh.net); if (sh.hit && !replay.hitFx){ replay.hitFx = true; FX.woodwork(t, sh.hit); } } else bp = ballAt(s, t).p;
     ballMesh.position.set(bp[0], bp[1], bp[2]); shadowUnder();
     poseLegs.runT = t; poseLegs.mode = s.approach; poseLegs.call = s.call; poseLegs.side = s.side; poseLegs.back = s.backMs/s.swingMs; poseLegs((t - s.tap)/(s.swingMs/1000));
     eyes(s, t, dtR*0.3);
