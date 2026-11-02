@@ -3424,7 +3424,7 @@ function answerDir(dir){
   const p = PRINCIPLE2[c.key === 'run' ? 'run' : c.extra.rule];
   const r2 = document.createElement('div'); r2.className = 'row';
   r2.innerHTML = '<span class="wy"><b>' + (p.es ? '<i>' + p.es + '</i> &middot; ' : '') + p.title + '.</b> ' + p.why + '</span>'; box.appendChild(r2);
-  c.outcome = { mine: dir ? judgePlay(c, dir) : null, ideal: judgePlay(c, c.ideal) };
+  c.outcome = { mine: dir ? judgePlay(c, dir, ang) : null, ideal: judgePlay(c, c.ideal, 0) };
   if (c.outcome.mine) row(c.outcome.mine.ok ? 'Played out' : 'Played out', c.outcome.mine.ok ? 't3' : 't0', c.outcome.mine.text + (c.outcome.ideal.ok && !c.outcome.mine.ok ? ' The right one: ' + c.outcome.ideal.text.charAt(0).toLowerCase() + c.outcome.ideal.text.slice(1) : ''));
   drawMap2(c);
   const after = () => { document.getElementById('mapwrap').style.display = 'flex'; show(pFeed); };
@@ -3433,8 +3433,9 @@ function answerDir(dir){
 /* ---------- the play going on: his choice, or the right one, against the men as they were ---------- */
 const PO = { runV: 6.6, runA: 5.0, touchM: 3.0, touchMs: 700, pressV: 4.6, throughV: 17 };
 /* what a direction leads to, worked out from the frozen picture */
-function judgePlay(s, dir){
+function judgePlay(s, dir, ang){
   const me = s.me, wx = p => p;
+  const near3 = ang !== undefined && ang !== null && ang <= 30;      // scored spot on: it comes off, by the same yardstick as the right one
   if (s.key === 'run'){
     const last = s.ev[s.ev.length - 1], ts = last.ts, dt = (ts - s.tFreeze)/1000;
     /* he runs from the freeze; the ball is struck at ts into the space in front of him */
@@ -3446,10 +3447,10 @@ function judgePlay(s, dir){
     const from = trackAt(s.T.tr[s.ev[s.ev.length - 2].role], ts).p, L = d2(from, tgt), ta = ts + L/PO.throughV*1000;
     let cut = null;
     for (const id in s._atFreeze){ if (id === 'TGK' || s.ev[0].sh.own[id]) continue; const q = trackAt(s.T.tr[id], ta).p, r = segD(q, from, tgt); if (r.t > 0.1 && r.d < 1.6 && (!cut || r.d < cut.d)) cut = { id, d: r.d }; }
-    if (cut) return { ok: false, kind: 'cut', tgt, ta, text: 'Cut out: the ball into that space goes through ' + (cut.id === 'TB4' ? 'their full-back' : cut.id === 'TB3' ? 'their centre-back' : 'their ' + (cut.id.startsWith('TM') ? 'midfielder' : 'man')) + '.' };
+    if (cut && !near3) return { ok: false, kind: 'cut', tgt, ta, text: 'Cut out: the ball into that space goes through ' + (cut.id === 'TB4' ? 'their full-back' : cut.id === 'TB3' ? 'their centre-back' : 'their ' + (cut.id.startsWith('TM') ? 'midfielder' : 'man')) + '.' };
     let first = null;
     for (const id in s._atFreeze){ if (s.ev[0].sh.own[id]) continue; const q = trackAt(s.T.tr[id], ta).p, d = d2(q, tgt); if (!first || d < first.d) first = { id, d }; }
-    if (first && first.d < 2.2) return { ok: false, kind: 'beaten', tgt, ta, text: (first.id === 'TGK' ? 'Their keeper' : first.id === 'TB4' ? 'Their full-back' : 'Their defender') + ' gets there with you: no clean run onto it.' };
+    if (first && first.d < 2.2 && !near3) return { ok: false, kind: 'beaten', tgt, ta, text: (first.id === 'TGK' ? 'Their keeper' : first.id === 'TB4' ? 'Their full-back' : 'Their defender') + ' gets there with you: no clean run onto it.' };
     return { ok: true, kind: 'in', tgt, ta, text: 'In behind, onside, the ball in front of you and nobody near: a clean run onto it.' };
   }
   /* the touch: 3 m over 0.7 s; the man closing goes for the ball */
@@ -3458,10 +3459,10 @@ function judgePlay(s, dir){
   const n = s.extra.near;
   if (n && n.d < 5.5){
     const reach = PO.pressV*(PO.touchMs/1000 + 0.25), dAfter = d2(n.q, ball);
-    if (dAfter < reach - 0.8) return { ok: false, kind: 'caught', ball, text: 'He gets to it: your touch took the ball ' + (dAfter < n.d - 0.5 ? 'toward him' : 'where he could still reach it') + ', and he is on you before the second touch.' };
+    if (dAfter < reach - 0.8 && !near3) return { ok: false, kind: 'caught', ball, text: 'He gets to it: your touch took the ball ' + (dAfter < n.d - 0.5 ? 'toward him' : 'where he could still reach it') + ', and he is on you before the second touch.' };
     return { ok: true, kind: 'away', ball, text: 'Away from him: the touch puts the ball ' + dAfter.toFixed(0) + ' m from him as he arrives, and you are facing forward.' };
   }
-  return { ok: dir[1] < -0.3, kind: dir[1] < -0.3 ? 'forward' : 'sideways', ball, text: dir[1] < -0.3 ? 'Forward, into space, with the next action on.' : 'Nobody near you and the touch went ' + (dir[1] > 0.3 ? 'backward' : 'sideways') + ': the time you had is spent on a turn.' };
+  return { ok: dir[1] < -0.3 || near3, kind: dir[1] < -0.3 || near3 ? 'forward' : 'sideways', ball, text: dir[1] < -0.3 ? 'Forward, into space, with the next action on.' : 'Nobody near you and the touch went ' + (dir[1] > 0.3 ? 'backward' : 'sideways') + ': the time you had is spent on a turn.' };
 }
 let poGen = 0;
 function playOut(s, dir, done){
@@ -3488,7 +3489,8 @@ function playOut(s, dir, done){
       const n = s.extra.near; if (n && n.d < 5.5 && ACT[n.id]){ const step = Math.min(d2(n.q, ball), PO.pressV*u/1000), v = unit(n.q, ball), p = wx([n.q[0] + v[0]*step, n.q[1] + v[1]*step]); ACT[n.id].mesh.position.set(p[0], 0, p[1]); ACT[n.id].mesh.rotation.y = Math.atan2(s.side*v[0], v[1]); }
     }
     const B = wx(ball), M = wx(me); ballMesh.position.set(B[0], 0.115, B[1]);
-    const yp = ypTo(M[0], M[1], B[0], 0.3, B[1]); camYP(M[0], M[1], yp[0], Math.max(yp[1], -0.32));
+    if (s.key === 'run'){ const yp = ypTo(M[0], M[1], B[0], 0.3, B[1]); camYP(M[0], M[1], yp[0], Math.max(yp[1], -0.32)); }
+    else { const yb = ypTo(M[0], M[1], B[0], 0.2, B[1]); camYP(M[0], M[1], mixYP([Math.PI, -0.18], yb, 0.35)[0], -0.2); }   // the touch: eyes up, square to goal, the ball at the edge of the picture
     if (u < dur){ requestAnimationFrame(step); return; }
     setTimeout(done, 350);
   })(t0);
@@ -3552,6 +3554,9 @@ function drawMap2(s){
   if (s.mine) arrow(s.mine, 10, '#f5f8f3', .8);
   const lab = (txt, x, y, col) => { const e = svgEl('text', { x: -y, y: x, 'font-size': 2.2, 'text-anchor': 'middle', fill: col, 'font-family': 'Barlow Condensed, sans-serif', 'letter-spacing': '.1' }, svg); e.textContent = txt; };
   lab('YOU', me[0], me[1] + 4.2, '#dfeeff');
+  const leg = (txt, col, y) => { const e = svgEl('text', { x: 46, y, 'font-size': 2.4, 'text-anchor': 'end', fill: col, 'font-family': 'Barlow Condensed, sans-serif', 'letter-spacing': '.12' }, svg); e.textContent = txt; };
+  leg('\u2192 THE RIGHT ONE', '#c6ef2f', -33.5); if (s.mine) leg('\u2192 YOURS', '#f5f8f3', -30.5);
+  const gl = svgEl('text', { x: 46, y: 35.5, 'font-size': 2.2, 'text-anchor': 'end', fill: '#b6c9bb', 'font-family': 'Barlow Condensed, sans-serif', 'letter-spacing': '.12' }, svg); gl.textContent = 'THEIR GOAL \u2192';
   if (s.key === 'touch' && s.extra.near && s.extra.near.d < 5.5){ const q = P(s.extra.near.q); lab(s.extra.near.d.toFixed(0) + ' M, CLOSING', q[0], q[1] - 3.2, '#ffc2b5'); }
 }
 function answerMap(){ }
@@ -3615,4 +3620,4 @@ el('replay').onclick = replayLook;
   }
 })();
 </script>
-<div id="ver" style="position:fixed;right:calc(8px + env(safe-area-inset-right));bottom:calc(4px + env(safe-area-inset-bottom));z-index:999;font:12px/1 Inter,system-ui,sans-serif;color:#dfe8e0;opacity:.6;pointer-events:none;letter-spacing:.04em">v93</div>
+<div id="ver" style="position:fixed;right:calc(8px + env(safe-area-inset-right));bottom:calc(4px + env(safe-area-inset-bottom));z-index:999;font:12px/1 Inter,system-ui,sans-serif;color:#dfe8e0;opacity:.6;pointer-events:none;letter-spacing:.04em">v94</div>
