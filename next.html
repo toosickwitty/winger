@@ -3246,11 +3246,12 @@ function sceneOK(s){
         for (const id in s.ev[0].sh.opp){ if (id === 'TGK' || id === near.id) continue; const q = at(id); if (q[0] < me[0] && d2(q, me) < 5) inside = me[0] > 30 ? true : false; }
         s.ideal = unit([0, 0], [inside ? -1 : 1, -0.15]); s.extra.rule = 'across'; s.extra.inside = inside;
       } else {
-        /* from behind: the first touch forward leaves him behind you, a shade away from his side;
-           from level or ahead of level: away from him and forward */
-        const a = unit(near.q, me), behind = near.q[1] > me[1] + 0.5;
-        s.ideal = behind ? unit([0, 0], [a[0]*0.3, -1]) : unit([0, 0], [a[0] + f[0]*0.7, a[1] + f[1]*0.7]);
-        s.extra.rule = behind ? 'behind' : 'away';
+        /* from inside (the centre) and not ahead of you: the touch goes forward and toward goal, against
+           his run, the quickest route to a shot or a cross; a touch out toward the line only takes you
+           into the corner. From the outside: away from him, forward */
+        const a = unit(near.q, me), fromInside = near.q[0] < me[0];
+        s.ideal = fromInside ? unit([0, 0], [-0.4, -1]) : unit([0, 0], [a[0] + f[0]*0.7, a[1] + f[1]*0.7]);
+        s.extra.rule = fromInside ? 'goalward' : 'away';
       }
     }
     if (Math.abs(me[0] + s.ideal[0]*3.2) > 33.2) s.ideal = unit([0, 0], [0.12, -1]);          // on the line: away from him is down the line
@@ -3504,7 +3505,7 @@ const PRINCIPLE2 = {
   run:   { es: 'Desmarque de ruptura', title: 'Run the gap, from level', why: 'Their man on the ball is shaped to play you in. Start level with their last defender and run the gap &mdash; between the two nearest men, or outside the full-back if he has tucked in &mdash; on a diagonal, so the ball can be played in front of you and you are never past the last man when it is struck.' },
   free:  { es: 'Primer toque hacia adelante', title: 'Nobody on you: forward', why: 'No one within five metres. The first touch goes forward and a little inside, toward goal, so the next thing you do is a cross, a shot or a pass forward, not a turn.' },
   away:  { es: 'Primer toque lejos de la presi&oacute;n', title: 'Away from the man, forward', why: 'A defender closing from one side. Take the first touch away from him and forward, across the way he is running: he has to stop and turn, and you are already going.' },
-  behind:{ es: 'Primer toque hacia adelante', title: 'He is behind you: forward, and he stays there', why: 'The man closing is behind you. A touch sideways gives him time to get level; a touch forward leaves him behind you &mdash; a shade away from his side so he cannot reach across you &mdash; and now you are facing goal with him chasing.' },
+  goalward:{ es: 'Primer toque hacia la porter&iacute;a', title: 'Pressed from inside: toward goal, against his run', why: 'The man closing comes from the centre, running out at you. A touch forward and inside goes against his momentum and is the quickest route to a shot or a cross; a touch out toward the line only takes you into the corner, where he and the full-back can shut you in.' },
   across:{ es: 'Abrir el cuerpo', title: 'Straight on: across him, to the open side', why: 'He is coming straight at you, between you and goal. Forward is into him. The touch goes across his front to the open side &mdash; inside, unless someone is there or you are on the line &mdash; so his momentum carries him past.' }
 };
 const DIRWORD = d => { const a = Math.atan2(d[0], -d[1])*180/Math.PI; return a > 150 || a < -150 ? 'back toward your own goal' : Math.abs(a) < 30 ? 'straight forward' : a > 0 ? (a < 70 ? 'forward and outside, toward the line' : a < 110 ? 'straight out to the line' : 'back and outside') : (a > -70 ? 'forward and inside' : a > -110 ? 'straight inside' : 'back and inside'); };
@@ -3521,7 +3522,7 @@ function explain(c, ang){
   if (c.extra.rule === 'free') return pre + 'nobody is within five metres of you (' + who + ' is ' + n.d.toFixed(0) + ' m off): take it forward.';
   if (c.extra.rule === 'across') return pre + who + ' is coming straight at you, ' + n.d.toFixed(0) + ' m off, between you and goal: the touch goes across him, ' + (c.extra.inside ? 'inside' : 'outside') + '.';
   const side = n.q[0] < c.me[0] ? 'your inside' : 'your outside', back = n.q[1] > c.me[1] ? ' and behind' : '';
-  if (c.extra.rule === 'behind') return pre + who + ' is closing from ' + side + ' and behind, ' + n.d.toFixed(0) + ' m off: forward, a shade to the far side from him, and he is behind you.';
+  if (c.extra.rule === 'goalward') return pre + who + ' is closing from the inside' + back + ', ' + n.d.toFixed(0) + ' m off: forward and toward goal, against his run, not out to the line.';
   return pre + who + ' is closing from ' + side + back + ', ' + n.d.toFixed(0) + ' m off: take it away from him and forward.';
 }
 /* the map in the review: the frozen picture from above, his arrow and the right one */
@@ -3614,4 +3615,4 @@ el('replay').onclick = replayLook;
   }
 })();
 </script>
-<div id="ver" style="position:fixed;right:8px;bottom:4px;z-index:99;font:11px/1 Inter,system-ui,sans-serif;color:#b6c9bb;opacity:.45;pointer-events:none;letter-spacing:.04em">v91</div>
+<div id="ver" style="position:fixed;right:8px;bottom:4px;z-index:99;font:11px/1 Inter,system-ui,sans-serif;color:#b6c9bb;opacity:.45;pointer-events:none;letter-spacing:.04em">v92</div>
