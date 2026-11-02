@@ -3250,6 +3250,7 @@ function sceneOK(s){
         s.ideal = unit([0, 0], [a[0] + f[0]*0.7, a[1] + f[1]*0.7]); s.extra.rule = 'away';
       }
     }
+    if (Math.abs(me[0] + s.ideal[0]*3.2) > 33.2) s.ideal = unit([0, 0], [0.12, -1]);          // on the line: away from him is down the line
   } else {
     const tb4 = at('TB4'), tb3 = at('TB3');
     const gIn = Math.abs(tb4[0] - tb3[0]), gOut = 33 - tb4[0];
@@ -3264,8 +3265,9 @@ function sceneOK(s){
     if (me[1] < deep - 0.5) return false;
     s.offLine = deep;
   }
-  s._tEnd = s.tFreeze + 1500; s.T = simulate(s); s._tEnd = undefined; s.T.miss = T.miss;
+  s._tEnd = s.tFreeze + 3200; s.T = simulate(s); s._tEnd = undefined; s.T.miss = T.miss;
   s._atFreeze = {}; for (const id in F.tr) s._atFreeze[id] = at(id);
+  if (!judgePlay(s, s.ideal).ok) return false;                             // the right answer must come off when it is played out
   return true;
 }
 /* the picture, from his eyes: his body carried along his track, eyes on the ball, a scan on a tap */
@@ -3418,9 +3420,82 @@ function answerDir(dir){
   const p = PRINCIPLE2[c.key === 'run' ? 'run' : c.extra.rule];
   const r2 = document.createElement('div'); r2.className = 'row';
   r2.innerHTML = '<span class="wy"><b>' + (p.es ? '<i>' + p.es + '</i> &middot; ' : '') + p.title + '.</b> ' + p.why + '</span>'; box.appendChild(r2);
+  c.outcome = { mine: dir ? judgePlay(c, dir) : null, ideal: judgePlay(c, c.ideal) };
+  if (c.outcome.mine) row(c.outcome.mine.ok ? 'Played out' : 'Played out', c.outcome.mine.ok ? 't3' : 't0', c.outcome.mine.text + (c.outcome.ideal.ok && !c.outcome.mine.ok ? ' The right one: ' + c.outcome.ideal.text.charAt(0).toLowerCase() + c.outcome.ideal.text.slice(1) : ''));
   drawMap2(c);
-  document.getElementById('mapwrap').style.display = 'flex';
-  show(pFeed);
+  const after = () => { document.getElementById('mapwrap').style.display = 'flex'; show(pFeed); };
+  if (dir) playOut(c, dir, after); else after();
+}
+/* ---------- the play going on: his choice, or the right one, against the men as they were ---------- */
+const PO = { runV: 6.6, runA: 5.0, touchM: 3.0, touchMs: 700, pressV: 4.6, throughV: 17 };
+/* what a direction leads to, worked out from the frozen picture */
+function judgePlay(s, dir){
+  const me = s.me, wx = p => p;
+  if (s.key === 'run'){
+    const last = s.ev[s.ev.length - 1], ts = last.ts, dt = (ts - s.tFreeze)/1000;
+    /* he runs from the freeze; the ball is struck at ts into the space in front of him */
+    const posAt = t => { const u = Math.max(0, t), d = u < PO.runV/PO.runA ? 0.5*PO.runA*u*u : PO.runV*u - 0.5*PO.runV*PO.runV/PO.runA; return [me[0] + dir[0]*d, me[1] + dir[1]*d]; };
+    const atTs = posAt(dt);
+    if (atTs[1] < s.offLine - 0.5) return { ok: false, kind: 'offside', text: 'Offside: you were ' + (s.offLine - atTs[1]).toFixed(0) + ' m past their last man when he struck it. Start the run level and go across, not before.' };
+    const tf = 1.55, tgt = posAt(dt + tf), pass = [last.at[0] !== undefined ? trackAt(s.T.tr[s.ev[s.ev.length - 2].role], ts).p : me, tgt];
+    if (Math.abs(tgt[0]) > 33.5 || tgt[1] < -52) return { ok: false, kind: 'out', text: 'That run takes the ball out of play: the pass in front of you would cross the line.' };
+    const from = trackAt(s.T.tr[s.ev[s.ev.length - 2].role], ts).p, L = d2(from, tgt), ta = ts + L/PO.throughV*1000;
+    let cut = null;
+    for (const id in s._atFreeze){ if (id === 'TGK' || s.ev[0].sh.own[id]) continue; const q = trackAt(s.T.tr[id], ta).p, r = segD(q, from, tgt); if (r.t > 0.1 && r.d < 1.6 && (!cut || r.d < cut.d)) cut = { id, d: r.d }; }
+    if (cut) return { ok: false, kind: 'cut', tgt, ta, text: 'Cut out: the ball into that space goes through ' + (cut.id === 'TB4' ? 'their full-back' : cut.id === 'TB3' ? 'their centre-back' : 'their ' + (cut.id.startsWith('TM') ? 'midfielder' : 'man')) + '.' };
+    let first = null;
+    for (const id in s._atFreeze){ if (s.ev[0].sh.own[id]) continue; const q = trackAt(s.T.tr[id], ta).p, d = d2(q, tgt); if (!first || d < first.d) first = { id, d }; }
+    if (first && first.d < 2.2) return { ok: false, kind: 'beaten', tgt, ta, text: (first.id === 'TGK' ? 'Their keeper' : first.id === 'TB4' ? 'Their full-back' : 'Their defender') + ' gets there with you: no clean run onto it.' };
+    return { ok: true, kind: 'in', tgt, ta, text: 'In behind, onside, the ball in front of you and nobody near: a clean run onto it.' };
+  }
+  /* the touch: 3 m over 0.7 s; the man closing goes for the ball */
+  const ball = [me[0] + dir[0]*PO.touchM, me[1] + dir[1]*PO.touchM];
+  if (Math.abs(ball[0]) > 33.5) return { ok: false, kind: 'out', text: 'That touch takes the ball over the touchline.' };
+  const n = s.extra.near;
+  if (n && n.d < 5.5){
+    const reach = PO.pressV*(PO.touchMs/1000 + 0.25), dAfter = d2(n.q, ball);
+    if (dAfter < reach - 0.8) return { ok: false, kind: 'caught', ball, text: 'He gets to it: your touch took the ball ' + (dAfter < n.d - 0.5 ? 'toward him' : 'where he could still reach it') + ', and he is on you before the second touch.' };
+    return { ok: true, kind: 'away', ball, text: 'Away from him: the touch puts the ball ' + dAfter.toFixed(0) + ' m from him as he arrives, and you are facing forward.' };
+  }
+  return { ok: dir[1] < -0.3, kind: dir[1] < -0.3 ? 'forward' : 'sideways', ball, text: dir[1] < -0.3 ? 'Forward, into space, with the next action on.' : 'Nobody near you and the touch went ' + (dir[1] > 0.3 ? 'backward' : 'sideways') + ': the time you had is spent on a turn.' };
+}
+let poGen = 0;
+function playOut(s, dir, done){
+  clearArrow();
+  const o = judgePlay(s, dir), wx = p => [s.side*p[0], p[1]], me0 = s.me, t0 = performance.now(), gen = ++poGen, last = s.ev[s.ev.length - 1];
+  const dur = s.key === 'run' ? Math.min(2600, (o.ta ? o.ta - s.tFreeze : 1600) + 500) : 1300;
+  el('askWord').firstChild.textContent = s.key === 'run' ? 'Your run' : 'Your touch'; el('askHint').textContent = o.text.replace(/<[^>]+>/g, '');
+  (function step(now){
+    if (gen !== poGen) return;
+    const u = Math.min(dur, now - t0), T = s.tFreeze + u;
+    /* everyone else carries on as they were going */
+    seqFrame(s, T);
+    let me, ball;
+    if (s.key === 'run'){
+      const ts = last.ts, k = u/1000, d = k < PO.runV/PO.runA ? 0.5*PO.runA*k*k : PO.runV*k - 0.5*PO.runV*PO.runV/PO.runA;
+      me = [me0[0] + dir[0]*d, me0[1] + dir[1]*d];
+      if (o.kind === 'offside' || o.kind === 'out' || !o.tgt) ball = trackAt(s.T.ball, Math.min(T, ts)).p;
+      else { const from = trackAt(s.T.tr[s.ev[s.ev.length - 2].role], ts).p; if (T < ts) ball = trackAt(s.T.ball, T).p; else { const q = Math.min(1, (T - ts)/(o.ta - ts)); ball = [from[0] + (o.tgt[0] - from[0])*q, from[1] + (o.tgt[1] - from[1])*q]; } }
+    } else {
+      const q = Math.min(1, u/PO.touchMs), e = q*(2 - q);
+      me = [me0[0] + dir[0]*PO.touchM*e*0.5, me0[1] + dir[1]*PO.touchM*e*0.5];
+      ball = [me0[0] + dir[0]*PO.touchM*e, me0[1] + dir[1]*PO.touchM*e];
+      /* the man closing goes for the ball */
+      const n = s.extra.near; if (n && n.d < 5.5 && ACT[n.id]){ const step = Math.min(d2(n.q, ball), PO.pressV*u/1000), v = unit(n.q, ball), p = wx([n.q[0] + v[0]*step, n.q[1] + v[1]*step]); ACT[n.id].mesh.position.set(p[0], 0, p[1]); ACT[n.id].mesh.rotation.y = Math.atan2(s.side*v[0], v[1]); }
+    }
+    const B = wx(ball), M = wx(me); ballMesh.position.set(B[0], 0.115, B[1]);
+    const yp = ypTo(M[0], M[1], B[0], 0.3, B[1]); camYP(M[0], M[1], yp[0], Math.max(yp[1], -0.32));
+    if (u < dur){ requestAnimationFrame(step); return; }
+    setTimeout(done, 350);
+  })(t0);
+}
+function playIdeal(){
+  if (!current || replaying) return;
+  replaying = true; const btn = el('replayIdeal'); btn.disabled = true;
+  show(pAsk); el('answers').innerHTML = ''; document.getElementById('mapwrap').style.display = 'none';
+  seqFrame(current, current.tFreeze);
+  playOut(current, current.ideal, () => { document.getElementById('mapwrap').style.display = 'flex'; show(pFeed); replaying = false; btn.disabled = false; });
+  el('askWord').firstChild.textContent = current.key === 'run' ? 'The right run' : 'The right touch';
 }
 const PRINCIPLE2 = {
   run:   { es: 'Desmarque de ruptura', title: 'Run the gap, from level', why: 'Their man on the ball is shaped to play you in. Start level with their last defender and run the gap &mdash; between the two nearest men, or outside the full-back if he has tucked in &mdash; on a diagonal, so the ball can be played in front of you and you are never past the last man when it is struck.' },
@@ -3492,6 +3567,8 @@ try { const seed = makeScene(1, 'run'); current = seed; buildScene(seed); seqFra
 /* the buttons were bound to Shape's functions when the page loaded: bind them to these */
 el('next').onclick = nextRep;
 el('replay').onclick = replayLook;
+
+(function(){ const rb = el('replay'); const b = document.createElement('button'); b.className = 'cta ghost'; b.id = 'replayIdeal'; b.textContent = 'Play the right one'; rb.parentNode.insertBefore(b, rb); b.onclick = playIdeal; })();
 
 </script>
 <script id="fs-sideways">
