@@ -1599,7 +1599,8 @@ const FX = (() => {
   /* the same loudness for both, so the rhythm of a half-volley (thud... crack) is what he hears */
   /* the bounce on the grass: a heavy step on carpet. Muffled, no edge: a soft front of about 8 ms,
      noise rolled off at 180 Hz, a low body near 70 Hz, and gone in a tenth of a second or so */
-  function thud(){ sound({ len: 0.13, decay: 2.0, attack: 0.008, type: 'lowpass', freq: 180, q: 0.5, gain: 4.2, thump: 72 }); }
+  let thudAt = -1;                                                      // when the grass last sounded, in audio time
+  function thud(){ thudAt = audio ? audio.currentTime : -1; sound({ len: 0.13, decay: 2.0, attack: 0.008, type: 'lowpass', freq: 180, q: 0.5, gain: 4.2, thump: 72 }); }
   /* the strike: the same thud as the bounce, only bigger and deeper. A well-struck ball is a crushed
      bladder springing back: no slap, no snare, just a heavier, lower, longer thump than the grass. */
   /* the strike, built from a recording of a real one: a 20-30 ms event (down 8 dB at 5 ms, 32 dB at
@@ -1609,7 +1610,9 @@ const FX = (() => {
     try {
       audio = audio || new (window.AudioContext || window.webkitAudioContext)();
       if (audio.state === 'suspended') audio.resume();
-      const t0 = audio.currentTime, out = audio.createGain(); out.gain.value = 1; out.connect(audio.destination);
+      /* two sounds, always: a strike right on the bounce is held off until the grass has been heard,
+         about 90 ms, so the two overlap at the edges but never merge into one */
+      const t0 = Math.max(audio.currentTime, thudAt + 0.09), out = audio.createGain(); out.gain.value = 1; out.connect(audio.destination);
       /* the punch: a sine from ~130 Hz settling to ~95, gone in 30 ms */
       { const o = audio.createOscillator(), g = audio.createGain(); o.type = 'sine';
         o.frequency.setValueAtTime(135, t0); o.frequency.exponentialRampToValueAtTime(95, t0 + 0.02);
@@ -1962,4 +1965,4 @@ loadStats();
   }
 })();
 </script>
-<div id="ver" style="position:fixed;right:calc(8px + env(safe-area-inset-right));bottom:calc(4px + env(safe-area-inset-bottom));z-index:999;font:12px/1 Inter,system-ui,sans-serif;color:#dfe8e0;opacity:.6;pointer-events:none;letter-spacing:.04em">v94</div>
+<div id="ver" style="position:fixed;right:calc(8px + env(safe-area-inset-right));bottom:calc(4px + env(safe-area-inset-bottom));z-index:999;font:12px/1 Inter,system-ui,sans-serif;color:#dfe8e0;opacity:.6;pointer-events:none;letter-spacing:.04em">v95</div>
