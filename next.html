@@ -219,7 +219,7 @@ a.iconbtn{text-decoration:none;display:inline-flex;align-items:center;white-spac
       <button data-side="alt" aria-pressed="false">Both</button>
     </div>
     <button class="cta" id="start">Start session</button>
-    <p class="note">16 reps, about five minutes. Shape asks where you should be; here you are carried there as the play moves, pass by pass, and the question is what comes next. <b>Scan</b> while the play runs &mdash; a tap left or right turns your head over that shoulder for a third of a second. After about five seconds the picture freezes on the next decision and you <b>drag a direction</b>. Two kinds of rep: the man on the ball is shaped to play you in behind &mdash; drag your run (the gap between their two nearest men, or outside the full-back if he has tucked in, on a diagonal from level with the last man); or the ball is played to your feet with a defender closing, or not &mdash; drag your first touch (away from the man and forward; across him to the open side if he is straight on; forward if nobody is near). The man closing you comes from behind or inside, where only a scan sees him. A scan is not free: if your head is over your shoulder when it freezes, the rep is capped.</p></p></p>
+    <p class="note">16 reps, about five minutes. Shape asks where you should be; here you are carried there as the play moves, pass by pass, and the question is what comes next. <b>Scan</b> while the play runs &mdash; a tap left or right turns your head over that shoulder for a third of a second. After about five seconds the picture freezes on the next decision and you <b>drag a direction</b>. Two kinds of rep: the man on the ball is shaped to play you in behind &mdash; drag your run (the gap between their two nearest men, or outside the full-back if he has tucked in, on a diagonal from level with the last man); or the ball is played to your feet &mdash; most often between the lines, in the half-space pocket with their full-back on your back or their centre-midfielder stepping across, sometimes on the line &mdash; and you drag your first touch (on the half-turn away from a man on your shoulder; toward goal against a man coming from inside; across a man straight in front; forward if nobody is near). The man closing you is often behind your picture, where only a scan sees him. A scan is not free: if your head is over your shoulder when it freezes, the rep is capped.</p></p></p>
   </div>
 
   <div id="panelAsk" class="hide">
@@ -3125,6 +3125,7 @@ addEventListener('keydown', e => {
    by scanning while the ball travels. */
 function newBag(){ return shuffleS(['run','run','run','run','run','run','run','run','touch','touch','touch','touch','touch','touch','touch','touch']); }
 const PRESS_KINDS = ['inside', 'front', 'none'];
+const POCKET_KINDS = ['back', 'mid', 'free'];        // between the lines: their full-back on his back, their centre-mid stepping across, or nobody
 /* where he stands for a given shape: Shape's answer for that picture */
 function mySpot(e){ return idealFor(startKind(e), e.sh, {}).at; }
 function candidate(side, key){
@@ -3159,10 +3160,12 @@ function candidate(side, key){
     solved = chain('att', D, pickOne(holders), 1, ['S6', 'R8', 'RCB', 'RB', 'L8'], jit, null);
     if (!solved) return null;
     const last = solved[solved.length - 1], spot = mySpot(last), Ln = lastLine(last.sh);
-    const press = pickOne(PRESS_KINDS);
-    /* where he takes it: on his spot, level with the line; or, for the man straight in front, having
-       come short to the ball, their full-back stepping out of the line after him */
-    const me = press === 'front' ? [spot[0], spot[1] + rand(6, 9)] : spot;
+    /* most of the time he takes it between the lines: come off the touchline into the half-space
+       pocket, between their midfield and their back four, a man or two around him. Sometimes on the
+       line, as before. */
+    const pocket = Math.random() < 0.6;
+    const press = pocket ? pickOne(POCKET_KINDS) : pickOne(PRESS_KINDS);
+    const me = pocket ? pitch([spot[0] - rand(6, 10), Ln + rand(5, 9)]) : press === 'front' ? [spot[0], spot[1] + rand(6, 9)] : spot;
     const L = d2(last.at, me);
     if (L < PASS_MIN || L > PASS_MAX) return null;
     const sh = attShape(me[0], last.D + rand(-2, 1), jit);
@@ -3170,12 +3173,21 @@ function candidate(side, key){
     /* the man who closes him is where he would be in the pictures before (inside and behind, or in the
        line in front); the pass is his trigger, and he arrives as the ball does */
     const before = solved.map(e => e.sh);
-    if (press === 'inside'){ presser = 'TM4'; const from = pitch([me[0] - rand(6, 9), me[1] + rand(2, 6)]); before.forEach(q => { q.opp.TM4 = from.slice(); }); const u = unit(from, me); sh.opp.TM4 = pitch([me[0] - u[0]*1.4, me[1] - u[1]*1.4]); }
+    if (pocket){
+      /* their full-back stays with him, goal side, on his outside shoulder; their 6 or wide midfielder
+         sits inside and ahead. One of them (or neither) closes as the ball comes */
+      const tb = pitch([me[0] + rand(1.5, 3), me[1] - rand(4, 6)]), mid = pitch([me[0] - rand(5, 8), me[1] - rand(2, 5)]), wm = pitch([me[0] + rand(4, 8), me[1] + rand(5, 8)]);
+      before.concat([sh]).forEach(q => { q.opp.TB4 = tb.slice(); q.opp.TM3 = mid.slice(); q.opp.TM4 = wm.slice(); });
+      if (press === 'back'){ presser = 'TB4'; sh.opp.TB4 = pitch([me[0] + rand(1.2, 1.8), me[1] - rand(0.8, 1.4)]); }      // onto his outside shoulder, goal side
+      else if (press === 'mid'){ presser = 'TM3'; const u = unit(mid, me); sh.opp.TM3 = pitch([me[0] - u[0]*1.4, me[1] - u[1]*1.4]); }
+      else { before.concat([sh]).forEach(q => { q.opp.TB4 = pitch([tb[0] + 3, tb[1] - 2]); q.opp.TM3 = pitch([mid[0] - 3, mid[1] - 2]); }); }
+    }
+    else if (press === 'inside'){ presser = 'TM4'; const from = pitch([me[0] - rand(6, 9), me[1] + rand(2, 6)]); before.forEach(q => { q.opp.TM4 = from.slice(); }); const u = unit(from, me); sh.opp.TM4 = pitch([me[0] - u[0]*1.4, me[1] - u[1]*1.4]); }
     else if (press === 'front'){ presser = 'TB4'; const from = pitch([me[0] - rand(1, 2.5), Ln + rand(-0.5, 0.5)]); before.forEach(q => { q.opp.TB4 = from.slice(); q.opp.TM4 = pitch([q.opp.TM4[0] - 7, q.opp.TM4[1] + 1]); }); sh.opp.TM4 = pitch([sh.opp.TM4[0] - 7, sh.opp.TM4[1] + 1]); const u = unit(from, me); sh.opp.TB4 = pitch([me[0] - u[0]*1.4, me[1] - u[1]*1.4]); }
     else { const tb = pitch([sh.opp.TB4[0] - 5, sh.opp.TB4[1] - 1]), tm = pitch([sh.opp.TM4[0] - 4, sh.opp.TM4[1] + 2]); before.concat([sh]).forEach(q => { q.opp.TB4 = tb.slice(); q.opp.TM4 = tm.slice(); }); }
     if (!laneClear(last.at, me, last.sh.opp)) return null;
     solved.push({ phase: 'att', role: 'ME', team: 'own', at: me, Fx: me[0], D: last.D, sh, len: L });
-    extra = { press, presser };
+    extra = { press, presser, pocket };
   }
   /* timing: a touch or two, then the pass at a real pace */
   let t = rand(500, 800);
@@ -3200,7 +3212,7 @@ function myTrack(s){
   for (let t = 100; t <= s.tFreeze + 1500; t += 100){
     let i = 0; for (let k = 1; k < s.ev.length; k++) if (s.ev[k].ts + 150 <= t) i = k;
     let e = s.ev[i];
-    const nx = s.ev[i + 1]; if (nx && nx.role === 'ME' && !nx.through && t >= nx.ts - 1400) e = nx;   // the ball is coming to him: he goes to meet it
+    const nx = s.ev[i + 1]; if (nx && nx.role === 'ME' && !nx.through && t >= nx.ts - (s.extra.pocket ? 2200 : 1400)) e = nx;   // the ball is coming to him: he goes to meet it
     const tgt = e.role === 'ME' ? e.at : mySpot(e);
     const dx = tgt[0] - p[0], dz = tgt[1] - p[1], dist = Math.hypot(dx, dz);
     const stop = Math.sqrt(2*ME_A*Math.max(0, dist - 0.2));
@@ -3232,7 +3244,8 @@ function sceneOK(s){
     for (const id in s.ev[0].sh.opp){ if (id === 'TGK') continue; const q = at(id), d = d2(q, me); if (!near || d < near.d) near = { id, q, d }; }
     const want = s.extra.press;
     if (want === 'none' && near.d < 5.5) return false;
-    if (want !== 'none' && (near.id !== s.extra.presser || near.d < 1.8 || near.d > 5.2)) return false;
+    if (want === 'free' && near.d < 5.5) return false;
+    if (want !== 'none' && want !== 'free' && (near.id !== s.extra.presser || near.d < 1.8 || near.d > 5.2)) return false;
     if (want === 'front'){ const toQ = unit(me, near.q); if (Math.acos(clamp(-toQ[1], -1, 1)) > 35*Math.PI/180) return false; }
     if (want === 'inside'){ const toQ = unit(me, near.q); if (Math.acos(clamp(-toQ[1], -1, 1)) < 40*Math.PI/180) return false; }
     s.extra.near = near;
@@ -3241,7 +3254,12 @@ function sceneOK(s){
     if (near.d >= 5.5){ s.ideal = unit([0, 0], [-0.35, -1]); s.extra.rule = 'free'; }
     else {
       const toQ = unit(me, near.q), ang = Math.acos(clamp(-toQ[1], -1, 1));        // angle between him->defender and goal-ward
-      if (ang < 35*Math.PI/180){
+      if (ang < 40*Math.PI/180 && Math.abs(near.q[0] - me[0]) > 0.6){
+        /* goal side of you, on one shoulder: take it on the half-turn, inside and forward if he is on
+           your outside shoulder, outside and forward if he is on your inside one */
+        const onOutside = near.q[0] > me[0];
+        s.ideal = unit([0, 0], [onOutside ? -1 : 1, -0.7]); s.extra.rule = 'halfturn'; s.extra.onOutside = onOutside;
+      } else if (ang < 35*Math.PI/180){
         let inside = true;                                                         // across him, to the open side: inside unless someone is there (or the line is not)
         for (const id in s.ev[0].sh.opp){ if (id === 'TGK' || id === near.id) continue; const q = at(id); if (q[0] < me[0] && d2(q, me) < 5) inside = me[0] > 30 ? true : false; }
         s.ideal = unit([0, 0], [inside ? -1 : 1, -0.15]); s.extra.rule = 'across'; s.extra.inside = inside;
@@ -3249,9 +3267,9 @@ function sceneOK(s){
         /* from inside (the centre) and not ahead of you: the touch goes forward and toward goal, against
            his run, the quickest route to a shot or a cross; a touch out toward the line only takes you
            into the corner. From the outside: away from him, forward */
-        const a = unit(near.q, me), fromInside = near.q[0] < me[0];
-        s.ideal = fromInside ? unit([0, 0], [-0.4, -1]) : unit([0, 0], [a[0] + f[0]*0.7, a[1] + f[1]*0.7]);
-        s.extra.rule = fromInside ? 'goalward' : 'away';
+        const a = unit(near.q, me), fromInside = near.q[0] < me[0], ahead = ang < 75*Math.PI/180;
+        if (fromInside && !ahead){ s.ideal = unit([0, 0], [-0.4, -1]); s.extra.rule = 'goalward'; }
+        else { s.ideal = unit([0, 0], [a[0] + f[0]*0.7, a[1] + f[1]*0.7]); s.extra.rule = 'away'; }   // from the outside, or from inside and ahead of you: away from him and forward
       }
     }
     if (Math.abs(me[0] + s.ideal[0]*3.2) > 33.2) s.ideal = unit([0, 0], [0.12, -1]);          // on the line: away from him is down the line
@@ -3420,7 +3438,7 @@ function answerDir(dir){
     r.innerHTML = '<span class="chip ' + cls + '">' + chip + '</span><span class="wy">' + text + '</span>'; box.appendChild(r); };
   const tier = pts === 3 ? 'Spot on' : pts === 1 ? 'Close' : 'Missed';
   row(tier, 't' + pts, explain(c, ang) + (capped ? ' <b>Your head was over your shoulder as it froze</b>: you were looking the wrong way at the moment that mattered, so this one is capped. Scan earlier, while the ball is still travelling.' : ''));
-  if (c.key === 'touch' && c.scans === 0 && c.extra.press !== 'none') row('No scan', 't0', 'You never looked. The man closing you was behind your picture the whole time: a scan while the ball travelled would have shown him.');
+  if (c.key === 'touch' && c.scans === 0 && c.extra.press !== 'none' && c.extra.press !== 'free') row('No scan', 't0', 'You never looked. The man closing you was behind your picture the whole time: a scan while the ball travelled would have shown him.');
   const p = PRINCIPLE2[c.key === 'run' ? 'run' : c.extra.rule];
   const r2 = document.createElement('div'); r2.className = 'row';
   r2.innerHTML = '<span class="wy"><b>' + (p.es ? '<i>' + p.es + '</i> &middot; ' : '') + p.title + '.</b> ' + p.why + '</span>'; box.appendChild(r2);
@@ -3508,6 +3526,7 @@ const PRINCIPLE2 = {
   free:  { es: 'Primer toque hacia adelante', title: 'Nobody on you: forward', why: 'No one within five metres. The first touch goes forward and a little inside, toward goal, so the next thing you do is a cross, a shot or a pass forward, not a turn.' },
   away:  { es: 'Primer toque lejos de la presi&oacute;n', title: 'Away from the man, forward', why: 'A defender closing from one side. Take the first touch away from him and forward, across the way he is running: he has to stop and turn, and you are already going.' },
   goalward:{ es: 'Primer toque hacia la porter&iacute;a', title: 'Pressed from inside: toward goal, against his run', why: 'The man closing comes from the centre, running out at you. A touch forward and inside goes against his momentum and is the quickest route to a shot or a cross; a touch out toward the line only takes you into the corner, where he and the full-back can shut you in.' },
+  halfturn:{ es: 'Recibir de medio lado', title: 'A man on your back: take it on the half-turn', why: 'He is goal side of you, on one shoulder. Receive side-on, so you can see him and the goal, and take the first touch across and forward away from his shoulder: he has to go round you, and you are facing the way you want to go.' },
   across:{ es: 'Abrir el cuerpo', title: 'Straight on: across him, to the open side', why: 'He is coming straight at you, between you and goal. Forward is into him. The touch goes across his front to the open side &mdash; inside, unless someone is there or you are on the line &mdash; so his momentum carries him past.' }
 };
 const DIRWORD = d => { const a = Math.atan2(d[0], -d[1])*180/Math.PI; return a > 150 || a < -150 ? 'back toward your own goal' : Math.abs(a) < 30 ? 'straight forward' : a > 0 ? (a < 70 ? 'forward and outside, toward the line' : a < 110 ? 'straight out to the line' : 'back and outside') : (a > -70 ? 'forward and inside' : a > -110 ? 'straight inside' : 'back and inside'); };
@@ -3520,12 +3539,14 @@ function explain(c, ang){
     const g = c.extra.outside ? 'outside their full-back, who has tucked in' : 'between their full-back and the centre-back';
     return pre + 'the gap is ' + g + ', and you are level with their last man, so a diagonal run into it is onside when he plays it.';
   }
-  const n = c.extra.near, who = n.id === 'TB4' ? 'their full-back' : n.id === 'TM4' ? 'their wide midfielder' : 'their ' + n.id;
-  if (c.extra.rule === 'free') return pre + 'nobody is within five metres of you (' + who + ' is ' + n.d.toFixed(0) + ' m off): take it forward.';
-  if (c.extra.rule === 'across') return pre + who + ' is coming straight at you, ' + n.d.toFixed(0) + ' m off, between you and goal: the touch goes across him, ' + (c.extra.inside ? 'inside' : 'outside') + '.';
+  const n = c.extra.near, who = n.id === 'TB4' ? 'their full-back' : n.id === 'TM4' ? 'their wide midfielder' : n.id === 'TM3' ? 'their centre-midfielder' : 'their ' + n.id;
+  const where = c.extra.pocket ? 'Between the lines: ' : '';
+  if (c.extra.rule === 'free') return pre + where + 'nobody is within five metres of you (' + who + ' is ' + n.d.toFixed(0) + ' m off): take it forward.';
+  if (c.extra.rule === 'halfturn') return pre + where + who + ' is on your ' + (c.extra.onOutside ? 'outside' : 'inside') + ' shoulder, goal side, ' + n.d.toFixed(0) + ' m off: on the half-turn, the touch goes ' + (c.extra.onOutside ? 'inside' : 'outside') + ' and forward, away from him.';
+  if (c.extra.rule === 'across') return pre + where + who + ' is coming straight at you, ' + n.d.toFixed(0) + ' m off, between you and goal: the touch goes across him, ' + (c.extra.inside ? 'inside' : 'outside') + '.';
   const side = n.q[0] < c.me[0] ? 'your inside' : 'your outside', back = n.q[1] > c.me[1] ? ' and behind' : '';
-  if (c.extra.rule === 'goalward') return pre + who + ' is closing from the inside' + back + ', ' + n.d.toFixed(0) + ' m off: forward and toward goal, against his run, not out to the line.';
-  return pre + who + ' is closing from ' + side + back + ', ' + n.d.toFixed(0) + ' m off: take it away from him and forward.';
+  if (c.extra.rule === 'goalward') return pre + where + who + ' is closing from the inside' + back + ', ' + n.d.toFixed(0) + ' m off: forward and toward goal, against his run, not out to the line.';
+  return pre + where + who + ' is closing from ' + side + back + ', ' + n.d.toFixed(0) + ' m off: take it away from him and forward.';
 }
 /* the map in the review: the frozen picture from above, his arrow and the right one */
 function drawMap2(s){
@@ -3620,4 +3641,4 @@ el('replay').onclick = replayLook;
   }
 })();
 </script>
-<div id="ver" style="position:fixed;right:calc(8px + env(safe-area-inset-right));bottom:calc(4px + env(safe-area-inset-bottom));z-index:999;font:12px/1 Inter,system-ui,sans-serif;color:#dfe8e0;opacity:.6;pointer-events:none;letter-spacing:.04em">v98</div>
+<div id="ver" style="position:fixed;right:calc(8px + env(safe-area-inset-right));bottom:calc(4px + env(safe-area-inset-bottom));z-index:999;font:12px/1 Inter,system-ui,sans-serif;color:#dfe8e0;opacity:.6;pointer-events:none;letter-spacing:.04em">v99</div>
